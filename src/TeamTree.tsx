@@ -1,0 +1,18 @@
+import {useEffect,useId,useRef,useState} from 'react';
+import {ChevronDown,ChevronRight,Ellipsis,Folder,Plus,Users} from 'lucide-react';
+import {projectPath,teamPath} from './routes';
+type Team={id:string;legacy_id?:string;name:string;role:string};
+type Project={id:string;team_id:string;name:string};
+type Props={userId:string;teams:Team[];projects:Project[];activeTeamId?:string;activeProjectId?:string;overviewPage:boolean;busy:boolean;onCreateTeam:()=>void;onCreateProject:(teamId:string)=>void};
+export function TeamTree({userId,teams,projects,activeTeamId,activeProjectId,overviewPage,busy,onCreateTeam,onCreateProject}:Props){
+ const key=`sketchpeek:team-tree:${userId}`,baseId=useId();const root=useRef<HTMLElement>(null);
+ const [expanded,setExpanded]=useState<Record<string,boolean>>(()=>{try{const saved=JSON.parse(localStorage.getItem(key)||'{}');return saved&&typeof saved==='object'&&!Array.isArray(saved)?saved:{};}catch{return {};}});
+ useEffect(()=>{if(activeTeamId)setExpanded(old=>({...old,[activeTeamId]:true}));},[activeTeamId]);
+ useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(expanded));}catch{}},[expanded,key]);
+ useEffect(()=>{function outside(e:PointerEvent){if(e.target instanceof Node&&!root.current?.contains(e.target))root.current?.querySelectorAll('details[open]').forEach(d=>d.removeAttribute('open'));}document.addEventListener('pointerdown',outside);return()=>document.removeEventListener('pointerdown',outside);},[]);
+ return <nav className="wb-team-tree" aria-label="团队和项目" ref={root}><ul>{teams.map((t,index)=>{
+  const children=projects.filter(p=>p.team_id===t.id),current=t.id===activeTeamId,open=expanded[t.id]??expanded[t.legacy_id||'']??(current||teams.length===1),canCreate=t.role!=='member',listId=`${baseId}-${index}`;
+  return <li key={t.id} className={`wb-tree-team${current?' current':''}`}><div className="wb-tree-team-row"><button type="button" className="wb-tree-toggle" aria-label={`${open?'收起':'展开'}${t.name}`} aria-expanded={open} aria-controls={listId} onClick={()=>setExpanded(old=>({...old,[t.id]:!open}))}>{open?<ChevronDown size={14}/>:<ChevronRight size={14}/>}</button><a className="wb-tree-team-name" href={teamPath(t.id)} aria-current={current&&!activeProjectId&&overviewPage?'page':undefined} title={t.name}>{t.name}</a><details className="wb-tree-menu" onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))e.currentTarget.open=false;}} onClick={e=>{if((e.target as Element).closest('a,button'))e.currentTarget.open=false;}} onKeyDown={e=>{if(e.key==='Escape'){e.currentTarget.open=false;e.currentTarget.querySelector('summary')?.focus();}}}><summary aria-label={`${t.name}的团队操作`} title="团队操作"><Ellipsis size={16}/></summary><div><a href={teamPath(t.id)+'/members'}><Users size={14}/>成员与邀请</a>{canCreate&&<button type="button" disabled={busy} onClick={()=>onCreateProject(t.id)}><Plus size={14}/>新建项目</button>}<div className="wb-tree-menu-divider"/><button type="button" disabled={busy} onClick={onCreateTeam}><Plus size={14}/>创建团队</button></div></details></div>
+  <ul id={listId} className="wb-tree-projects" hidden={!open}>{children.map(p=><li key={p.id}><a href={projectPath(p.id)} className={p.id===activeProjectId?'active':''} aria-current={p.id===activeProjectId?'page':undefined} title={p.name}><Folder size={15} strokeWidth={1.7}/><span>{p.name}</span></a></li>)}{!children.length&&<li className="wb-tree-empty">{canCreate?'还没有项目':'等待分配项目'}</li>}{canCreate&&<li><button type="button" className="wb-tree-add" disabled={busy} onClick={()=>onCreateProject(t.id)}><Plus size={14}/>新建项目</button></li>}</ul></li>;
+ })}</ul>{!teams.length&&<p className="wb-tree-no-teams">创建或加入团队，项目会显示在这里。</p>}</nav>;
+}

@@ -1,0 +1,2 @@
+import {createSHA256} from 'hash-wasm';
+self.onmessage=async({data}:{data:File})=>{try{const hash=await createSHA256();hash.init();for(let offset=0;offset<data.size;offset+=4*1024**2){const buffer=await data.slice(offset,offset+4*1024**2).arrayBuffer();hash.update(new Uint8Array(buffer));self.postMessage({progress:Math.min(data.size,offset+buffer.byteLength)/data.size});}self.postMessage({hash:hash.digest('hex')});}catch(e){self.postMessage({error:String(e)});}};

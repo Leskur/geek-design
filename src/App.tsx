@@ -1,0 +1,47 @@
+import {Diamond,Plus,Frame} from 'lucide-react';
+import React, {useCallback,useEffect,useMemo,useRef,useState} from 'react';
+import {SketchDocument,type Layer,type DocumentSource} from './sketch';
+import {Canvas} from './Canvas';
+import {RemoteDocument} from './RemoteDocument';
+import {TeamHub} from './TeamHub';
+import {DocumentOpening} from './DocumentOpening';
+import {routeFor} from './routes';
+import {PageSwitcher} from './PageSwitcher';
+import {Inspector} from './Inspector';
+import {resolveBoard} from './scene';
+import {fontNames,hasFont} from './fonts';
+import './style.css';
+import './view-states.css';
+
+function Tree({layers,selected,choose,level=0}:{layers:Layer[];selected:Layer|null;choose:(l:Layer)=>void;level?:number}) { return <>{layers.map(l=><details key={l.do_objectID} open={level===0}><summary className={selected?.do_objectID===l.do_objectID?'active':''} style={{paddingLeft:12+level*12}} onClick={e=>{if(!l.layers?.length)e.preventDefault();choose(l)}}><span>{l.layers?.length?'▧':l._class==='text'?'T':'◇'}</span> {l.name}</summary>{l.layers&&<Tree layers={l.layers} selected={selected} choose={choose} level={level+1}/>}</details>)}</>; }
+export function App(){
+ const [doc,setDoc]=useState<DocumentSource|null>(null),[page,setPage]=useState<Layer|null>(null),[board,setBoard]=useState<Layer|null>(null),[selected,setSelected]=useState<Layer|null>(null),[status,setStatus]=useState(''),[busy,setBusy]=useState(false),[error,setError]=useState(''),[search,setSearch]=useState(''),[tab,setTab]=useState('boards'),[toast,setToast]=useState('');
+ const input=useRef<HTMLInputElement>(null);const loadId=useRef(0),pageId=useRef(0),current=useRef<DocumentSource|null>(null);
+ const boards=page?.layers||[];
+ const scene=useMemo(()=>board&&doc?resolveBoard(board,doc):null,[board,doc]);
+ const [showWarnings,setShowWarnings]=useState(false);
+ const [showFonts,setShowFonts]=useState(false),[fontEpoch,setFontEpoch]=useState(0),[fontTarget,setFontTarget]=useState(''),[fontStatus,setFontStatus]=useState('');
+ const fontInput=useRef<HTMLInputElement>(null);
+ const fonts=useMemo(()=>fontNames(scene?.root||null).map(name=>({name,available:hasFont(name)})),[scene,fontEpoch]);
+ async function loadFont(file:File){try{setFontStatus('正在加载字体…');const face=await new FontFace(fontTarget,await file.arrayBuffer()).load();document.fonts.add(face);setFontEpoch(v=>v+1);setFontStatus(`已加载 ${file.name} → ${fontTarget}，仅在当前浏览器会话生效`);}catch{setFontStatus('字体加载失败，请选择有效的 TTF、OTF 或 WOFF 字体文件');}}
+ function pickFont(name:string){setFontTarget(name);fontInput.current?.click();}
+ async function loadSource(next:DocumentSource){const token=++loadId.current;pageId.current++;setBusy(true);setError('');setStatus(next.source==='team'?'连接团队文档…':'读取文件目录…');try{await next.open();setStatus('读取组件和页面…');await next.loadSymbols();const requested=new URLSearchParams(location.search),first=next.pages.find(x=>x.id===requested.get('page'))||next.pages.find(x=>/UI\(H5\)/i.test(x.name))||next.pages[0];const p=await next.page(first.id);if(token!==loadId.current){await next.close();return;}const old=current.current;current.current=next;setDoc(next);setPage(p);setBoard(p.layers?.find(x=>x.do_objectID===requested.get('artboard'))||p.layers?.[0]||null);setSelected(null);setSearch('');setTab('boards');setStatus(next.source==='team'?'团队文档 · 按需加载':'本地文件 · 未上传');if(old)await old.close();}catch(e){if(next.source==='team'&&(e as any).status===401){location.assign('/login?next='+encodeURIComponent(location.pathname+location.search));return;}if(next!==current.current)await next.close();if(token===loadId.current)setError((e as Error).message);}finally{if(token===loadId.current)setBusy(false);}}
+ async function open(file:File){if(!file.name.toLowerCase().endsWith('.sketch')){setError('请选择 .sketch 文件');return;}history.replaceState(null,'','/local');await loadSource(new SketchDocument(file));}
+ useEffect(()=>{const route=routeFor(location.pathname,location.search);if(route.kind==='local'&&location.pathname==='/')history.replaceState(null,'','/local');const id=route.revisionId;if(id)void loadSource(new RemoteDocument(id));},[]);
+ async function changePage(id:string){if(!doc)return;const token=++pageId.current;setBusy(true);try{const p=await doc.page(id);if(token!==pageId.current)return;setPage(p);setBoard(p.layers?.[0]||null);setSelected(null);setSearch('');}catch(e){setError(String(e));}finally{if(token===pageId.current)setBusy(false);}}
+ const choose=useCallback((l:Layer|null)=>setSelected(l),[]);
+ async function copy(text:string){try{await navigator.clipboard.writeText(text);setToast('已复制');setTimeout(()=>setToast(''),1500);}catch{setToast('复制失败，请手动选择文本');}}
+ const route=routeFor(location.pathname,location.search);
+ if(route.kind==='team')return <TeamHub/>;
+ if(route.kind==='missing')return <main className="welcome"><h1>页面不存在</h1><a href="/teams">返回团队空间</a></main>;
+ if(route.kind==='revision'&&!doc)return <DocumentOpening status={status} error={error} onRetry={()=>void loadSource(new RemoteDocument(route.revisionId!))}/>;
+ return <div className="app" onDragOver={e=>e.preventDefault()} onDrop={e=>{e.preventDefault();if(e.dataTransfer.files[0])open(e.dataTransfer.files[0])}}>
+ <header><div className="brand"><Diamond className="wb-brand-icon" size={25}/> Sketch<span>Peek</span><small>{doc?.source==='team'?'TEAM VIEWER':'LOCAL VIEWER'}</small></div><div className="filename">{doc?.file.name||'设计，从此没有系统边界'}{doc&&<em>{(doc.file.size/1048576).toFixed(1)} MB</em>}</div><a className="team-link" href="/teams">工作台</a>{doc?.source==='team'&&<button onClick={()=>copy(`${location.origin}${location.pathname}?page=${page?.do_objectID||''}&artboard=${board?.do_objectID||''}`)}>复制链接</button>}{doc&&<button className="header-fonts" onClick={()=>setShowFonts(v=>!v)}>字体<span className="font-count">{fonts.filter(f=>!f.available).length} 缺失</span></button>}<input ref={fontInput} hidden type="file" accept=".ttf,.otf,.woff,.woff2" onChange={e=>{if(e.target.files?.[0])loadFont(e.target.files[0]);e.target.value=''}}/><button className="primary" disabled={busy} onClick={()=>input.current?.click()}><Plus size={15}/>打开 Sketch</button><input ref={input} hidden type="file" accept=".sketch" onChange={e=>{if(e.target.files?.[0])open(e.target.files[0]);e.target.value=''}}/></header>
+ {!doc?<main className="welcome"><div className="eyebrow">MADE FOR DEVELOPERS</div><h1>设计稿，打开就能看。</h1><p>在 Windows 浏览器中探索 Sketch 图层、尺寸与样式。</p><button className="drop" disabled={busy} onClick={()=>input.current?.click()}><strong>◇</strong><b>{busy?'正在解析文件…':'将 .sketch 文件拖到这里'}</b><span>或点击选择本地文件 · 无需上传</span></button><div className="features">本地解析 <i/> 图层检查 <i/> 样式复制</div><p className="hint">技术预览版：基础 SVG 渲染，复杂效果与字体可能存在差异。</p></main>:<div className="workspace"><aside className="left"><div className="panel-title">文档导航 <span>{doc.pages.length} 页</span></div><PageSwitcher pages={doc.pages} value={page?.do_objectID||''} disabled={busy} onChange={changePage}/><div className="tabs"><button className={tab==='boards'?'on':''} onClick={()=>setTab('boards')}>画板 <small>{boards.length}</small></button><button className={tab==='layers'?'on':''} onClick={()=>setTab('layers')}>图层</button></div>{tab==='boards'?<><input className="search" placeholder="搜索画板…" value={search} onChange={e=>setSearch(e.target.value)}/><div className="list">{boards.filter(b=>b.name.toLowerCase().includes(search.toLowerCase())).map((b,i)=><button className={'board-item '+(board===b?'active':'')} key={b.do_objectID} onClick={()=>{setBoard(b);setSelected(null);}}><span className="board-icon"><Frame size={17}/></span><div><b>{b.name}</b><small>{Math.round(b.frame.width)} × {Math.round(b.frame.height)}</small></div><em>{String(i+1).padStart(2,'0')}</em></button>)}</div></>:<div className="list tree"><Tree layers={scene?.root.layers||[]} selected={selected} choose={choose}/></div>}<div className="aside-foot"><span className="dot"/> {doc.source==='team'?'团队文档 · 按需加载':'文件仅在本机处理'}</div></aside>
+ {scene&&<Canvas doc={doc} scene={scene} pageName={page?.name||''} selected={selected} onSelect={choose} onWarnings={()=>setShowWarnings(v=>!v)}/>}
+ <Inspector selected={selected} root={scene?.root||null} doc={doc} onCopy={copy} onLoadFont={name=>{setShowFonts(true);pickFont(name)}}/></div>}
+
+ {showFonts&&<div className="font-panel"><h3>当前画板字体 <button onClick={()=>setShowFonts(false)}>关闭</button></h3><p>缺失字体会使用系统字体替代，可能影响换行。可以从本机加载对应字体文件，全程不上传。</p>{fonts.map(f=><div className="font-row" key={f.name}><div><strong>{f.name}</strong><small className={f.available?'available':''}>{f.available?'可用（本机字体检测）':'未检测到，将使用替代字体'}</small></div><button onClick={()=>pickFont(f.name)}>加载字体</button></div>)}{!fonts.length&&<p>当前画板没有文字图层。</p>}{fontStatus&&<p className={fontStatus.includes('失败')?'error':'success'}>{fontStatus}</p>}<p>字体可用性为检测结果，不保证每个字符均有对应字形。刷新页面后需重新加载。</p></div>}{showWarnings&&<div className="compat-panel"><h3>当前画板兼容情况 <button onClick={()=>setShowWarnings(false)}>关闭</button></h3><p>已启用组件覆盖、轮廓蒙版、组合形状和富文本。缺失字体可通过右上角「字体」从本机加载。</p>{scene?.warnings.length?<ul>{scene.warnings.map(w=><li key={w}>{w}</li>)}</ul>:<p>未检测到已知的未支持属性；这不代表已经与 Sketch 原稿逐像素对齐。</p>}<p>径向渐变、自动布局和文字排版仍可能存在差异。</p></div>}{(busy||error)&&<div className={'notice '+(error?'error':'')}>{error||status}{error&&<button onClick={()=>setError('')}>关闭</button>}</div>}{toast&&<div className="toast">{toast}</div>}
+ <footer><span>SketchPeek <b> / </b> TECH PREVIEW 0.4</span><span>{busy?status:doc?(doc.source==='team'?'团队模式 · 固定稿件':'本地模式 · 按画板渲染'):'为 Windows 开发者而造'}</span></footer></div>;
+}
+

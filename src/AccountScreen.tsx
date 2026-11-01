@@ -1,0 +1,9 @@
+import {Diamond} from 'lucide-react';
+import {useState,type FormEvent} from 'react';
+import {post} from './api';
+import {safeReturnPath} from './routes';
+export function AccountScreen({register=false}:{register?:boolean}){
+ const [error,setError]=useState(''),[busy,setBusy]=useState(false);const next=safeReturnPath(new URLSearchParams(location.search).get('next'))||(!['/login','/register'].includes(location.pathname)?safeReturnPath(location.pathname+location.search):null);
+ async function submit(e:FormEvent<HTMLFormElement>){e.preventDefault();if(busy)return;const form=new FormData(e.currentTarget);setBusy(true);setError('');try{await post(register?'/register':'/login',{username:form.get('username'),password:form.get('password')});location.assign(next||'/teams');}catch(e){setError((e as Error).message);setBusy(false);}}
+ return <main className="team-auth"><div className="auth-mark"><Diamond size={25}/></div><div className="eyebrow">YOUR TEAM, YOUR DESIGNS</div><h1>{register?'创建你的账号':'欢迎回来'}</h1><p>{register?'让设计与开发在同一处协作。':'登录工作台，继续你的设计。'}</p><div className="auth-tabs"><a className={!register?'active':''} href={'/login'+(next?'?next='+encodeURIComponent(next):'')}>登录</a><a className={register?'active':''} href={'/register'+(next?'?next='+encodeURIComponent(next):'')}>注册账号</a></div><form onSubmit={submit}><label>用户名<input name="username" required minLength={2} maxLength={50} autoComplete="username" placeholder="英文、数字、点、横线或下划线"/></label><label>密码<input name="password" type="password" required minLength={6} maxLength={200} autoComplete={register?'new-password':'current-password'} placeholder="至少 6 个字符"/></label>{error&&<div className="team-error" role="alert">{error}</div>}<button className="primary" disabled={busy}>{busy?'请稍候…':register?'创建账号':'登录'}</button></form><p className="auth-caption">{next?.startsWith('/invite/')?'登录或注册后，将继续接受团队邀请。':'注册后即可创建空间，或通过邀请加入伙伴。'}</p></main>;
+}

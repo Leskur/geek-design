@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {preferredTeam,recentDocuments,rememberDocument,rememberTeam,migratePreferences} from '../src/workbench';
+test('recent designs and remembered workspace stay isolated between accounts',()=>{
+ const memory=new Map<string,string>();
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem:(k:string)=>memory.get(k)??null,setItem:(k:string,v:string)=>memory.set(k,v)}});
+ rememberDocument('alice','design-a');rememberDocument('alice','design-b');rememberDocument('alice','design-a');rememberDocument('bob','design-c');
+ assert.deepEqual(recentDocuments('alice').map(r=>r.id),['design-a','design-b']);
+ assert.deepEqual(recentDocuments('bob').map(r=>r.id),['design-c']);
+ rememberTeam('alice','team-b');assert.equal(preferredTeam('alice',[{id:'team-a'},{id:'team-b'}]),'team-b');
+ assert.equal(preferredTeam('bob',[{id:'team-a'},{id:'team-b'}]),'team-a');
+ assert.equal(preferredTeam('alice',[{id:'team-a'}]),'team-a');
+ memory.set('sketchpeek:recent:legacy','[{"id":"old-document","time":1}]');memory.set('sketchpeek:team:legacy','old-team');
+ migratePreferences('short-user','legacy');assert.equal(recentDocuments('short-user')[0].id,'old-document');
+ assert.equal(preferredTeam('short-user',[{id:'short-team',legacy_id:'old-team'}]),'short-team');
+ rememberDocument('short-user','short-document','old-document');assert.deepEqual(recentDocuments('short-user').map(r=>r.id),['short-document']);
+ memory.set('sketchpeek:recent:alice','broken json');assert.deepEqual(recentDocuments('alice'),[]);
+ Object.defineProperty(globalThis,'localStorage',{configurable:true,value:{getItem(){throw Error('blocked');},setItem(){throw Error('blocked');}}});
+ assert.doesNotThrow(()=>rememberDocument('alice','design-a'));assert.equal(preferredTeam('alice',[{id:'team-a'}]),'team-a');
+ delete (globalThis as any).localStorage;
+});

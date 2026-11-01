@@ -1,0 +1,40 @@
+{
+  "name": "sketch-peek",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "tsc -b && tsc -p server/tsconfig.json && vite build && node scripts/build-server.mjs",
+    "test": "node scripts/test.mjs",
+    "dev:web": "vite --host 127.0.0.1",
+    "server": "node scripts/run-server.mjs",
+    "build:server": "node scripts/build-server.mjs",
+    "start": "node .server-build/index.mjs",
+    "check": "tsc -b && tsc -p server/tsconfig.json"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@tus/file-store": "^2.1.1",
+    "@tus/server": "^2.4.6",
+    "@zip.js/zip.js": "^2.8.0",
+    "better-sqlite3": "^13.0.3",
+    "fastify": "^5.12.7",
+    "hash-wasm": "^4.12.0",
+    "lucide-react": "^1.66.0",
+    "paper": "^0.16.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tus-js-client": "^4.3.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "esbuild": "^0.28.2",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vite": "^7.0.0"
+  }
+}
