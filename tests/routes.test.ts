@@ -24,3 +24,5 @@ test('unknown routes and external login returns are rejected',()=>{
  for(const url of ['/projects/p/documents','/projects/p/documents/d/revisions','/projects/%2Fother','/projects/%ZZ','/unknown'])assert.equal(routeFor(url).kind,'missing');
  for(const url of ['https://example.com','//example.com','/\\example.com','/unknown',null])assert.equal(safeReturnPath(url),null);
 });
+
+test('root opens the team workspace while local viewing stays explicit',()=>{assert.equal(routeFor('/').kind,'team');assert.equal(routeFor('/local').kind,'local');});

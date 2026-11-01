@@ -68,3 +68,12 @@ export function measure(a:Rect,b:Rect):Distance[] {
  else {if(Math.abs(a.y-b.y)>.01)y(a.y,b.y,midX,midX);if(Math.abs(ab-bb)>.01)y(ab,bb,midX,midX);}
  return out;
 }
+
+
+/** Distances to a real container frame, in that container's coordinate system. */
+export function spacingWithin(entry:IndexedLayer,container:IndexedLayer){
+ const [a,b,c,d,e,f]=container.matrix,det=a*d-b*c;if(Math.abs(det)<1e-10)return null;
+ const inverse:Matrix=[d/det,-b/det,-c/det,a/det,(c*f-d*e)/det,(b*e-a*f)/det];
+ const points=entry.corners.map(p=>apply(inverse,p)),xs=points.map(p=>p.x),ys=points.map(p=>p.y),left=Math.min(...xs),top=Math.min(...ys),rightEdge=Math.max(...xs),bottomEdge=Math.max(...ys);
+ return {left,top,right:container.layer.frame.width-rightEdge,bottom:container.layer.frame.height-bottomEdge,width:rightEdge-left,height:bottomEdge-top};
+}

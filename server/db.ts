@@ -22,6 +22,8 @@ export class Store {
   CREATE TABLE IF NOT EXISTS uploads(id TEXT PRIMARY KEY,revision_id TEXT NOT NULL REFERENCES revisions(id),user_id TEXT NOT NULL REFERENCES users(id),size INTEGER NOT NULL,status TEXT NOT NULL,created INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS public_ids(internal_id TEXT PRIMARY KEY,public_id TEXT UNIQUE NOT NULL);
   INSERT OR IGNORE INTO schema_migrations VALUES(3);
+  CREATE TABLE IF NOT EXISTS thumbnail_jobs(artifact_key TEXT PRIMARY KEY REFERENCES artifacts(key),version TEXT NOT NULL,status TEXT NOT NULL,completed INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT 0,error TEXT,updated INTEGER NOT NULL);
+  INSERT OR IGNORE INTO schema_migrations VALUES(4);
   CREATE INDEX IF NOT EXISTS revision_hash ON revisions(hash);CREATE INDEX IF NOT EXISTS pending_uploads ON uploads(status);`);
  }
  one(sql:string,...args:any[]):any{return this.db.prepare(sql).get(...args);}

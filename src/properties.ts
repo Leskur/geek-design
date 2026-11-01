@@ -54,3 +54,24 @@ export function cssForLayer(l:Layer) {
 }
 export function displayColor(c:any) {return `${hex(c)}${(c?.alpha??1)<1?` · ${number((c.alpha??1)*100)}%`:''}`;}
 export {color};
+
+
+export function cssSections(l:Layer){
+ const layout=new Set(['width','height']),text=new Set(['font-family','font-size','font-weight','line-height','letter-spacing','text-align','font-style','text-decoration','color']);
+ const parts={layout:[] as string[],text:[] as string[],style:[] as string[]};
+ for(const line of cssForLayer(l).split('\n')){if(line.startsWith('/*'))continue;const key=line.split(':')[0];parts[layout.has(key)?'layout':text.has(key)?'text':'style'].push(line);}
+ return [{id:'layout',label:'布局',code:parts.layout.join('\n')},{id:'text',label:'文字',code:parts.text.join('\n')},{id:'style',label:'外观',code:parts.style.join('\n')}].filter(p=>p.code);
+}
+export function layerColors(root:Layer){
+ const found=new Map<string,{color:any;opacity:number;label:string}>();
+ function add(c:any,opacity:number,label:string){if(!c)return;const key=cssColor(c,opacity);if(!found.has(key))found.set(key,{color:c,opacity,label});}
+ function visit(l:Layer){if(l.isVisible===false||l._hiddenSymbol)return;const s=l.style||{};for(const [key,label] of [['fills','填充'],['borders','描边']] as const)for(const p of s[key]||[]){if(!p.isEnabled)continue;const opacity=p.contextSettings?.opacity??1;if(p.fillType===0)add(p.color,opacity,label);else if(p.fillType===1)for(const stop of p.gradient?.stops||[])add(stop.color,opacity,'渐变');}
+ if(l._class==='text')for(const r of textRuns(l))add(r.attributes.MSAttributedStringColorAttribute,1,'文字');
+ for(const key of ['shadows','innerShadows'])for(const p of s[key]||[])if(p.isEnabled)add(p.color,1,'阴影');l.layers?.forEach(visit);}
+ visit(root);return [...found.values()];
+}
+export function colorValue(c:any,opacity=1,mode='HEX'){
+ const alpha=Math.max(0,Math.min(1,(c?.alpha??1)*opacity));
+ if(mode==='RGB')return `rgba(${Math.round(c.red*255)}, ${Math.round(c.green*255)}, ${Math.round(c.blue*255)}, ${number(alpha)})`;
+ return hex(c)+(alpha<1?Math.round(alpha*255).toString(16).padStart(2,'0').toUpperCase():'');
+}

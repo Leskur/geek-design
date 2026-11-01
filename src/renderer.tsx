@@ -8,7 +8,7 @@ type Props={l:Layer;doc:DocumentSource;choose:(l:Layer)=>void;interactive?:boole
 const blends=['normal','darken','multiply','color-burn','lighten','screen','color-dodge','overlay','soft-light','hard-light','difference','exclusion','hue','saturation','color','luminosity'];
 
 export function Bitmap({doc,refName,w,h,fit='none'}:{doc:DocumentSource;refName:string;w:number;h:number;fit?:string}) {
- const [url,setUrl]=useState('');
+ const [url,setUrl]=useState(()=>((doc as DocumentSource&{previewImages?:Map<string,string>}).previewImages?.get(refName))||'');
  useEffect(()=>{let active=true;setUrl('');doc.image(refName).then(x=>{if(active)setUrl(x)}).catch(()=>{});return()=>{active=false}},[doc,refName]);
  return url?<image href={url} width={w} height={h} preserveAspectRatio={fit}/>:null;
 }

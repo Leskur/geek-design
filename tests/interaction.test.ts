@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {indexLayers,branchInScope,inspectionTarget,measure,panBy,zoomAt} from '../src/interaction';
-import {cssForLayer,cssColor,cornerRadii} from '../src/properties';
+import {indexLayers,branchInScope,inspectionTarget,spacingWithin,measure,panBy,zoomAt} from '../src/interaction';
+import {cssForLayer,cssColor,cornerRadii,cssSections,layerColors,colorValue} from '../src/properties';
 import type {Layer} from '../src/sketch';
 
 const layer=(id:string,extra:any={}):Layer=>({_class:'rectangle',do_objectID:id,name:id,frame:{x:0,y:0,width:100,height:100},...extra});
@@ -71,4 +71,20 @@ test('mixed text does not misrepresent the whole layer with the first font size'
 test('individual corner values are copied in CSS corner order',()=>{
  const l=layer('r',{points:[{point:'{1,1}',cornerRadius:30},{point:'{0,0}',cornerRadius:10},{point:'{0,1}',cornerRadius:40},{point:'{1,0}',cornerRadius:20}]});
  assert.deepEqual(cornerRadii(l),[10,20,30,40]);assert.match(cssForLayer(l),/border-radius: 10px 20px 30px 40px;/);
+});
+
+
+test('container spacing uses the parent axes even when the parent is rotated',()=>{
+ const child=layer('child',{frame:{x:20,y:10,width:30,height:40}}),parent=layer('parent',{rotation:90,frame:{x:50,y:60,width:100,height:100},layers:[child]});
+ const index=indexLayers(root([parent]));const spacing=spacingWithin(index.get('child')!,index.get('parent')!)!;for(const [key,value] of Object.entries({left:20,top:10,right:50,bottom:50,width:30,height:40}))near(spacing[key as keyof typeof spacing],value);
+ const overflow=indexLayers(root([layer('overflow',{frame:{x:-10,y:0,width:520,height:510}})]));assert.deepEqual(spacingWithin(overflow.get('overflow')!,overflow.get('board')!),{left:-10,top:0,right:-10,bottom:-10,width:520,height:510});
+});
+test('delivery code separates layout, text and appearance without inventing padding',()=>{
+ const l=layer('label',{_class:'text',style:{contextSettings:{opacity:.5}},attributedString:{string:'A',attributes:[{location:0,length:1,attributes:{MSAttributedStringFontAttribute:{attributes:{name:'Arial',size:14}}}}]}});
+ const sections=cssSections(l);assert.deepEqual(sections.map(s=>s.id),['layout','text','style']);assert.match(sections[0].code,/width: 100px;/);assert.match(sections[1].code,/font-size: 14px;/);assert.equal(sections[2].code,'opacity: 0.5;');assert.ok(sections.every(s=>!s.code.includes('padding')));
+});
+test('selected colors include visible descendants and preserve paint alpha',()=>{
+ const c={red:1,green:0,blue:0,alpha:.5},fill={isEnabled:true,fillType:0,color:c,contextSettings:{opacity:.5}};
+ const l=layer('group',{layers:[layer('a',{style:{fills:[fill]}}),layer('b',{style:{fills:[fill]}}),layer('hidden',{isVisible:false,style:{fills:[{...fill,color:{red:0,green:1,blue:0,alpha:1}}]}})]});
+ const colors=layerColors(l);assert.equal(colors.length,1);assert.equal(colorValue(colors[0].color,colors[0].opacity),'#FF000040');assert.equal(colorValue(c,.5,'RGB'),'rgba(255, 0, 0, 0.25)');
 });

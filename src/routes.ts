@@ -8,7 +8,7 @@ export function routeFor(pathname:string,search=''):Route{
  if(pathname==='/'){
   if(q.get('revision'))return {kind:'revision',revisionId:q.get('revision')!};
   if(q.has('team'))return {kind:'team',projectId:q.get('project')||undefined,documentId:q.get('document')||undefined};
-  return {kind:'local'};
+  return {kind:'team'};
  }
  const parts=pathname.replace(/\/$/,'').split('/').slice(1);
  try{for(let i=0;i<parts.length;i++){parts[i]=decodeURIComponent(parts[i]);if(!parts[i]||/[\\/]/.test(parts[i]))return {kind:'missing'};}}catch{return {kind:'missing'};}
@@ -31,7 +31,7 @@ export function routeFor(pathname:string,search=''):Route{
  }
  return {kind:'missing'};
 }
-export function safeReturnPath(next:string|null){if(!next||!next.startsWith('/')||next.startsWith('//'))return null;const url=new URL(next,'http://local');const r=routeFor(url.pathname,url.search);return r.kind==='revision'||(r.kind==='team'&&!r.auth)?url.pathname+url.search:null;}
+export function safeReturnPath(next:string|null){if(!next||next==='/'||!next.startsWith('/')||next.startsWith('//'))return null;const url=new URL(next,'http://local');if(url.origin!=='http://local')return null;const r=routeFor(url.pathname,url.search);return r.kind==='revision'||(r.kind==='team'&&!r.auth)?url.pathname+url.search:null;}
 
 export const teamPath=(teamId:string)=>`/teams/${part(teamId)}`;
 export const workspacePath=(teamId:string)=>`${teamPath(teamId)}/workspace`;

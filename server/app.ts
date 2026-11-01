@@ -11,6 +11,7 @@ import {authenticate,checkPassword,documentAccess,fail,hashToken,membership,pass
 import {Jobs,artifactKey} from './jobs';
 import {teamRoutes} from './teams';
 import {publicIds} from './public-ids';
+import {ThumbnailJobs,THUMBNAIL_VERSION} from './thumbnail-jobs';
 import {deletionRoutes} from './deletion';
 
 const text=(v:any,min=1,max=120)=>{if(typeof v!=='string'||v.trim().length<min||v.length>max)fail(400,'输入内容无效或过长');return v.trim();};
@@ -18,7 +19,7 @@ const password=(v:any)=>{if(typeof v!=='string'||v.length<6||v.length>200)fail(4
 const username=(v:any)=>{const s=text(v,2,50).toLowerCase();if(!/^[a-z0-9_.-]+$/.test(s))fail(400,'用户名仅支持英文、数字、点、横线和下划线');return s;};
 
 export async function createApp(options:{dataDir:string;logger?:boolean;startJobs?:boolean;maxFileSize?:number;publicOrigin?:string;staticDir?:string}) {
- const storage=new LocalStorage(options.dataDir),store=new Store(storage),jobs=new Jobs(store);
+ const storage=new LocalStorage(options.dataDir),store=new Store(storage),jobs=new Jobs(store),thumbnails=new ThumbnailJobs(store);
  const maxSize=options.maxFileSize??1024**3;
  const app=Fastify({logger:options.logger?{serializers:{req(req:any){return {method:req.method,url:req.url.replace(/(\/api\/invitations\/|\/invite\/)[a-f0-9]{64}/g,'$1[redacted]'),host:req.headers.host,remoteAddress:req.ip};}}}:false,bodyLimit:65536,requestTimeout:0});await app.register(cookie);
  publicIds(app,store);
@@ -58,7 +59,18 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
  app.post('/api/documents/:id/current',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id,true),id=text((req.body as any)?.revisionId,1,60),r=store.one("SELECT * FROM revisions WHERE id=? AND document_id=? AND status='ready'",id,d.id);if(!r)fail(400,'只有该文档中可查看的记录可以设为当前稿');store.run('UPDATE documents SET current_revision=? WHERE id=?',id,d.id);return {ok:true};});
  app.get('/api/revisions/:id',async(req:any)=>{const r=revisionAccess(store,user(req),req.params.id),a=r.artifact_key?store.one('SELECT step FROM artifacts WHERE key=?',r.artifact_key):null;return {...r,step:a?.step||({uploading:'等待文件传输',failed:'处理失败'} as any)[r.status]||r.status};});
  async function ready(req:any){const r=revisionAccess(store,user(req),req.params.id);if(r.status!=='ready'||!r.artifact_key)fail(409,'文档尚未处理完成');const a=store.one("SELECT * FROM artifacts WHERE key=? AND status='ready'",r.artifact_key);if(!a)fail(409,'查看数据尚未就绪');const dir=storage.path('artifacts',r.artifact_key);const manifest=JSON.parse(await fsp.readFile(path.join(dir,'manifest.json'),'utf8'));return {r,dir,manifest};}
- app.get('/api/revisions/:id/manifest',async(req:any)=>{const {r,manifest}=await ready(req);return {...manifest,viewerId:user(req).id,revisionId:r.id,documentId:r.document_id,projectId:store.one('SELECT project_id FROM documents WHERE id=?',r.document_id).project_id,file:{name:r.filename,size:r.size}};});
+ app.get('/api/revisions/:id/manifest',async(req:any)=>{const {r,manifest}=await ready(req);return {...manifest,thumbnailVersion:THUMBNAIL_VERSION,canManagePreviews:membership(store,user(req),store.one('SELECT project_id FROM documents WHERE id=?',r.document_id).project_id)!=='viewer',viewerId:user(req).id,revisionId:r.id,documentId:r.document_id,projectId:store.one('SELECT project_id FROM documents WHERE id=?',r.document_id).project_id,file:{name:r.filename,size:r.size}};});
+ async function thumbnailIndex(key:string){try{return JSON.parse(await fsp.readFile(storage.path('artifacts',key,'thumbnails',THUMBNAIL_VERSION,'index.json'),'utf8'));}catch{return {version:THUMBNAIL_VERSION,items:{}};}}
+ app.get('/api/revisions/:id/thumbnails',async(req:any)=>{const {r}=await ready(req);const state=thumbnails.enqueue(r.artifact_key),index=await thumbnailIndex(r.artifact_key);return {version:THUMBNAIL_VERSION,status:state.status,completed:state.completed,total:state.total,error:state.error,items:index.items};});
+ app.post('/api/revisions/:id/thumbnails/retry',async(req:any)=>{const {r}=await ready(req);documentAccess(store,user(req),r.document_id,true);return thumbnails.enqueue(r.artifact_key,true);});
+ app.get('/api/revisions/:id/thumbnails/:version/:pageId/:boardId',async(req:any,reply)=>{
+  const {r,manifest}=await ready(req);if(req.params.version!==THUMBNAIL_VERSION||typeof manifest.pageFiles[req.params.pageId]!=='string')fail(404,'预览不存在');
+  const state=thumbnails.enqueue(r.artifact_key),index=await thumbnailIndex(r.artifact_key),file=index.items?.[req.params.pageId]?.[req.params.boardId];
+  if(typeof file==='string'&&/^[a-f0-9]{64}\.png$/.test(file)){const target=storage.path('artifacts',r.artifact_key,'thumbnails',THUMBNAIL_VERSION,file);if(fs.existsSync(target))return reply.type('image/png').header('Cache-Control','private, max-age=3600').send(fs.createReadStream(target));if(state.status==='ready')thumbnails.enqueue(r.artifact_key,true);}
+  if(state.status==='failed')return reply.code(503).send({error:state.error||'预览生成失败，请重试'});
+  if(state.status==='ready'&&!file)fail(404,'画板预览不存在');
+  return reply.code(202).header('Retry-After','1').send({status:'processing',completed:state.completed,total:state.total});
+ });
  app.get('/api/revisions/:id/symbols',async(req:any)=>{const {dir}=await ready(req);return JSON.parse(await fsp.readFile(path.join(dir,'symbols.json'),'utf8'));});
  app.get('/api/revisions/:id/pages/:pageId',async(req:any)=>{const {dir,manifest}=await ready(req);const relative=manifest.pageFiles[req.params.pageId];if(typeof relative!=='string')fail(404,'页面不存在');return JSON.parse(await fsp.readFile(path.join(dir,relative),'utf8'));});
  app.get('/api/revisions/:id/assets/:hash',async(req:any,reply)=>{const {manifest}=await ready(req);const hash=req.params.hash,asset=Object.values(manifest.assets).find((a:any)=>a.hash===hash) as any;if(!asset)fail(404,'资源不属于此记录');reply.type(asset.mime).header('Content-Disposition','inline');if(asset.mime==='application/octet-stream')reply.header('Content-Disposition','attachment');return reply.send(fs.createReadStream(storage.object(hash)));});
@@ -100,7 +112,7 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
   const root=path.resolve(options.staticDir);app.get('/assets/:name',async(req:any,reply)=>{const name=req.params.name;if(!/^[a-zA-Z0-9_.-]+$/.test(name)||name.includes('..'))fail(404,'文件不存在');const file=path.join(root,'assets',name);if(!fs.existsSync(file))fail(404,'文件不存在');reply.type(({'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.wasm':'application/wasm'} as any)[path.extname(name)]||'application/octet-stream');return reply.send(fs.createReadStream(file));});
   app.get('/*',async(req,reply)=>{if(req.url.startsWith('/api/'))fail(404,'接口不存在');return reply.type('text/html').send(fs.createReadStream(path.join(root,'index.html')));});
  }
- if(options.startJobs!==false)jobs.start();
- app.addHook('onClose',async()=>{await jobs.stop();store.close();});
- return {app,store,jobs,storage};
+ if(options.startJobs!==false){jobs.start();thumbnails.start();}
+ app.addHook('onClose',async()=>{await Promise.all([jobs.stop(),thumbnails.stop()]);store.close();});
+ return {app,store,jobs,storage,thumbnails};
 }

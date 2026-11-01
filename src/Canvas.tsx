@@ -22,7 +22,7 @@ function Ruler({distance:d,scale}:{distance:Distance;scale:number}) {
  </g>;
 }
 
-export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings}:{doc:DocumentSource;scene:Scene;pageName:string;selected:Layer|null;onSelect:(l:Layer|null)=>void;onWarnings:()=>void}) {
+export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings,onOverview,focusRequest}:{doc:DocumentSource;scene:Scene;pageName:string;selected:Layer|null;onSelect:(l:Layer|null)=>void;onWarnings:()=>void;onOverview:()=>void;focusRequest:{id:string;serial:number}|null}) {
  const root=scene.root,viewport=useRef<HTMLDivElement>(null),index=useMemo(()=>indexLayers(root),[root]);
  const [camera,setCamera]=useState<Camera>({x:60,y:50,scale:.7}),[space,setSpace]=useState(false),[dragging,setDragging]=useState(false),[alt,setAlt]=useState(false),[inside,setInside]=useState(false),[hoverId,setHoverId]=useState<string|null>(null);
  const [panTool,setPanTool]=useState(false);
@@ -32,6 +32,7 @@ export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings}:{doc:Do
  const distances=alt&&selectedEntry&&target&&selectedEntry!==target&&!space&&!panTool&&!dragging?measure(selectedEntry.bounds,target.bounds):[];
  function fit(widthOnly=false){const v=viewport.current;if(!v)return;const scale=Math.max(.1,Math.min(widthOnly?4:1,(v.clientWidth-120)/Math.max(1,root.frame.width),widthOnly?Infinity:(v.clientHeight-100)/Math.max(1,Math.min(root.frame.height,1000))));setCamera({scale,x:(v.clientWidth-root.frame.width*scale)/2,y:50});}
  useEffect(()=>{setHoverId(null);fit();},[root]);
+ useEffect(()=>{const el=viewport.current,entry=focusRequest?index.get(focusRequest.id):null;if(!el||!entry)return;const b=entry.bounds,scale=Math.max(.1,Math.min(2,(el.clientWidth-100)/Math.max(b.width,1),(el.clientHeight-100)/Math.max(b.height,1)));setCamera({scale,x:el.clientWidth/2-(b.x+b.width/2)*scale,y:el.clientHeight/2-(b.y+b.height/2)*scale});},[focusRequest,index]);
  useEffect(()=>{
   const v=viewport.current;if(!v)return;
   const resize=new ResizeObserver(()=>setCamera(c=>({...c,x:Math.min(Math.max(c.x,60-root.frame.width*c.scale),v.clientWidth-60)})));resize.observe(v);
@@ -66,7 +67,7 @@ export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings}:{doc:Do
  function zoom(factor:number){const v=viewport.current;if(v)setCamera(c=>zoomAt(c,c.scale*factor,{x:v.clientWidth/2,y:v.clientHeight/2}));}
  const isRotated=selectedEntry&&Math.abs(selectedEntry.matrix[1])+Math.abs(selectedEntry.matrix[2])>.00001;
  return <main className="center">
-  <div className="canvas-bar"><span>{pageName}<i>/</i><b>{root.name}</b></span><div><button aria-label="手形工具" aria-pressed={panTool} title="手形工具；也可临时按住空格" onClick={()=>{setPanTool(v=>!v);setHoverId(null);}}>手形</button><button aria-label="缩小" onClick={()=>zoom(1/1.2)}>−</button><span>{Math.round(camera.scale*100)}%</span><button aria-label="放大" onClick={()=>zoom(1.2)}>＋</button><button onClick={()=>fit(true)}>适宽</button><button title="回到初始查看位置" onClick={()=>fit()}>复位</button></div></div>
+  <div className="canvas-bar"><button className="overview-return" onClick={onOverview}>← 返回总览</button><span>{pageName}<i>/</i><b>{root.name}</b></span><div><button aria-label="手形工具" aria-pressed={panTool} title="手形工具；也可临时按住空格" onClick={()=>{setPanTool(v=>!v);setHoverId(null);}}>手形</button><button aria-label="缩小" onClick={()=>zoom(1/1.2)}>−</button><span>{Math.round(camera.scale*100)}%</span><button aria-label="放大" onClick={()=>zoom(1.2)}>＋</button><button onClick={()=>fit(true)}>适宽</button><button title="回到初始查看位置" onClick={()=>fit()}>复位</button></div></div>
   <div ref={viewport} className={`viewport interactive-canvas${space||panTool?' is-space':''}${dragging?' is-dragging':''}`} tabIndex={0} aria-label="设计画布，悬停预览，单击选中内部图层，Shift 选择父级，按住空格拖动，按住 Alt 测量间距" data-space={space} data-dragging={dragging} data-camera-x={camera.x.toFixed(2)} data-camera-y={camera.y.toFixed(2)}
    onPointerDown={e=>{suppress.current=false;if(e.button!==0&&e.button!==1)return;e.currentTarget.focus({preventScroll:true});if(keys.current.space||panTool||e.button===1){e.preventDefault();suppress.current=true;drag.current={id:e.pointerId,x:e.clientX,y:e.clientY};e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);setHoverId(null);}}}
    onPointerMove={e=>{const d=drag.current;if(d&&d.id===e.pointerId){const dx=e.clientX-d.x,dy=e.clientY-d.y;setCamera(c=>panBy(c,dx,dy));d.x=e.clientX;d.y=e.clientY;return;}if(keys.current.space||panTool)return;setHoverId(hit(e.target,e.shiftKey&&!keys.current.alt&&!e.altKey));}}
@@ -81,6 +82,6 @@ export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings}:{doc:Do
    </div>
    <div className="canvas-mode" aria-live="polite">{dragging?'拖动画布':space||panTool?'按住鼠标拖动':alt&&selectedEntry?(isRotated?'测量：画板像素 · 旋转图层按外接框':'测量：画板像素，不随缩放改变'):hovered?`${hovered.layer.name} · ${hovered.layer._class==='text'?'文字':'图层'}`:''}</div>
   </div>
-  <div className="canvas-foot"><button className="compatibility" onClick={onWarnings}>兼容提示 {scene.warnings.length} · 组件 {scene.stats.instances} / 蒙版 {scene.stats.masks}</button><span>单击选中 · Shift 选父级 · Esc 上一级 · 空格拖动 · Alt 测距</span></div>
+  {scene.warnings.length>0&&<div className="canvas-foot"><button className="compatibility" onClick={onWarnings}>查看 {scene.warnings.length} 项兼容提示</button></div>}
  </main>;
 }

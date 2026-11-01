@@ -11,10 +11,10 @@ test('a direct design URL renders the viewer loading shell on its very first ren
  try{
   Object.defineProperty(globalThis,'location',{configurable:true,value:new URL('http://test.local/projects/p/documents/d/revisions/r')});
   const html=renderToStaticMarkup(<App/>);
-  assert.match(html,/正在打开设计/);assert.match(html,/文档导航/);assert.match(html,/role="status"/);
+  assert.match(html,/正在打开设计/);assert.match(html,/页面/);assert.match(html,/role="status"/);
   assert.doesNotMatch(html,/设计稿，打开就能看|将 .sketch 文件拖到这里|MADE FOR DEVELOPERS/);
   Object.defineProperty(globalThis,'location',{configurable:true,value:new URL('http://test.local/local')});
-  assert.match(renderToStaticMarkup(<App/>),/设计稿，打开就能看/);
+  const local=renderToStaticMarkup(<App/>);assert.match(local,/打开本地 Sketch/);assert.doesNotMatch(local,/<header/);
  }finally{if(previous)Object.defineProperty(globalThis,'location',previous);else delete (globalThis as any).location;}
 });
 test('failed design loading keeps a recoverable viewer state instead of the welcome screen',()=>{
@@ -28,4 +28,4 @@ test('team overview shows its projects and keeps project creation behind team ro
  assert.doesNotMatch(renderToStaticMarkup(<TeamOverview {...props} team={{...props.team,role:'member'}}/>),/新建项目/);
 });
 
-test('viewer provides an explicit project return and design switcher',()=>{const html=renderToStaticMarkup(<ViewerNavigation projectId="p"/>);assert.match(html,/href="\/projects\/p"/);assert.match(html,/返回项目/);assert.match(html,/切换设计/);});
+test('viewer provides a project return without a redundant design switcher',()=>{const html=renderToStaticMarkup(<ViewerNavigation projectId="p"/>);assert.match(html,/href="\/projects\/p"/);assert.match(html,/返回项目/);assert.doesNotMatch(html,/切换设计/);});
