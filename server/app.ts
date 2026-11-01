@@ -11,6 +11,7 @@ import {authenticate,checkPassword,documentAccess,fail,hashToken,membership,pass
 import {Jobs,artifactKey} from './jobs';
 import {teamRoutes} from './teams';
 import {publicIds} from './public-ids';
+import {deletionRoutes} from './deletion';
 
 const text=(v:any,min=1,max=120)=>{if(typeof v!=='string'||v.trim().length<min||v.length>max)fail(400,'输入内容无效或过长');return v.trim();};
 const password=(v:any)=>{if(typeof v!=='string'||v.length<6||v.length>200)fail(400,'密码需要 6 至 200 个字符');return v;};
@@ -51,7 +52,7 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
  });
  app.post('/api/logout',async(req,reply)=>{store.run('DELETE FROM sessions WHERE hash=?',hashToken(req.cookies.sp_session||''));reply.clearCookie('sp_session',{path:'/'});return {ok:true};});
  app.get('/api/me',async req=>user(req));
- teamRoutes(app,store,user);
+ teamRoutes(app,store,user);deletionRoutes(app,store,user);
  app.get('/api/projects/:id/documents',async(req:any)=>{membership(store,user(req),req.params.id);return store.all('SELECT d.*,r.seq,r.status,a.step FROM documents d LEFT JOIN revisions r ON r.id=d.current_revision LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE d.project_id=? ORDER BY d.created DESC',req.params.id);});
  app.get('/api/documents/:id',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id);return {...d,revisions:store.all('SELECT r.*,u.username,a.step FROM revisions r JOIN users u ON u.id=r.created_by LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE document_id=? ORDER BY seq DESC',d.id)};});
  app.post('/api/documents/:id/current',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id,true),id=text((req.body as any)?.revisionId,1,60),r=store.one("SELECT * FROM revisions WHERE id=? AND document_id=? AND status='ready'",id,d.id);if(!r)fail(400,'只有该文档中可查看的记录可以设为当前稿');store.run('UPDATE documents SET current_revision=? WHERE id=?',id,d.id);return {ok:true};});
@@ -96,7 +97,7 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
  app.post('/api/uploads/:id/complete',async(req:any)=>{const u=user(req),t=store.one('SELECT * FROM uploads WHERE id=? AND user_id=?',req.params.id,u.id);if(!t)fail(404,'上传会话不存在');const r=revisionAccess(store,u,t.revision_id);documentAccess(store,u,r.document_id,true);const upload=await fileStore.getUpload(t.id);if(upload.offset!==t.size)fail(409,'文件尚未完整接收');store.run("UPDATE uploads SET status='received' WHERE id=? AND status='uploading'",t.id);return {ok:true};});
  for(const t of store.all("SELECT * FROM uploads WHERE status='uploading'")){try{const upload=await fileStore.getUpload(t.id);if(upload.offset===t.size)store.run("UPDATE uploads SET status='received' WHERE id=?",t.id);}catch{}}
  if(options.staticDir&&fs.existsSync(path.join(options.staticDir,'index.html'))){
-  const root=path.resolve(options.staticDir);app.get('/assets/:name',async(req:any,reply)=>{const name=req.params.name;if(!/^[a-zA-Z0-9_.-]+$/.test(name)||name.includes('..'))fail(404,'文件不存在');const file=path.join(root,'assets',name);if(!fs.existsSync(file))fail(404,'文件不存在');reply.type(({'.js':'text/javascript','.css':'text/css','.wasm':'application/wasm'} as any)[path.extname(name)]||'application/octet-stream');return reply.send(fs.createReadStream(file));});
+  const root=path.resolve(options.staticDir);app.get('/assets/:name',async(req:any,reply)=>{const name=req.params.name;if(!/^[a-zA-Z0-9_.-]+$/.test(name)||name.includes('..'))fail(404,'文件不存在');const file=path.join(root,'assets',name);if(!fs.existsSync(file))fail(404,'文件不存在');reply.type(({'.js':'text/javascript','.css':'text/css','.svg':'image/svg+xml','.wasm':'application/wasm'} as any)[path.extname(name)]||'application/octet-stream');return reply.send(fs.createReadStream(file));});
   app.get('/*',async(req,reply)=>{if(req.url.startsWith('/api/'))fail(404,'接口不存在');return reply.type('text/html').send(fs.createReadStream(path.join(root,'index.html')));});
  }
  if(options.startJobs!==false)jobs.start();

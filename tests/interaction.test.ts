@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {indexLayers,branchInScope,measure,panBy,zoomAt} from '../src/interaction';
+import {indexLayers,branchInScope,inspectionTarget,measure,panBy,zoomAt} from '../src/interaction';
 import {cssForLayer,cssColor,cornerRadii} from '../src/properties';
 import type {Layer} from '../src/sketch';
 
@@ -22,6 +22,18 @@ test('flipped parent coordinates keep positive inspection dimensions',()=>{
 test('group selection drills one level and rejects objects outside the scope',()=>{
  const index=indexLayers(root([layer('group',{layers:[layer('nested',{layers:[layer('leaf')]})]}),layer('outside')]));
  assert.equal(branchInScope('leaf','board',index),'group');assert.equal(branchInScope('leaf','group',index),'nested');assert.equal(branchInScope('leaf','nested',index),'leaf');assert.equal(branchInScope('outside','group',index),null);
+});
+test('inspection selects deeply nested text directly and can explicitly select its parent',()=>{
+ const index=indexLayers(root([layer('group',{layers:[layer('nested',{layers:[layer('text',{_class:'text'})]})]}),layer('other')]));
+ assert.equal(inspectionTarget('text',index)?.layer.do_objectID,'text');
+ assert.equal(inspectionTarget('text',index,true)?.layer.do_objectID,'nested');
+ assert.equal(inspectionTarget('other',index)?.layer.do_objectID,'other');
+ assert.equal(inspectionTarget(null,index),null);assert.equal(inspectionTarget('unknown',index),null);
+});
+test('compound vector icons stay atomic while normal groups expose their children',()=>{
+ const index=indexLayers(root([layer('icon',{_class:'shapeGroup',layers:[layer('path',{_class:'shapePath'})]})]));
+ assert.equal(inspectionTarget('path',index)?.layer.do_objectID,'icon');
+ assert.equal(inspectionTarget('path',index,true)?.layer.do_objectID,'board');
 });
 test('panning is independent of zoom and does not change document coordinates',()=>{
  const source=root([layer('a')]),before=JSON.stringify(source),camera={x:0,y:50,scale:2};

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {renderToStaticMarkup} from 'react-dom/server';
 import {App} from '../src/App';
 import {DocumentOpening} from '../src/DocumentOpening';
+import {ViewerNavigation} from '../src/ViewerNavigation';
 import {TeamOverview} from '../src/TeamOverview';
 
 test('a direct design URL renders the viewer loading shell on its very first render',()=>{
@@ -26,3 +27,5 @@ test('team overview shows its projects and keeps project creation behind team ro
  const html=renderToStaticMarkup(<TeamOverview {...props}/>);assert.match(html,/团队项目/);assert.match(html,/href="\/projects\/p"/);assert.match(html,/href="\/teams\/t\/members"/);assert.match(html,/新建项目/);
  assert.doesNotMatch(renderToStaticMarkup(<TeamOverview {...props} team={{...props.team,role:'member'}}/>),/新建项目/);
 });
+
+test('viewer provides an explicit project return and design switcher',()=>{const html=renderToStaticMarkup(<ViewerNavigation projectId="p"/>);assert.match(html,/href="\/projects\/p"/);assert.match(html,/返回项目/);assert.match(html,/切换设计/);});

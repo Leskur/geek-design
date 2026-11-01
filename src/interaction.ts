@@ -33,6 +33,15 @@ export function branchInScope(id:string,scope:string,index:Map<string,IndexedLay
  while(current?.parent){if(current.parent===scope)return current.layer.do_objectID;current=index.get(current.parent);}
  return null;
 }
+// Inspection starts at the painted layer, independent of the current selection.
+// Compound vector paths remain one icon instead of exposing invisible geometry markers.
+export function inspectionTarget(id:string|null,index:Map<string,IndexedLayer>,parent=false):IndexedLayer|null {
+ let entry=id?index.get(id):undefined;if(!entry)return null;
+ let ancestor=entry.parent?index.get(entry.parent):undefined;
+ while(ancestor){if(ancestor.layer._class==='shapeGroup')entry=ancestor;ancestor=ancestor.parent?index.get(ancestor.parent):undefined;}
+ if(parent&&entry.parent)entry=index.get(entry.parent);
+ return entry||null;
+}
 export function zoomAt(camera:Camera,scale:number,anchor:Point):Camera {
  const next=Math.max(.1,Math.min(4,scale)),ratio=next/camera.scale;
  return {x:anchor.x-(anchor.x-camera.x)*ratio,y:anchor.y-(anchor.y-camera.y)*ratio,scale:next};
