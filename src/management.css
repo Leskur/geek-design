@@ -207,3 +207,34 @@
 .management-font-toolbar{display:flex;align-items:center;gap:12px;margin-bottom:18px}.management-font-toolbar .management-list-toolbar{margin:0;flex:1}.management-font-toolbar>.primary{height:38px;flex-shrink:0}
 .management-font-entry+.management-font-entry{border-top:1px solid #edf0f6}.management-font-row{display:flex;align-items:center;gap:14px;min-height:84px;padding:18px 0}.management-font-icon{display:grid;place-items:center;flex-shrink:0;width:38px;height:38px;background:#eeebfa;border-radius:9px;color:#9482b6}.management-font-identity{flex:1;min-width:0}.management-font-identity b{display:block;color:#4c5568;font-size:14px;font-weight:550;overflow-wrap:anywhere}.management-font-identity span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#989eac;font-size:12px;margin-top:7px}.management-font-row>button{flex-shrink:0;font-size:12px}.management-font-preview{font-size:24px;line-height:1.7;padding:16px;margin:0 0 20px;background:#f7f8fb;border:1px solid #eceef4;border-radius:8px;overflow-wrap:anywhere;color:#586075}
 @media(max-width:600px){.management-font-toolbar{flex-wrap:wrap}.management-font-toolbar .management-list-toolbar{flex:1 1 100%;order:2}.management-font-toolbar>.primary{margin-left:auto}.management-font-row{flex-wrap:wrap;gap:10px}.management-font-identity{min-width:150px}.management-team-tabs{gap:20px}.management-team-tabs>a{font-size:13px;gap:5px}.management-font-preview{font-size:20px}}
+
+.wb-app .management-team-toggle{display:grid;place-items:center;flex-shrink:0;width:18px;height:28px;padding:0;border:0;background:transparent;color:#a19aae;border-radius:5px}.wb-app .management-team-toggle:hover{background:#e8e4f1;color:#7b6a9d}
+.wb-app .management-team-toggle svg{transition:transform .12s}
+.wb-app .management-team-list .management-subprojects{margin:3px 0 8px 31px;padding:0 0 0 8px;border-left:1px solid #ece9f2}
+.management-subprojects[hidden]{display:none}
+.management-subprojects a{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:9px 11px;margin:2px 0;border-radius:6px;text-decoration:none;font-size:12px;color:#8d879b}
+.management-subprojects a:hover{background:#f4f2f8;color:#716481}.management-subprojects a[aria-current=page]{background:#eeebfb;color:#7760b7}
+@media(prefers-reduced-motion:reduce){.wb-app .management-team-toggle svg{transition:none}}
+
+.wb-app .management-team-list .wb-tree-team-row{display:grid;grid-template-columns:18px minmax(0,1fr) 26px;gap:2px}
+.management-team-toggle-slot{width:18px;height:28px}
+.wb-app .management-team-list .management-subprojects{margin:3px 0 8px;padding:0;border:0}
+.wb-app .management-team-list .management-subprojects a{width:100%;padding-left:63px;padding-right:12px}
+
+.wb-app .management-team-list .management-team-mark{width:10px;height:10px;border:0;border-radius:3px}
+.wb-app .management-team-list .management-subprojects a{padding-left:48px}
+
+.wb-app .management-team-list .wb-tree-team-name{gap:6px}
+.wb-app .management-team-list .management-subprojects a{padding-left:44px}
+
+.wb-app .project-page-heading{margin-bottom:16px;min-height:44px}.project-page-heading h1{margin:0;font-size:24px}.project-page-heading>.primary{padding:9px 14px;min-height:36px}
+.project-list-toolbar{display:flex;align-items:center;gap:10px;margin-bottom:18px}.project-list-toolbar .management-list-toolbar{margin:0;flex:1}.project-list-toolbar .management-sort{margin:0}.project-list-toolbar .wb-view-switch{margin:0}
+.wb-app .wb-file-cover:before,.wb-app .wb-file-cover:after{display:none}.project-design-cover{display:flex;width:100%;height:100%;align-items:center;justify-content:center;overflow:hidden;padding:12px;background:#efeff5}
+.project-design-cover img{display:block;width:100%;height:100%;object-fit:contain;object-position:center top;filter:drop-shadow(0 2px 5px #22233312)}
+.project-cover-placeholder{display:flex;align-items:center;justify-content:center;gap:9px;flex-direction:column;color:#a69bb9;font-size:11px}.project-cover-placeholder>span{color:#9d94ac}
+.wb-app .wb-file-grid.list .project-design-cover{padding:4px}.wb-app .wb-file-grid.list .project-cover-placeholder>span,.wb-app .wb-file-grid.list .project-cover-placeholder>.wb-spin{display:none}
+@media(max-width:600px){.project-list-toolbar{flex-wrap:wrap;justify-content:flex-end}.project-list-toolbar .management-list-toolbar{flex:1 1 100%}.project-page-heading h1{font-size:22px}.project-page-heading{gap:14px}}
+
+.project-title-actions{display:flex;align-items:center;gap:10px;min-width:0}.project-title-actions h1{overflow-wrap:anywhere}.wb-app .project-page-heading{margin-bottom:26px}.project-title-actions>.wb-icon-button{flex-shrink:0}
+
+.wb-upload-options{grid-column:1/-1}.wb-upload-options>summary{cursor:pointer;font-size:12px;color:#9990a6;padding:5px 0;list-style-position:inside}.wb-upload-options>label{display:block;margin-top:9px}.wb-upload-options input{width:100%}

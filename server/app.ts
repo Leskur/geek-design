@@ -1,3 +1,4 @@
+import {coverRoutes} from './covers';
 import {fontRoutes} from './fonts';
 import {editingRoutes} from './editing';
 import Fastify from 'fastify';
@@ -55,8 +56,8 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
  });
  app.post('/api/logout',async(req,reply)=>{store.run('DELETE FROM sessions WHERE hash=?',hashToken(req.cookies.sp_session||''));reply.clearCookie('sp_session',{path:'/'});return {ok:true};});
  app.get('/api/me',async req=>user(req));
- teamRoutes(app,store,user);deletionRoutes(app,store,user);editingRoutes(app,store,user);fontRoutes(app,store,user);
- app.get('/api/projects/:id/documents',async(req:any)=>{membership(store,user(req),req.params.id);return store.all('SELECT d.*,r.seq,r.status,a.step FROM documents d LEFT JOIN revisions r ON r.id=d.current_revision LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE d.project_id=? ORDER BY d.created DESC',req.params.id);});
+ teamRoutes(app,store,user);deletionRoutes(app,store,user);editingRoutes(app,store,user);fontRoutes(app,store,user);coverRoutes(app,store,thumbnails,user);
+ app.get('/api/projects/:id/documents',async(req:any)=>{membership(store,user(req),req.params.id);return store.all('SELECT d.*,COALESCE(r.seq,latest.seq) AS seq,COALESCE(r.status,latest.status) AS status,a.step,latest.status AS latest_status,COALESCE(latest.created,d.created) AS updated FROM documents d LEFT JOIN revisions r ON r.id=d.current_revision LEFT JOIN revisions latest ON latest.id=(SELECT id FROM revisions WHERE document_id=d.id ORDER BY seq DESC LIMIT 1) LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE d.project_id=? ORDER BY updated DESC',req.params.id);});
  app.get('/api/documents/:id',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id);return {...d,revisions:store.all('SELECT r.*,u.username,a.step FROM revisions r JOIN users u ON u.id=r.created_by LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE document_id=? ORDER BY seq DESC',d.id)};});
  app.post('/api/documents/:id/current',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id,true),id=text((req.body as any)?.revisionId,1,60),r=store.one("SELECT * FROM revisions WHERE id=? AND document_id=? AND status='ready'",id,d.id);if(!r)fail(400,'只有该文档中可查看的记录可以设为当前稿');store.run('UPDATE documents SET current_revision=? WHERE id=?',id,d.id);return {ok:true};});
  app.get('/api/revisions/:id',async(req:any)=>{const r=revisionAccess(store,user(req),req.params.id),a=r.artifact_key?store.one('SELECT step FROM artifacts WHERE key=?',r.artifact_key):null;return {...r,step:a?.step||({uploading:'等待文件传输',failed:'处理失败'} as any)[r.status]||r.status};});

@@ -62,3 +62,8 @@ test('empty project list provides creation in place only for team managers',()=>
  assert.match(renderToStaticMarkup(<TeamOverview {...props}/>),/>新建项目<\/button>/);
  assert.doesNotMatch(renderToStaticMarkup(<TeamOverview {...props} team={{id:'t',role:'member'}}/>),/>新建项目<\/button>/);
 });
+
+test('sidebar auto-expands the active project without creation or empty prompts',()=>{
+ const html=renderToStaticMarkup(<TeamTree userId="u" teams={[{id:'a',name:'Alpha',role:'owner'}]} projects={[{id:'p',name:'Project',team_id:'a'}]} activeTeamId="a" activeProjectId="p" overviewPage={false} busy={false} onCreateTeam={()=>{}} onCreateProject={()=>{}} onDelete={()=>{}}/>);
+ assert.match(html,/aria-expanded="true"/);assert.match(html,/href="\/projects\/p" aria-current="page"/);assert.doesNotMatch(html,/href="\/teams\/a" aria-current="page"/);assert.doesNotMatch(html,/wb-tree-team current/);assert.doesNotMatch(html,/新建项目|还没有项目|等待分配项目/);
+});

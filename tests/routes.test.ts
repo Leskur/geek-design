@@ -30,3 +30,5 @@ test('root opens the team workspace while local viewing stays explicit',()=>{ass
 test('team settings has a direct refreshable URL',()=>{assert.equal(routeFor('/teams/t/settings').section,'settings');});
 
 test('team font library has a direct URL',()=>{assert.equal(routeFor('/teams/t/fonts').section,'fonts');});
+
+test('project settings has a direct URL',()=>{assert.equal(routeFor('/projects/p/settings').section,'settings');assert.equal(routeFor('/projects/p/settings').projectId,'p');});

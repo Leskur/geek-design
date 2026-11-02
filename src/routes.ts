@@ -26,6 +26,7 @@ export function routeFor(pathname:string,search=''):Route{
  if(parts[0]==='projects'){
   if(parts.length===1)return {kind:'team'};
   if(parts.length===2)return {kind:'team',projectId:parts[1]};
+  if(parts.length===3&&parts[2]==='settings')return {kind:'team',projectId:parts[1],section:'settings'};
   if(parts[2]==='documents'){
    if(parts.length===4)return {kind:'team',projectId:parts[1],documentId:parts[3]};
    if(parts.length===6&&parts[4]==='revisions')return {kind:'revision',projectId:parts[1],documentId:parts[3],revisionId:parts[5]};
