@@ -28,3 +28,5 @@ test('unknown routes and external login returns are rejected',()=>{
 test('root opens the team workspace while local viewing stays explicit',()=>{assert.equal(routeFor('/').kind,'team');assert.equal(routeFor('/local').kind,'local');});
 
 test('team settings has a direct refreshable URL',()=>{assert.equal(routeFor('/teams/t/settings').section,'settings');});
+
+test('team font library has a direct URL',()=>{assert.equal(routeFor('/teams/t/fonts').section,'fonts');});

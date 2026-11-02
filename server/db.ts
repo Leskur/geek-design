@@ -24,13 +24,15 @@ export class Store {
   INSERT OR IGNORE INTO schema_migrations VALUES(3);
   CREATE TABLE IF NOT EXISTS thumbnail_jobs(artifact_key TEXT PRIMARY KEY REFERENCES artifacts(key),version TEXT NOT NULL,status TEXT NOT NULL,completed INTEGER NOT NULL DEFAULT 0,total INTEGER NOT NULL DEFAULT 0,error TEXT,updated INTEGER NOT NULL);
   INSERT OR IGNORE INTO schema_migrations VALUES(4);
+  CREATE TABLE IF NOT EXISTS team_fonts(id TEXT PRIMARY KEY,team_id TEXT NOT NULL REFERENCES teams(id),hash TEXT NOT NULL,filename TEXT NOT NULL,family TEXT NOT NULL,full_name TEXT NOT NULL,postscript_name TEXT NOT NULL COLLATE NOCASE,weight INTEGER NOT NULL,style TEXT NOT NULL,size INTEGER NOT NULL,created_by TEXT NOT NULL REFERENCES users(id),created INTEGER NOT NULL,UNIQUE(team_id,hash),UNIQUE(team_id,postscript_name));
+  INSERT OR IGNORE INTO schema_migrations VALUES(5);
   CREATE INDEX IF NOT EXISTS revision_hash ON revisions(hash);CREATE INDEX IF NOT EXISTS pending_uploads ON uploads(status);`);
  }
  one(sql:string,...args:any[]):any{return this.db.prepare(sql).get(...args);}
  all(sql:string,...args:any[]):any[]{return this.db.prepare(sql).all(...args);}
  run(sql:string,...args:any[]){return this.db.prepare(sql).run(...args);}
  transaction<T>(fn:()=>T):T{return this.db.transaction(fn)();}
- id(){for(;;){const id=randomBytes(9).toString('base64url');if(!this.one('SELECT 1 FROM public_ids WHERE public_id=? OR internal_id=?',id,id)&&!['users','teams','projects','documents','revisions','uploads','invitations'].some(table=>this.one(`SELECT 1 FROM ${table} WHERE id=?`,id)))return id;}}
+ id(){for(;;){const id=randomBytes(9).toString('base64url');if(!this.one('SELECT 1 FROM public_ids WHERE public_id=? OR internal_id=?',id,id)&&!['users','teams','projects','documents','revisions','uploads','invitations','team_fonts'].some(table=>this.one(`SELECT 1 FROM ${table} WHERE id=?`,id)))return id;}}
  publicId(id:string){
   if(!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id))return id;
   const cached=this.aliases.get(id);if(cached)return cached;

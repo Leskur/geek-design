@@ -4,7 +4,7 @@
 
 ## 启动与验证
 
-Node.js 24；首次执行 `npm install`、`npx playwright install chromium --only-shell`，随后 `npm run dev`。前端 5173，后端 5174。完整检查为 `npm run build` 和 `npm test`。部署与数据备份参考 local-deployment.md。
+Node.js 24；首次执行 `npm install`，随后 `npm run dev`。前端 5173，后端 5174。完整检查为 `npm run build` 和 `npm test`。部署与数据备份参考 local-deployment.md。
 
 ## 当前能力
 
