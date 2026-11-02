@@ -1,3 +1,4 @@
+import {editingRoutes} from './editing';
 import Fastify from 'fastify';
 import cookie from '@fastify/cookie';
 import {Server as TusServer,EVENTS} from '@tus/server';
@@ -53,7 +54,7 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
  });
  app.post('/api/logout',async(req,reply)=>{store.run('DELETE FROM sessions WHERE hash=?',hashToken(req.cookies.sp_session||''));reply.clearCookie('sp_session',{path:'/'});return {ok:true};});
  app.get('/api/me',async req=>user(req));
- teamRoutes(app,store,user);deletionRoutes(app,store,user);
+ teamRoutes(app,store,user);deletionRoutes(app,store,user);editingRoutes(app,store,user);
  app.get('/api/projects/:id/documents',async(req:any)=>{membership(store,user(req),req.params.id);return store.all('SELECT d.*,r.seq,r.status,a.step FROM documents d LEFT JOIN revisions r ON r.id=d.current_revision LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE d.project_id=? ORDER BY d.created DESC',req.params.id);});
  app.get('/api/documents/:id',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id);return {...d,revisions:store.all('SELECT r.*,u.username,a.step FROM revisions r JOIN users u ON u.id=r.created_by LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE document_id=? ORDER BY seq DESC',d.id)};});
  app.post('/api/documents/:id/current',async(req:any)=>{const d=documentAccess(store,user(req),req.params.id,true),id=text((req.body as any)?.revisionId,1,60),r=store.one("SELECT * FROM revisions WHERE id=? AND document_id=? AND status='ready'",id,d.id);if(!r)fail(400,'只有该文档中可查看的记录可以设为当前稿');store.run('UPDATE documents SET current_revision=? WHERE id=?',id,d.id);return {ok:true};});
@@ -66,7 +67,7 @@ export async function createApp(options:{dataDir:string;logger?:boolean;startJob
  app.get('/api/revisions/:id/thumbnails/:version/:pageId/:boardId',async(req:any,reply)=>{
   const {r,manifest}=await ready(req);if(req.params.version!==THUMBNAIL_VERSION||typeof manifest.pageFiles[req.params.pageId]!=='string')fail(404,'预览不存在');
   const state=thumbnails.enqueue(r.artifact_key),index=await thumbnailIndex(r.artifact_key),file=index.items?.[req.params.pageId]?.[req.params.boardId];
-  if(typeof file==='string'&&/^[a-f0-9]{64}\.png$/.test(file)){const target=storage.path('artifacts',r.artifact_key,'thumbnails',THUMBNAIL_VERSION,file);if(fs.existsSync(target))return reply.type('image/png').header('Cache-Control','private, max-age=3600').send(fs.createReadStream(target));if(state.status==='ready')thumbnails.enqueue(r.artifact_key,true);}
+  if(typeof file==='string'&&/^[a-f0-9]{64}\.svg$/.test(file)){const small=(req.query as any)?.size==='small',target=storage.path('artifacts',r.artifact_key,'thumbnails',THUMBNAIL_VERSION,small?file.replace(/\.svg$/,'.webp'):file);if(fs.existsSync(target))return reply.type(small?'image/webp':'image/svg+xml').header('Content-Security-Policy',"default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox").header('Cache-Control','private, max-age=3600').send(fs.createReadStream(target));if(state.status==='ready')thumbnails.enqueue(r.artifact_key,true);}
   if(state.status==='failed')return reply.code(503).send({error:state.error||'预览生成失败，请重试'});
   if(state.status==='ready'&&!file)fail(404,'画板预览不存在');
   return reply.code(202).header('Retry-After','1').send({status:'processing',completed:state.completed,total:state.total});

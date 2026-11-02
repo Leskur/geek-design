@@ -17,3 +17,33 @@
 .welcome .drop>svg{color:#8064df}.missing-page{min-height:100dvh;gap:16px}.missing-page h1{font-size:28px}.missing-page>a{color:#7055d8;text-decoration:none}
 
 .local-landing>.brand{margin-bottom:24px;font-size:19px}.local-landing h1{font-size:30px;letter-spacing:-.5px;margin-top:0}.local-landing .drop{margin-top:22px}.local-return{font-size:12px;color:#777180;text-decoration:none;margin-top:8px}.local-return:hover{color:#7055d8}.local-landing{padding:30px 16px}
+
+/* Canvas controls share the document header instead of taking a canvas row. */
+.viewer-header .viewer-document-nav{flex:1 1 180px;min-width:90px;padding:0 16px;gap:8px}
+.viewer-toolbar{min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:thin}
+.viewer-toolbar .canvas-bar{height:auto;min-height:0;padding:0 12px;gap:10px;border:0;background:transparent;white-space:nowrap;flex-shrink:0}
+.viewer-toolbar .canvas-bar>span{display:none}
+.viewer-toolbar .canvas-bar>div{display:flex;align-items:center;gap:6px}
+.viewer-toolbar .canvas-bar button{display:inline-flex;align-items:center;justify-content:center;gap:5px;min-height:30px;font-size:12px;padding:5px 8px;white-space:nowrap}
+.viewer-toolbar .canvas-bar div span{font-size:12px;min-width:42px;text-align:center}
+.viewer-toolbar .overview-return{color:#7055d8}
+.viewer-header .viewer-header-actions{padding-left:10px;gap:6px}
+@media(max-width:1100px){.viewer-header .viewer-brand{width:190px}.viewer-header .viewer-document-nav{padding:0 10px;flex-basis:110px}.viewer-toolbar .canvas-bar{padding:0 6px;gap:6px}.viewer-header .viewer-header-actions .viewer-copy{font-size:0;gap:0}.viewer-toolbar .canvas-bar button{padding:5px 6px}}
+@media(max-width:760px){.viewer-header .viewer-brand{width:150px}.viewer-header .viewer-document-nav{display:none}.viewer-toolbar{flex:1 1 0}.viewer-header .viewer-header-actions .header-export{font-size:0;gap:0}.viewer-header .viewer-header-actions .header-export svg{width:16px}}
+
+.viewer-header .viewer-document-nav>.viewer-back{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;padding:0;border:1px solid transparent;border-radius:7px;background:transparent;color:#777481;flex-shrink:0;text-decoration:none}
+.viewer-header .viewer-document-nav>.viewer-back>svg{display:block}
+.viewer-header .viewer-document-nav>.viewer-back:hover{background:#f4f1fa;color:#7055d8}
+.viewer-header .viewer-document-nav>.viewer-back:focus-visible{outline:2px solid #7962ec;outline-offset:2px}
+@media(max-width:760px){.viewer-header .viewer-document-nav{display:flex;flex:0 0 auto;min-width:0;padding:0 6px}.viewer-header .viewer-document-nav .filename,.viewer-header .viewer-nav-separator{display:none}}
+
+/* A stable full-width canvas beneath floating navigation and inspection panels. */
+.viewer-workspace{--viewer-left-width:250px;--viewer-right-width:300px;position:relative;display:block;overflow:hidden;isolation:isolate}
+.viewer-workspace>.center{position:absolute;inset:0;min-width:0;min-height:0;width:100%;height:100%}
+.viewer-workspace>.left,.viewer-workspace>.right{position:absolute;top:0;bottom:0;z-index:10;max-width:calc(100% - 48px);box-shadow:0 0 16px #25243b08}
+.viewer-workspace>.left{left:0;width:var(--viewer-left-width)}
+.viewer-workspace>.right{right:0;width:var(--viewer-right-width)}
+@media(max-width:1100px){.viewer-workspace{--viewer-left-width:210px;--viewer-right-width:276px}}
+@media(max-width:760px){.viewer-workspace{--viewer-left-width:170px;--viewer-right-width:260px}.viewer-workspace>.right{display:flex}}
+
+.viewer-workspace>.right[hidden]{display:none}

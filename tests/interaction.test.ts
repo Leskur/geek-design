@@ -1,3 +1,4 @@
+import {fitCameraInArea,panFromAnchor} from '../src/interaction';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {indexLayers,branchInScope,inspectionTarget,spacingWithin,measure,panBy,zoomAt} from '../src/interaction';
@@ -42,7 +43,7 @@ test('panning is independent of zoom and does not change document coordinates',(
 test('zoom preserves the world point under the pointer and clamps extremes',()=>{
  const c={x:-140,y:90,scale:.5},anchor={x:320,y:180},next=zoomAt(c,2,anchor);
  near((anchor.x-next.x)/next.scale,(anchor.x-c.x)/c.scale);near((anchor.y-next.y)/next.scale,(anchor.y-c.y)/c.scale);
- assert.equal(zoomAt(c,100,anchor).scale,4);assert.equal(zoomAt(c,0,anchor).scale,.1);
+ assert.equal(zoomAt(c,100,anchor).scale,4);assert.equal(zoomAt(c,0,anchor).scale,.001);
 });
 test('separated rectangles measure edge gaps, not center distances',()=>{
  const a={x:10,y:20,width:40,height:30},b={x:70,y:90,width:20,height:10};
@@ -87,4 +88,21 @@ test('selected colors include visible descendants and preserve paint alpha',()=>
  const c={red:1,green:0,blue:0,alpha:.5},fill={isEnabled:true,fillType:0,color:c,contextSettings:{opacity:.5}};
  const l=layer('group',{layers:[layer('a',{style:{fills:[fill]}}),layer('b',{style:{fills:[fill]}}),layer('hidden',{isVisible:false,style:{fills:[{...fill,color:{red:0,green:1,blue:0,alpha:1}}]}})]});
  const colors=layerColors(l);assert.equal(colors.length,1);assert.equal(colorValue(colors[0].color,colors[0].opacity),'#FF000040');assert.equal(colorValue(c,.5,'RGB'),'rgba(255, 0, 0, 0.25)');
+});
+
+test('fast dragging follows the final pointer position without accumulating frame timing errors',()=>{
+ const camera={x:40,y:70,scale:.03},start={x:100,y:150};
+ for(const point of [{x:900,y:10},{x:30,y:800},{x:200,y:250}])panFromAnchor(camera,start,point);
+ assert.deepEqual(panFromAnchor(camera,start,{x:230,y:280}),{x:170,y:200,scale:.03});
+ assert.deepEqual(panFromAnchor(camera,start,start),camera);
+ assert.deepEqual(camera,{x:40,y:70,scale:.03});
+});
+
+test('fit and focus center inside the unobscured area, including long artboards',()=>{
+ const area={x:250,y:0,width:890,height:840},bounds={x:-200,y:50,width:390,height:4000};
+ const c=fitCameraInArea(bounds,area);
+ near(c.x+(bounds.x+bounds.width/2)*c.scale,area.x+area.width/2);
+ near(c.y+(bounds.y+bounds.height/2)*c.scale,area.y+area.height/2);
+ assert.ok(c.y+bounds.y*c.scale>=48-1e-8);assert.ok(c.y+(bounds.y+bounds.height)*c.scale<=area.height-48+1e-8);
+ const widthFit=fitCameraInArea(bounds,area,4,true);near(widthFit.x+bounds.x*widthFit.scale,area.x+48);
 });

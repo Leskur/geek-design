@@ -5,7 +5,7 @@
 ## 功能
 
 - 本地打开 Sketch，按原始布局总览全部画板；统一树浏览画板、分组与图层。
-- 团队总览使用服务端预生成的图片缩略图，本地文件按需生成预览，双击进入完整图层检查，返回保留视角。
+- 团队总览使用服务端预生成的SVG 缩略图，本地文件按需生成预览，双击进入完整图层检查，返回保留视角。
 - 悬停预览、单击直选内部元素，支持空格拖动、缩放和 Alt 测距。
 - 开发面板展示容器边缘距离、分区 CSS 和 HEX / RGB 颜色；画布选择与图层树联动。
 - 查看文字、尺寸、描边等属性，复制文案，预览并下载原始图片。
@@ -18,7 +18,6 @@
 
 ```sh
 npm install
-npx playwright install chromium --only-shell
 npm run dev
 ```
 
@@ -27,7 +26,6 @@ npm run dev
 ## 部署
 
 ```sh
-npx playwright install chromium --only-shell
 npm run build
 npm start
 ```

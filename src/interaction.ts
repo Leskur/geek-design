@@ -43,9 +43,11 @@ export function inspectionTarget(id:string|null,index:Map<string,IndexedLayer>,p
  return entry||null;
 }
 export function zoomAt(camera:Camera,scale:number,anchor:Point):Camera {
- const next=Math.max(.1,Math.min(4,scale)),ratio=next/camera.scale;
+ const next=Math.max(.001,Math.min(4,scale)),ratio=next/camera.scale;
  return {x:anchor.x-(anchor.x-camera.x)*ratio,y:anchor.y-(anchor.y-camera.y)*ratio,scale:next};
 }
+// Derive the full displacement from immutable drag anchors, including pointerup.
+export function panFromAnchor(camera:Camera,start:Point,pointer:Point):Camera {return {...camera,x:camera.x+pointer.x-start.x,y:camera.y+pointer.y-start.y};}
 export function panBy(camera:Camera,dx:number,dy:number):Camera {return {...camera,x:camera.x+dx,y:camera.y+dy};}
 export function isEditingTarget(target:EventTarget|null):boolean {
  if(!(target instanceof Element))return false;
@@ -76,4 +78,9 @@ export function spacingWithin(entry:IndexedLayer,container:IndexedLayer){
  const inverse:Matrix=[d/det,-b/det,-c/det,a/det,(c*f-d*e)/det,(b*e-a*f)/det];
  const points=entry.corners.map(p=>apply(inverse,p)),xs=points.map(p=>p.x),ys=points.map(p=>p.y),left=Math.min(...xs),top=Math.min(...ys),rightEdge=Math.max(...xs),bottomEdge=Math.max(...ys);
  return {left,top,right:container.layer.frame.width-rightEdge,bottom:container.layer.frame.height-bottomEdge,width:rightEdge-left,height:bottomEdge-top};
+}
+
+export function fitCameraInArea(bounds:Rect,area:Rect,maxScale=1,widthOnly=false):Camera{
+ const scale=Math.max(.001,Math.min(maxScale,Math.max(1,area.width-96)/Math.max(1,bounds.width),widthOnly?Infinity:Math.max(1,area.height-96)/Math.max(1,bounds.height)));
+ return {scale,x:area.x+area.width/2-(bounds.x+bounds.width/2)*scale,y:widthOnly?area.y+48:area.y+area.height/2-(bounds.y+bounds.height/2)*scale};
 }

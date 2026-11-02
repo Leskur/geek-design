@@ -1,20 +1,25 @@
-import {useEffect,useId,useState} from 'react';
-import {ChevronDown,ChevronRight,Ellipsis,Folder,Plus,Users,Trash2,ArrowUpRight} from 'lucide-react';
-import {projectPath,teamPath} from './routes';
+import {savedTeamOrder,orderTeams,moveTeam,rememberTeamOrder} from './workbench';
+import {useEffect,useId,useRef,useState} from 'react';
+import {Ellipsis,Plus,Trash2,Pencil,ArrowUpRight} from 'lucide-react';
+import {teamPath} from './routes';
 import {ContextMenu,type MenuPosition} from './ContextMenu';
+
 type Team={id:string;legacy_id?:string;name:string;role:string};
 type Project={id:string;team_id:string;name:string;role?:string};
-type Props={userId:string;teams:Team[];projects:Project[];activeTeamId?:string;activeProjectId?:string;overviewPage:boolean;busy:boolean;onCreateTeam:()=>void;onCreateProject:(teamId:string)=>void;onDelete:(kind:'team'|'project',item:Team|Project)=>void};
-export function TeamTree({userId,teams,projects,activeTeamId,activeProjectId,overviewPage,busy,onCreateTeam,onCreateProject,onDelete}:Props){
- const key=`sketchpeek:team-tree:${userId}`,baseId=useId();
- const [menu,setMenu]=useState<(MenuPosition&({kind:'team';item:Team}|{kind:'project';item:Project}))|null>(null);
- const [expanded,setExpanded]=useState<Record<string,boolean>>(()=>{try{return JSON.parse(localStorage.getItem(key)||'{}')||{};}catch{return {};}});
- useEffect(()=>{if(activeTeamId)setExpanded(old=>({...old,[activeTeamId]:true}));},[activeTeamId]);
- useEffect(()=>{try{localStorage.setItem(key,JSON.stringify(expanded));}catch{}},[expanded,key]);
- function show(e:React.MouseEvent,kind:'team'|'project',item:any){e.preventDefault();setMenu({x:e.clientX,y:e.clientY,kind,item});}
- return <nav className="wb-team-tree" aria-label="团队和项目"><div className="wb-tree-heading"><span>团队</span><button className="wb-icon-button" aria-label="创建团队" title="创建团队" disabled={busy} onClick={onCreateTeam}><Plus size={16}/></button></div><ul>{teams.map((t,index)=>{
-  const children=projects.filter(p=>p.team_id===t.id),current=t.id===activeTeamId,open=expanded[t.id]??expanded[t.legacy_id||'']??(current||teams.length===1),canCreate=t.role!=='member',listId=`${baseId}-${index}`;
-  return <li key={t.id} className={`wb-tree-team${current?' current':''}`}><div className="wb-tree-team-row" onContextMenu={e=>show(e,'team',t)}><button type="button" className="wb-tree-toggle" aria-label={`${open?'收起':'展开'}${t.name}`} aria-expanded={open} aria-controls={listId} onClick={()=>setExpanded(old=>({...old,[t.id]:!open}))}>{open?<ChevronDown size={14}/>:<ChevronRight size={14}/>}</button><a className="wb-tree-team-name" href={teamPath(t.id)} aria-current={current&&!activeProjectId&&overviewPage?'page':undefined} title={t.name}>{t.name}</a><button className="wb-icon-button gd-tree-more" aria-label={`${t.name}的团队操作`} onClick={e=>show(e,'team',t)}><Ellipsis size={16}/></button></div>
-  <ul id={listId} className="wb-tree-projects" hidden={!open}>{children.map(p=><li key={p.id} className="gd-project-row" onContextMenu={e=>show(e,'project',p)}><a href={projectPath(p.id)} className={p.id===activeProjectId?'active':''} aria-current={p.id===activeProjectId?'page':undefined} title={p.name}><Folder size={16}/><span>{p.name}</span></a><button className="wb-icon-button gd-tree-more" aria-label={`${p.name}的项目操作`} onClick={e=>show(e,'project',p)}><Ellipsis size={16}/></button></li>)}{!children.length&&<li className="wb-tree-empty">{canCreate?'还没有项目':'等待分配项目'}</li>}{canCreate&&<li><button type="button" className="wb-tree-add" disabled={busy} onClick={()=>onCreateProject(t.id)}><Plus size={14}/>新建项目</button></li>}</ul></li>;
- })}</ul>{!teams.length&&<p className="wb-tree-no-teams">创建或加入团队，项目会显示在这里。</p>}{menu&&<ContextMenu position={menu} onClose={()=>setMenu(null)}>{menu.kind==='team'?<><a href={teamPath(menu.item.id)}><ArrowUpRight size={16}/>打开团队</a><a href={teamPath(menu.item.id)+'/members'}><Users size={16}/>成员与邀请</a>{menu.item.role!=='member'&&<button disabled={busy} onClick={()=>onCreateProject(menu.item.id)}><Plus size={16}/>新建项目</button>}{menu.item.role==='owner'&&<button className="danger" disabled={busy} onClick={()=>onDelete('team',menu.item)}><Trash2 size={16}/>删除团队</button>}</>:<><a href={projectPath(menu.item.id)}><Folder size={16}/>打开项目</a>{teams.find(t=>t.id===menu.item.team_id)?.role!=='member'&&<button className="danger" disabled={busy} onClick={()=>onDelete('project',menu.item)}><Trash2 size={16}/>删除项目</button>}</>}</ContextMenu>}</nav>;
+type Props={userId:string;teams:Team[];projects:Project[];activeTeamId?:string;activeProjectId?:string;overviewPage:boolean;busy:boolean;onCreateTeam:()=>void;onCreateProject:(teamId:string)=>void;onRename?:(kind:'team'|'project',item:Team|Project)=>void;onDelete:(kind:'team'|'project',item:Team|Project)=>void};
+export function TeamTree({userId,teams,activeTeamId,busy,onCreateTeam,onDelete,onRename}:Props){
+ const [menu,setMenu]=useState<(MenuPosition&{item:Team})|null>(null);
+ const [order,setOrder]=useState(()=>savedTeamOrder(userId)),[drop,setDrop]=useState<{id:string;after:boolean}|null>(null);
+ const suppressClick=useRef(false),dragged=useRef<string|null>(null),helpId=useId(),sorted=orderTeams(teams,order);
+ useEffect(()=>{setOrder(savedTeamOrder(userId));},[userId]);
+ function reorder(from:string,to:string,after:boolean){const next=moveTeam(sorted.map(t=>t.id),from,to,after);setOrder(next);rememberTeamOrder(userId,next);}
+ function stopDrag(){dragged.current=null;setDrop(null);}
+ function show(e:React.MouseEvent,item:Team){e.preventDefault();setMenu({x:e.clientX,y:e.clientY,item});}
+ return <nav className="wb-team-tree management-team-list" aria-label="团队列表">
+
+  <p id={helpId} className="sr-only">拖动调整团队顺序，也可聚焦团队名称后按 Alt 加上下方向键调整。</p><ul>{sorted.map((t,index)=><li key={t.id} data-team-id={t.id} className={`wb-tree-team${t.id===activeTeamId?' current':''}${drop?.id===t.id?(drop.after?' drop-after':' drop-before'):''}`} onDragOver={e=>{if(!dragged.current||busy)return;e.preventDefault();e.dataTransfer.dropEffect='move';const rect=e.currentTarget.getBoundingClientRect();setDrop({id:t.id,after:e.clientY>rect.top+rect.height/2});}} onDrop={e=>{if(!dragged.current||busy)return;e.preventDefault();const rect=e.currentTarget.getBoundingClientRect();reorder(dragged.current,t.id,e.clientY>rect.top+rect.height/2);stopDrag();}}><div className="wb-tree-team-row" onContextMenu={e=>show(e,t)}><a draggable={!busy&&sorted.length>1} aria-describedby={helpId} onPointerDown={()=>{suppressClick.current=false;}} onClick={e=>{if(e.detail>0&&suppressClick.current){e.preventDefault();suppressClick.current=false;}}} onDragStart={e=>{suppressClick.current=true;dragged.current=t.id;setMenu(null);e.dataTransfer.effectAllowed='move';e.dataTransfer.setData('text/plain',t.id);}} onDragEnd={stopDrag} onKeyDown={e=>{if(!e.altKey||busy||!['ArrowUp','ArrowDown'].includes(e.key))return;e.preventDefault();const target=sorted[index+(e.key==='ArrowUp'?-1:1)];if(target)reorder(t.id,target.id,e.key==='ArrowDown');}} className="wb-tree-team-name" href={teamPath(t.id)} aria-current={t.id===activeTeamId?'page':undefined} title={t.name}><span className="management-team-mark" aria-hidden="true">{Array.from(t.name)[0]}</span><span>{t.name}</span></a><button className="wb-icon-button gd-tree-more" aria-label={`${t.name}的团队操作`} onClick={e=>show(e,t)}><Ellipsis size={16}/></button></div></li>)}</ul>
+  <button className="management-add-team" disabled={busy} onClick={onCreateTeam}><Plus size={15}/>新增团队</button>
+  {!teams.length&&<p className="wb-tree-no-teams">创建或加入团队后，会显示在这里。</p>}
+  {menu&&<ContextMenu position={menu} onClose={()=>setMenu(null)}><a href={teamPath(menu.item.id)}><ArrowUpRight size={16}/>打开团队</a>{menu.item.role!=='member'&&onRename&&<button disabled={busy} onClick={()=>onRename('team',menu.item)}><Pencil size={16}/>重命名团队</button>}{menu.item.role==='owner'&&<button className="danger" disabled={busy} onClick={()=>onDelete('team',menu.item)}><Trash2 size={16}/>删除团队</button>}</ContextMenu>}
+ </nav>;
 }

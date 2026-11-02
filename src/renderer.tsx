@@ -1,4 +1,4 @@
-import React,{useEffect,useId,useState,type CSSProperties} from 'react';
+import React,{createContext,useContext,useEffect,useId,useState,type CSSProperties} from 'react';
 import {color,point,type Layer,type DocumentSource} from './sketch';
 import {geometry,transform,fillRule} from './geometry';
 import {maskChains,textRuns} from './scene';
@@ -60,9 +60,12 @@ export function fontStyle(a:any):CSSProperties {
  const f=a.MSAttributedStringFontAttribute?.attributes||{};
  return {fontFamily:[...fontFamilies(f.name||'Arial').map(name=>`"${name.replace(/["\\]/g,'')}"`),'"Microsoft YaHei"','sans-serif'].join(','),fontSize:f.size||14,fontWeight:/black|heavy/i.test(f.name)?900:/semibold|demibold/i.test(f.name)?600:/bold/i.test(f.name)?700:/medium/i.test(f.name)?500:/light|thin/i.test(f.name)?300:400,fontStyle:/italic|oblique/i.test(f.name)?'italic':'normal',color:a.MSAttributedStringColorAttribute?color(a.MSAttributedStringColorAttribute):'#000',letterSpacing:a.kerning||0,textDecoration:[a.underlineStyle?'underline':'',a.strikethroughStyle?'line-through':''].filter(Boolean).join(' ')||undefined};
 }
+export const ThumbnailTextContext=createContext(false);
 function Text({l}:{l:Layer}) {
  const runs=textRuns(l),first=runs[0]?.attributes||{},p=first.paragraphStyle||{},size=first.MSAttributedStringFontAttribute?.attributes?.size||14,vertical=l.style?.textStyle?.verticalAlignment||0;
- return <foreignObject width={Math.max(1,l.frame.width)} height={Math.max(1,l.frame.height)} style={{overflow:'hidden'}}><div style={{height:'100%',display:'flex',flexDirection:'column',justifyContent:vertical===1?'center':vertical===2?'flex-end':'flex-start'}}><div style={{...fontStyle(first),lineHeight:p.maximumLineHeight?`${p.maximumLineHeight}px`:p.minimumLineHeight?`${p.minimumLineHeight}px`:`${size*1.2}px`,textAlign:({0:'left',1:'right',2:'center',3:'justify'} as any)[p.alignment]||'left',whiteSpace:'pre-wrap',overflowWrap:'break-word',margin:0}}>{runs.map((run,i)=><span key={i} style={fontStyle(run.attributes)}>{run.text}</span>)}</div></div></foreignObject>;
+ const compact=useContext(ThumbnailTextContext);
+ if(compact){const style=fontStyle(first),lineHeight=p.maximumLineHeight||p.minimumLineHeight||size*1.2;return <svg width={Math.max(1,l.frame.width)} height={Math.max(1,l.frame.height)} overflow="hidden"><text x={p.alignment===2?l.frame.width/2:p.alignment===1?l.frame.width:0} y={size} textAnchor={p.alignment===2?'middle':p.alignment===1?'end':'start'} fill={style.color} fontFamily={style.fontFamily} fontSize={size} fontWeight={style.fontWeight} fontStyle={style.fontStyle}>{runs.map(r=>r.text).join('').split(/\r?\n/).map((line,i)=><tspan key={i} x={p.alignment===2?l.frame.width/2:p.alignment===1?l.frame.width:0} dy={i?lineHeight:0}>{line}</tspan>)}</text></svg>;}
+ return <foreignObject width={Math.max(1,l.frame.width)} height={Math.max(1,l.frame.height)} style={{overflow:'hidden'}}><div {...{xmlns:'http://www.w3.org/1999/xhtml'}} style={{height:'100%',display:'flex',flexDirection:'column',justifyContent:vertical===1?'center':vertical===2?'flex-end':'flex-start'}}><div style={{...fontStyle(first),lineHeight:p.maximumLineHeight?`${p.maximumLineHeight}px`:p.minimumLineHeight?`${p.minimumLineHeight}px`:`${size*1.2}px`,textAlign:({0:'left',1:'right',2:'center',3:'justify'} as any)[p.alignment]||'left',whiteSpace:'pre-wrap',overflowWrap:'break-word',margin:0}}>{runs.map((run,i)=><span key={i} style={fontStyle(run.attributes)}>{run.text}</span>)}</div></div></foreignObject>;
 }
 
 export function Node({l,doc,choose,interactive=true}:Props) {

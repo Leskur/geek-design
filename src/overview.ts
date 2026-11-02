@@ -11,3 +11,12 @@ export function boardVisible(b:Layer,camera:Camera,width:number,height:number,ma
 export function matchesLayer(layer:Layer,query:string):boolean{const q=query.trim().toLocaleLowerCase();if(!q)return true;return layer.name.toLocaleLowerCase().includes(q)||String(layer.attributedString?.string||'').toLocaleLowerCase().includes(q)||(layer.overrideValues||[]).some((o:any)=>typeof o.value==='string'&&o.value.toLocaleLowerCase().includes(q))||!!layer.layers?.some(l=>matchesLayer(l,q));}
 
 export function matchesBoardName(layer:Layer,query:string):boolean{return layer.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());}
+
+// At overview scale, tiny boards need only their bounds. Bound expensive image
+// paints even when a whole page fits in the viewport; selection always wins.
+export function previewBoards(boards:Layer[],camera:Camera,width:number,height:number,selectedId?:string,limit=64):Set<string>{
+ const candidates=boards.filter(b=>b.do_objectID===selectedId||(b.frame.width*camera.scale>=24&&b.frame.height*camera.scale>=16));
+ const distance=(b:Layer)=>Math.hypot((b.frame.x+b.frame.width/2)*camera.scale+camera.x-width/2,(b.frame.y+b.frame.height/2)*camera.scale+camera.y-height/2);
+ candidates.sort((a,b)=>a.do_objectID===selectedId?-1:b.do_objectID===selectedId?1:distance(a)-distance(b));
+ return new Set(candidates.slice(0,limit).map(b=>b.do_objectID));
+}

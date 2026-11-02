@@ -19,3 +19,5 @@
 
 .app header .primary{display:inline-flex;align-items:center;gap:7px}.app header .brand{gap:6px}.app header .brand>span{margin-left:-6px}
 @media(max-width:480px){.wb-space-switch{display:block;padding:0 10px 12px}.wb-space-switch .page-switcher-trigger{padding:8px;justify-content:center}.wb-space-switch .page-switcher-name{display:none}.wb-space-switch .page-switcher-popover{width:190px}.wb-sidebar-bottom>a{display:flex;font-size:0;justify-content:center;padding:12px 8px}.wb-sidebar-bottom>a>svg:last-child:not(:first-child){display:none}.wb-space-empty{font-size:0!important;justify-content:center!important;padding:6px}.wb-space-empty>svg{display:none}}
+
+.wb-edit-name{display:flex;flex-direction:column;gap:10px;color:#717184;font-size:12px}.wb-edit-name input{width:100%;padding:10px 12px;border:1px solid #dfdfe9;border-radius:7px;background:#fff;color:#35323f}

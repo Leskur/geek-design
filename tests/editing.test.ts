@@ -1,0 +1,55 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {mkdtemp,mkdir,writeFile} from 'node:fs/promises';
+import path from 'node:path';
+import {createApp} from '../server/app';
+
+test('rename and move preserve identity and revisions, validate input and enforce existing access',async()=>{
+ const root=await mkdtemp(path.resolve('.test-output/editing-')),{app,store,storage}=await createApp({dataDir:root,startJobs:false});
+ const call=(url:string,cookie='',method:any='GET',payload?:any)=>app.inject({url:'/api'+url,method,headers:{host:'test.local',origin:'http://test.local',cookie},payload});
+ const signup=async(username:string)=>{const r=await call('/register','','POST',{username,password:'abc123'});assert.equal(r.statusCode,200,r.body);return {...r.json(),cookie:'sp_session='+r.cookies[0].value};};
+ try{
+ const owner=await signup('owner'),admin=await signup('admin'),designer=await signup('designer'),viewer=await signup('viewer'),outsider=await signup('outsider');
+ const team=(await call('/teams',owner.cookie,'POST',{name:'Team'})).json(),other=(await call('/teams',owner.cookie,'POST',{name:'Other'})).json();
+ for(const [u,role]of [[admin,'admin'],[designer,'member'],[viewer,'member']] as const)store.run('INSERT INTO team_members VALUES(?,?,?)',team.id,u.id,role);
+ const project=async(teamId:string,name:string)=>(await call('/projects',owner.cookie,'POST',{teamId,name})).json();
+ const source=await project(team.id,'Source'),target=await project(team.id,'Target'),restricted=await project(team.id,'Restricted'),external=await project(other.id,'External');
+ for(const p of [source,target])for(const [u,role]of [[designer,'designer'],[viewer,'viewer']] as const)store.run('INSERT INTO members VALUES(?,?,?)',p.id,u.id,role);
+ store.run("INSERT INTO documents VALUES('design',?,'Design','r2',1)",source.id);
+ const key='artifact',dir=storage.path('artifacts',key);await mkdir(dir,{recursive:true});await writeFile(path.join(dir,'manifest.json'),JSON.stringify({pages:[],pageFiles:{},assets:{}}));
+ store.run("INSERT INTO artifacts(key,hash,version,status,created) VALUES(?,'hash','v','ready',1)",key);
+ for(const n of [1,2])store.run("INSERT INTO revisions(id,document_id,seq,hash,size,filename,note,created_by,artifact_key,status,created) VALUES(?,'design',?,?,1,'original.sketch','',?,?,'ready',1)",'r'+n,n,'hash'+n,owner.id,key);
+ assert.equal((await call('/teams/'+team.id,'','PATCH',{name:'New'})).statusCode,401);
+ assert.equal((await call('/teams/'+team.id,outsider.cookie,'PATCH',{name:'New'})).statusCode,404);
+ assert.equal((await call('/teams/'+team.id,designer.cookie,'PATCH',{name:'New'})).statusCode,403);
+ assert.equal((await call('/teams/'+team.id,admin.cookie,'PATCH',{name:' New Team '})).statusCode,200);
+ assert.equal(store.one('SELECT name FROM teams WHERE id=?',team.id).name,'New Team');
+ assert.equal((await call('/projects/'+source.id,designer.cookie,'PATCH',{name:'New'})).statusCode,403);
+ assert.equal((await call('/projects/'+source.id,admin.cookie,'PATCH',{name:'New Project'})).statusCode,200);
+ for(const name of ['', '  ', 'a'.repeat(121),null,5])assert.equal((await call('/documents/design',owner.cookie,'PATCH',{name})).statusCode,400);
+ assert.equal((await call('/documents/design',viewer.cookie,'PATCH',{name:'New'})).statusCode,403);
+ assert.equal((await call('/documents/design',designer.cookie,'PATCH',{name:' New Design '})).statusCode,200);
+ assert.equal((await call('/documents/design',owner.cookie)).json().name,'New Design');
+ const before=store.all('SELECT * FROM revisions WHERE document_id=? ORDER BY seq','design');
+ assert.equal((await call('/documents/design/move',viewer.cookie,'POST',{projectId:target.id})).statusCode,403);
+ assert.equal((await call('/documents/design/move',outsider.cookie,'POST',{projectId:target.id})).statusCode,404);
+ assert.equal((await call('/documents/design/move',designer.cookie,'POST',{projectId:restricted.id})).statusCode,404);
+ assert.equal((await call('/documents/design/move',owner.cookie,'POST',{projectId:external.id})).statusCode,400);
+ assert.equal((await call('/documents/design/move',owner.cookie,'POST',{})).statusCode,400);
+ store.run("UPDATE revisions SET status='processing' WHERE id='r2'");
+ assert.equal((await call('/documents/design/move',owner.cookie,'POST',{projectId:target.id})).statusCode,409);
+ assert.equal(store.one("SELECT project_id FROM documents WHERE id='design'").project_id,source.id);
+ store.run("UPDATE revisions SET status='ready' WHERE id='r2'");store.run("INSERT INTO uploads VALUES('upload','r2',?,1,'uploading',1)",owner.id);
+ assert.equal((await call('/documents/design/move',owner.cookie,'POST',{projectId:target.id})).statusCode,409);
+ store.run("UPDATE uploads SET status='failed' WHERE id='upload'");
+ assert.equal((await call('/documents/design/move',designer.cookie,'POST',{projectId:target.id})).statusCode,200);
+ const moved=(await call('/documents/design',owner.cookie)).json();assert.equal(moved.id,'design');assert.equal(moved.project_id,target.id);assert.equal(moved.current_revision,'r2');
+ assert.deepEqual(store.all('SELECT * FROM revisions WHERE document_id=? ORDER BY seq','design'),before);
+ assert.equal((await call('/revisions/r1/manifest',owner.cookie)).json().projectId,target.id);
+ assert.equal((await call('/projects/'+source.id+'/documents',owner.cookie)).json().length,0);
+ assert.equal((await call('/projects/'+target.id+'/documents',owner.cookie)).json().length,1);
+ assert.equal((await call('/documents/design/move',designer.cookie,'POST',{projectId:target.id})).statusCode,200);
+ assert.equal((await call('/documents/design/move',owner.cookie,'POST',{projectId:restricted.id})).statusCode,200);
+ assert.equal((await call('/revisions/r1',designer.cookie)).statusCode,404);
+ }finally{await app.close();}
+});

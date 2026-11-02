@@ -17,3 +17,8 @@
 .opening-actions{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:24px}.opening-actions button{display:flex;align-items:center;gap:7px;border-color:#dbe0ea;font-size:12px;padding:8px 12px;background:#fff;color:#7d689c}.opening-actions a{font-size:12px;color:#8e7ba9;text-decoration:none}
 .opening-inspector>.opening-placeholder{margin:20px 20px 0;width:calc(100% - 40px);height:14px;background:#f0f2f7}.opening-inspector>.opening-short{width:calc(60% - 20px);height:9px;margin-top:12px;background:#f5f6fa}
 @media(max-width:760px){.team-overview-heading{align-items:flex-start;flex-wrap:wrap;gap:12px}.team-overview-heading h1{font-size:22px}.team-overview-heading p{font-size:11px}.team-overview-heading>.button-link{margin-left:auto;font-size:11px}.team-overview-projects{grid-template-columns:minmax(0,1fr)}.team-overview-create{font-size:10px!important;padding:7px 10px}.opening-message h1{font-size:15px}.opening-message p{font-size:11px}}
+
+.document-opening .opening-sidebar{padding-top:24px}
+.opening-spinner{animation:opening-spin 1s linear infinite}
+@keyframes opening-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.opening-spinner{animation-duration:2s}}

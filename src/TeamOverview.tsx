@@ -1,7 +1,17 @@
-import {Folder,Users,Plus,ChevronRight} from 'lucide-react';
-import {projectPath,teamPath} from './routes';
-type Props={team:any;projects:any[];files:any[];onCreateProject:()=>void};
-export function TeamOverview({team,projects,files,onCreateProject}:Props){
- const canCreate=team.role!=='member';
- return <div className="team-overview"><div className="team-overview-heading"><span className="team-overview-avatar">{Array.from(team.name as string)[0]}</span><div><h1>{team.name}</h1><p>{projects.length} 个项目 <span>·</span> {files.length} 份设计 <span>·</span> {team.member_count} 位成员</p></div><a className="button-link" href={teamPath(team.id)+'/members'}><Users size={16}/>成员与邀请</a></div><div className="wb-section-heading"><h2>团队项目</h2>{canCreate&&<button className="primary team-overview-create" onClick={onCreateProject}><Plus size={16}/>新建项目</button>}</div>{projects.length?<div className="team-overview-projects">{projects.map(p=><a key={p.id} href={projectPath(p.id)} className="team-overview-project"><span className="team-overview-folder"><Folder size={25} strokeWidth={1.6}/></span><div><h3>{p.name}</h3><p>{files.filter(d=>d.project_id===p.id).length} 份设计文件</p></div><ChevronRight size={16}/></a>)}</div>:<div className="wb-soft-empty"><Folder size={34}/><h3>{canCreate?'创建第一个项目':'等待分配项目'}</h3>{canCreate&&<button onClick={onCreateProject}><Plus size={14}/>新建项目</button>}</div>}</div>;
+import {ManagementSearch} from './ManagementSearch';
+import {useState} from 'react';
+import {Folder,Plus,ChevronRight,Ellipsis,Pencil,Trash2} from 'lucide-react';
+import {projectPath} from './routes';
+import {ContextMenu,type MenuPosition} from './ContextMenu';
+
+type Props={team:any;projects:any[];files:any[];onCreateProject:()=>void;onRename?:(kind:'team'|'project',item:any)=>void;onDelete?:(kind:'team'|'project',item:any)=>void};
+export function TeamOverview({team,projects,files,onCreateProject,onRename,onDelete}:Props){
+ const canCreate=team.role!=='member', [query,setQuery]=useState(''),[menu,setMenu]=useState<(MenuPosition&{kind:'team'|'project';item:any})|null>(null);
+ const visible=projects.filter(p=>p.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+ return <div className="team-overview management-overview">
+ <ManagementSearch label="搜索项目" value={query} onChange={setQuery} result={query?`${visible.length} 个匹配项目`:undefined}/>
+
+ {visible.length?<div className="team-overview-projects">{visible.map(p=>{const designs=files.filter(d=>d.project_id===p.id),updated=Math.max(0,...designs.map(d=>d.updated||d.created||0));return <article className="management-project-card" key={p.id}><a href={projectPath(p.id)} className="team-overview-project"><span className="team-overview-folder"><Folder size={24} strokeWidth={1.6}/></span><div><h3>{p.name}</h3><p>{designs.length} 份设计文件</p></div><ChevronRight size={16}/></a><div className="management-project-footer"><span>{updated?`更新于 ${new Date(updated).toLocaleDateString('zh-CN')}`:'尚未上传设计'}</span>{p.role==='owner'&&onRename&&<button className="wb-icon-button" aria-label={`${p.name}的项目操作`} onClick={e=>setMenu({kind:'project',item:p,x:e.clientX,y:e.clientY})}><Ellipsis size={16}/></button>}</div></article>;})}</div>:<div className="wb-soft-empty"><Folder size={30}/><h3>{query?'没有找到匹配的项目':canCreate?'创建第一个项目':'还没有可查看的项目'}</h3><p>{query?'试试其他名称，或清除搜索。':'把相关设计放在同一个项目，方便查找和交付。'}</p>{query?<button onClick={()=>setQuery('')}>清除搜索</button>:canCreate&&<button className="primary" onClick={onCreateProject}><Plus size={15}/>新建项目</button>}</div>}
+ {menu&&<ContextMenu position={menu} onClose={()=>setMenu(null)}>{onRename&&<button onClick={()=>onRename(menu.kind,menu.item)}><Pencil size={16}/>重命名{menu.kind==='team'?'团队':'项目'}</button>}{onDelete&&(menu.kind==='project'||team.role==='owner')&&<button className="danger" onClick={()=>onDelete(menu.kind,menu.item)}><Trash2 size={16}/>删除{menu.kind==='team'?'团队':'项目'}</button>}</ContextMenu>}
+ </div>;
 }

@@ -1,4 +1,4 @@
-export type Route={kind:'local'|'team'|'revision'|'missing';projectId?:string;documentId?:string;revisionId?:string;teamId?:string;section?:'members'|'overview';auth?:'login'|'register';inviteToken?:string};
+export type Route={kind:'local'|'team'|'revision'|'missing';projectId?:string;documentId?:string;revisionId?:string;teamId?:string;section?:'members'|'overview'|'settings';auth?:'login'|'register';inviteToken?:string};
 const part=(id:string)=>encodeURIComponent(id);
 export const projectPath=(projectId:string)=>`/projects/${part(projectId)}`;
 export const documentPath=(projectId:string,documentId:string)=>`${projectPath(projectId)}/documents/${part(documentId)}`;
@@ -19,6 +19,7 @@ export function routeFor(pathname:string,search=''):Route{
   if(parts.length===1)return {kind:'team'};
   if(parts.length===2)return {kind:'team',teamId:parts[1],section:'overview'};
   if(parts.length===3&&parts[2]==='workspace')return {kind:'team',teamId:parts[1]};
+  if(parts.length===3&&parts[2]==='settings')return {kind:'team',teamId:parts[1],section:'settings'};
   if(parts.length===3&&parts[2]==='members')return {kind:'team',teamId:parts[1],section:'members'};
  }
  if(parts[0]==='projects'){

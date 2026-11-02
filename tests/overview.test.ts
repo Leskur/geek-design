@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {pageBounds,fitPage,zoomPage,boardVisible,matchesLayer} from '../src/overview';
+import {pageBounds,fitPage,zoomPage,boardVisible,matchesLayer,previewBoards} from '../src/overview';
 import {SceneCache} from '../src/SceneCache';
 import type {Layer,DocumentSource} from '../src/sketch';
 const board=(id:string,x:number,y:number,w=414,h=1000):Layer=>({_class:'artboard',do_objectID:id,name:id,frame:{x,y,width:w,height:h},layers:[]});
@@ -15,4 +15,16 @@ test('unified search finds board names, nested text and component override conte
 });
 test('resolved preview scenes reuse a bounded cache without modifying source boards',()=>{
  const cache=new SceneCache({symbols:new Map(),styles:new Map()} as DocumentSource,2),a=board('a',0,0),before=JSON.stringify(a);const first=cache.get(a);assert.equal(cache.get(a),first);cache.get(board('b',0,0));cache.get(board('c',0,0));assert.notEqual(cache.get(a),first);assert.equal(JSON.stringify(a),before);
+});
+
+test('zoomed-out overview keeps tiny boards as bounds and restores previews on zoom or selection',()=>{
+ const boards=[board('tiny',0,0,414,1000),board('short',0,0,1000,10)];
+ assert.deepEqual([...previewBoards(boards,{x:0,y:0,scale:.01},800,600)],[]);
+ assert.deepEqual([...previewBoards(boards,{x:0,y:0,scale:.01},800,600,'tiny')],['tiny']);
+ assert.ok(previewBoards(boards,{x:0,y:0,scale:.1},800,600).has('tiny'));
+});
+test('overview bounds simultaneous previews and prioritizes selection and viewport center',()=>{
+ const boards=Array.from({length:601},(_,i)=>board(String(i),i*20,0,100,100));
+ const ids=previewBoards(boards,{x:0,y:0,scale:1},800,600,'600',64);
+ assert.equal(ids.size,64);assert.equal([...ids][0],'600');assert.ok(ids.has('17'));assert.equal(ids.has('599'),false);
 });
