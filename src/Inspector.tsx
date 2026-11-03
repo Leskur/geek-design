@@ -1,6 +1,6 @@
 import {SelectionExportDisclosure} from './SelectionExport';
 import {useEffect,useMemo,useState} from 'react';
-import {Copy,Image,MousePointer2,Download,Type,Layers,AlertCircle} from 'lucide-react';
+import {Copy,Image,MousePointer2,Type,Layers,AlertCircle} from 'lucide-react';
 import type {Layer,DocumentSource} from './sketch';
 import {hasFont} from './fonts';
 import {textRuns} from './scene';
@@ -12,8 +12,8 @@ function Value({label,value,copyValue,onCopy}:{label:string;value:string;copyVal
 export function Inspector({selected:l,root,doc,onCopy,onLoadFont}:{selected:Layer|null;root:Layer|null;doc:DocumentSource;onCopy:Copy;onLoadFont:(name:string)=>void}) {
 
  const [activeRun,setActiveRun]=useState(0);
- const [colorMode,setColorMode]=useState('HEX'),[assetError,setAssetError]=useState(''),[downloading,setDownloading]=useState('');
- useEffect(()=>{setAssetError('');setActiveRun(0);},[l?.do_objectID]);
+ const [colorMode,setColorMode]=useState('HEX');
+ useEffect(()=>{setActiveRun(0);},[l?.do_objectID]);
  const index=useMemo(()=>root?indexLayers(root):null,[root]),entry=l?index?.get(l.do_objectID):null;
  const s=l?.style||{},fills=(s.fills||[]).filter((p:any)=>p.isEnabled),runs=l?textRuns(l):[];
  const isContainer=!!l&&['group','symbolInstance','artboard'].includes(l._class);
@@ -30,9 +30,9 @@ export function Inspector({selected:l,root,doc,onCopy,onLoadFont}:{selected:Laye
  const copyCSS=mixed?'/* 图层与片段分别应用；类名可按项目调整。 */\n.text-layer {\n'+css.split('\n').filter(line=>!line.startsWith('/*')).map(line=>'  '+line).join('\n')+'\n}\n\n'+textStyles.map((r,i)=>`/* 片段 ${i+1}: ${r.text.replace(/\*\//g,'* /').replace(/[\r\n]+/g,' ')} */\n.text-fragment-${i+1} {\n`+Object.entries(r.styles).map(([key,value])=>`  ${key}: ${value};`).join('\n')+'\n}').join('\n\n'):css;
  const resources=[...(l?.image?._ref?[{ref:l.image._ref,label:'原始图片'}]:[]),...fills.filter((p:any)=>p.image?._ref).map((p:any,i:number)=>({ref:p.image._ref,label:`填充图片 ${i+1}`}))].filter((r,i,all)=>all.findIndex(x=>x.ref===r.ref)===i);
  const typeName=l?({text:'文字',group:'分组',symbolInstance:'组件',bitmap:'图片',shapeGroup:'组合形状',shapePath:'矢量路径',rectangle:'矩形',oval:'椭圆',artboard:'画板'} as Record<string,string>)[l._class]||'图层':'';
- async function download(ref:string){setAssetError('');setDownloading(ref);try{const url=await doc.image(ref);if(!url)throw new Error('未找到原始图片');const a=document.createElement('a');a.href=url;a.download=ref.split('/').pop()||'image';a.click();}catch(e){setAssetError((e as Error).message);}finally{setDownloading('');}}
+
  const codePanel=<div className="delivery-code"><div className="inspector-section-title"><h4>CSS</h4><button className="inspector-copy" aria-label="复制全部 CSS" title="复制全部 CSS" onClick={()=>onCopy(copyCSS)}><Copy size={13} aria-hidden="true"/></button></div>{sections.map(section=><section className="delivery-code-section" key={section.id}><div><h4>{section.label}</h4><button className="inspector-copy" title={`复制${section.label}代码`} aria-label={`复制${section.label}代码`} onClick={()=>onCopy(section.code)}><Copy size={13}/></button></div><ol>{section.code.split('\n').map((line,i)=>{const colon=line.indexOf(':');return <li key={i}><code><span>{line.slice(0,colon)}</span>: <b>{line.slice(colon+1).trim()}</b></code></li>;})}</ol></section>)}</div>;
- const exportPanel=l?<section className="selection-export" aria-label="资源导出">{!isContainer&&resources.length>0&&<section className="developer-assets" aria-label="图片资源"><div className="inspector-section-title"><h4>原始图片</h4>{resources.length>1&&<span>{resources.length}</span>}</div>{resources.map(r=><div className="inspector-asset" key={r.ref}><AssetPreview doc={doc} reference={r.ref}/><b>{r.label}</b><small title={r.ref}>{r.ref.split('/').pop()}</small><button disabled={!!downloading} onClick={()=>download(r.ref)}><Download size={14}/>{downloading===r.ref?'正在准备…':'下载原图'}</button></div>)}{assetError&&<p role="alert" className="inspector-error">{assetError}</p>}</section>}<SelectionExportDisclosure key={l.do_objectID} layer={l} doc={doc} hasImages={!isContainer&&resources.length>0}/></section>:null;
+ const exportPanel=l?<section className="selection-export" aria-label="导出设置">{!isContainer&&resources.length>0&&<section className="developer-assets" aria-label="图片资源"><div className="inspector-section-title"><h4>图片资源</h4>{resources.length>1&&<span>{resources.length}</span>}</div>{resources.map(r=><div className="inspector-asset" key={r.ref}><AssetPreview doc={doc} reference={r.ref}/><div className="inspector-asset-info"><b>{r.label}</b><small title={r.ref}>{r.ref.split('/').pop()}</small></div></div>)}</section>}<SelectionExportDisclosure key={l.do_objectID} layer={l} doc={doc}/></section>:null;
  return <aside hidden={!l} className="right gd-inspector" aria-label="图层检查面板">{l?<><div className="inspector-selection"><div className="inspector-identity">{l._class==='text'?<Type size={18}/>:<Layers size={18}/>}<h3 title={l.name}>{l.name}</h3>{l._class==='text'&&<button className="identity-copy inspector-copy" aria-label="复制文案" title="复制文案" onClick={()=>onCopy(l.attributedString?.string||'')}><Copy size={13}/></button>}<span className="type">{typeName}</span></div>{l._componentName&&<p className="component-origin">来自组件 · {l._componentName}</p>}</div><div className="inspect" id="inspect-panel">
  {l._class==='text'&&<section className="developer-copy-content"><div className="inspector-section-title"><h4>文案</h4><button className="inspector-copy" title="复制文案" aria-label="复制文案" onClick={()=>onCopy(l.attributedString?.string||'')}><Copy size={13} aria-hidden="true"/></button></div><div className="text-preview developer-content">{l.attributedString?.string}</div></section>}
 

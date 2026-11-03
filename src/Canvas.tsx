@@ -74,9 +74,9 @@ export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings,onOvervi
  }
  function zoom(factor:number){const v=viewport.current;if(v){const area=viewportArea(v);setCamera(c=>zoomAt(c,c.scale*factor,{x:area.x+area.width/2,y:area.y+area.height/2}));}}
  useViewerShortcuts(zoom,()=>fit(),()=>zoom(1/cameraRef.current.scale));
- const isRotated=selectedEntry&&Math.abs(selectedEntry.matrix[1])+Math.abs(selectedEntry.matrix[2])>.00001;
+
  return <main className="center">
-  <ViewerToolbar host={toolbarHost}><span>{pageName}<i>/</i><b>{root.name}</b></span><div><button aria-label="默认工具" aria-pressed={true} title="默认工具：单击选中，拖动平移" onClick={()=>viewport.current?.focus({preventScroll:true})}><MousePointer2 size={18}/></button><ZoomMenu host={zoomHost} scale={camera.scale} onScale={scale=>zoom(scale/cameraRef.current.scale)} onFit={()=>fit()} fitLabel="适合画板"/></div></ViewerToolbar>
+  <ViewerToolbar host={toolbarHost}><span>{pageName}<i>/</i><b>{root.name}</b></span><div><button aria-label="默认工具" aria-pressed={true} title="默认工具" onClick={()=>viewport.current?.focus({preventScroll:true})}><MousePointer2 size={18}/></button><ZoomMenu host={zoomHost} scale={camera.scale} onScale={scale=>zoom(scale/cameraRef.current.scale)} onFit={()=>fit()} fitLabel="适合画板"/></div></ViewerToolbar>
   <div ref={viewport} className={`viewport interactive-canvas${space?' is-space':''}${dragging?' is-dragging':''}`} tabIndex={0} aria-label="设计画布，悬停预览，单击选中内部图层，Shift 选择父级，拖动平移画布，按住 Alt 测量间距" data-space={space} data-dragging={dragging} data-camera-x={camera.x.toFixed(2)} data-camera-y={camera.y.toFixed(2)}
    onPointerDown={e=>{suppress.current=false;if(e.button!==0&&e.button!==1)return;e.currentTarget.focus({preventScroll:true});if(keys.current.alt||e.altKey)return;const pan=keys.current.space||e.button===1;drag.current={id:e.pointerId,x:e.clientX,y:e.clientY,camera:{...cameraRef.current},pan};if(pan){e.preventDefault();suppress.current=true;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);setHoverId(null);}}}
    onPointerMove={e=>{const d=drag.current;if(d&&d.id===e.pointerId){if(!d.pan){if(Math.hypot(e.clientX-d.x,e.clientY-d.y)<=4)return;d.pan=true;suppress.current=true;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);setHoverId(null);}e.preventDefault();setCamera(panFromAnchor(d.camera,d,{x:e.clientX,y:e.clientY}));return;}if(keys.current.space)return;setHoverId(hit(e.target,e.shiftKey&&!keys.current.alt&&!e.altKey));}}
@@ -89,7 +89,7 @@ export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings,onOvervi
      <g className="inspection-overlay" pointerEvents="none">{selectedEntry&&<Outline entry={selectedEntry} scale={camera.scale} kind="selected"/>}{hovered&&hovered!==selectedEntry&&!space&&!dragging&&<Outline entry={hovered} scale={camera.scale} kind="hover"/>}<g stroke="#f45a76" strokeWidth={1/camera.scale}>{distances.map((d,i)=><Ruler key={i} distance={d} scale={camera.scale}/>)}</g></g>
     </svg>
    </div>
-   <div className="canvas-mode" aria-live="polite">{dragging?'拖动画布':space?'按住鼠标拖动':alt&&selectedEntry?(isRotated?'测量：画板像素 · 旋转图层按外接框':'测量：画板像素，不随缩放改变'):''}</div>
+
   </div>
   {scene.warnings.length>0&&<div className="canvas-foot"><button className="compatibility" onClick={onWarnings}>查看 {scene.warnings.length} 项兼容提示</button></div>}
  </main>;

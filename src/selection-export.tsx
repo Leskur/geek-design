@@ -5,6 +5,11 @@ import {color} from './sketch';
 import {exportRoot,resourceRefs,safeName} from './ai-export';
 
 export type ImageFormat='png'|'jpg'|'svg';
+export function visiblePixelBounds(data:Uint8ClampedArray,width:number,height:number){
+ let left=width,top=height,right=-1,bottom=-1;
+ for(let y=0;y<height;y++)for(let x=0;x<width;x++)if(data[(y*width+x)*4+3]){left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);}
+ return right<left?null:{x:left,y:top,width:right-left+1,height:bottom-top+1};
+}
 export function exportBounds(layer:Layer){
  const angle=(layer.rotation||0)*Math.PI/180,c=Math.abs(Math.cos(angle)),s=Math.abs(Math.sin(angle)),w=layer.frame.width,h=layer.frame.height;
  const width=w*c+h*s,height=w*s+h*c;return {x:(w-width)/2,y:(h-height)/2,width,height};
@@ -55,13 +60,23 @@ export async function exportSelection(layer:Layer,doc:DocumentSource,format:Imag
  const parsed=new DOMParser().parseFromString(markup,'image/svg+xml');if(parsed.querySelector('parsererror'))throw Error('导出内容生成失败');
  flattenText(parsed.documentElement as unknown as SVGSVGElement,scale);
  const svg=new Blob([new XMLSerializer().serializeToString(parsed)],{type:'image/svg+xml;charset=utf-8'});
- if(format==='svg')return svg;
  const url=URL.createObjectURL(svg);
  try{
   const image=await new Promise<HTMLImageElement>((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(Error('导出图像渲染失败'));img.src=url;});
   const canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;const ctx=canvas.getContext('2d');if(!ctx)throw Error('无法创建导出画布');
-  if(format==='jpg'){ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);}ctx.drawImage(image,0,0,width,height);
-  return await new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('生成图片失败')),format==='jpg'?'image/jpeg':'image/png',.95));
+  ctx.drawImage(image,0,0,width,height);
+  const crop=visiblePixelBounds(ctx.getImageData(0,0,width,height).data,width,height);
+  if(!crop)throw Error('所选元素没有可见内容');
+  if(format==='svg'){
+   const svgRoot=parsed.documentElement;
+   svgRoot.setAttribute('viewBox',`${bounds.x+crop.x*bounds.width/width} ${bounds.y+crop.y*bounds.height/height} ${crop.width*bounds.width/width} ${crop.height*bounds.height/height}`);
+   svgRoot.setAttribute('width',String(crop.width));svgRoot.setAttribute('height',String(crop.height));
+   return new Blob([new XMLSerializer().serializeToString(parsed)],{type:'image/svg+xml;charset=utf-8'});
+  }
+  const output=document.createElement('canvas');output.width=crop.width;output.height=crop.height;const target=output.getContext('2d');if(!target)throw Error('无法创建导出画布');
+  if(format==='jpg'){target.fillStyle='#fff';target.fillRect(0,0,crop.width,crop.height);}
+  target.drawImage(canvas,crop.x,crop.y,crop.width,crop.height,0,0,crop.width,crop.height);
+  return await new Promise<Blob>((resolve,reject)=>output.toBlob(blob=>blob?resolve(blob):reject(Error('生成图片失败')),format==='jpg'?'image/jpeg':'image/png',.95));
  }finally{URL.revokeObjectURL(url);}
 }
 export async function downloadSelection(layer:Layer,doc:DocumentSource,format:ImageFormat,scale:number){

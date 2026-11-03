@@ -75,7 +75,7 @@ test('container inspector prioritizes own layout and CSS before export and ignor
  const group:any={_class:'group',do_objectID:'container',name:'Card',frame:{x:0,y:0,width:100,height:100},layers:[child]};
  const html=renderToStaticMarkup(<Inspector selected={group} root={group} doc={{} as any} onCopy={()=>{}} onLoadFont={()=>{}}/>);
  assert.ok(html.indexOf('>布局</h4>')<html.indexOf('>CSS</h4>'));
- assert.ok(html.indexOf('>CSS</h4>')<html.indexOf('aria-label="资源导出"'));
+ assert.ok(html.indexOf('>CSS</h4>')<html.indexOf('aria-label="导出设置"'));
  assert.doesNotMatch(html,/developer-copy-content|developer-typography|developer-assets/);
  assert.ok(html.indexOf('复制 width')<html.indexOf('复制 x'));
 });

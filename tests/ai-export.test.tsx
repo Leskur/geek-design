@@ -1,4 +1,4 @@
-import {exportSize,exportBounds} from '../src/selection-export';
+import {exportSize,exportBounds,visiblePixelBounds} from '../src/selection-export';
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {BlobReader,TextWriter,ZipReader} from '@zip.js/zip.js';
@@ -18,4 +18,10 @@ test('selection exports size rotated layers and reject oversized canvases',()=>{
  assert.ok(Math.abs(exportBounds(layer).x-50)<.0001);
  assert.throws(()=>exportSize({...layer,frame:{width:20000,height:20000}},3),/尺寸/);
  assert.throws(()=>exportSize({...layer,frame:{width:0,height:0}},2),/尺寸/);
+});
+
+test('selection crop trims transparent margins and retains translucent edge pixels',()=>{
+ const data=new Uint8ClampedArray(10*8*4);data[(2*10+3)*4+3]=255;data[(5*10+7)*4+3]=1;
+ assert.deepEqual(visiblePixelBounds(data,10,8),{x:3,y:2,width:5,height:4});
+ assert.equal(visiblePixelBounds(new Uint8ClampedArray(4*4*4),4,4),null);
 });
