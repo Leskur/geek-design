@@ -3,6 +3,8 @@ export type PageInfo={id:string;name:string;count:number};
 export interface DocumentSource {
  file:{name:string;size:number}; pages:PageInfo[]; symbols:Map<string,Layer>; styles:Map<string,any>;
  source:'local'|'team'; revisionId?:string;
+ fontLibrary?:{teamId:string;canUpload:boolean};
+ fontLoadError?(name:string):string|undefined; retryFonts?():Promise<void>;
  thumbnail?(boardId:string,small?:boolean):Promise<string>; retryThumbnails?():Promise<void>; canRegenerateThumbnails?:boolean;
  open():Promise<void>; loadSymbols():Promise<void>; page(id:string):Promise<Layer>; image(ref:string):Promise<string>; close():Promise<void>;
 }

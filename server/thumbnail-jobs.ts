@@ -1,6 +1,6 @@
 import {fork,type ChildProcess} from 'node:child_process';
 import type {Store} from './db';
-export const THUMBNAIL_VERSION='thumb-svg-3';
+export const THUMBNAIL_VERSION='thumb-svg-4';
 export class ThumbnailJobs{
  private timer?:ReturnType<typeof setInterval>;private child?:ChildProcess;private stopping=false;
  constructor(private store:Store){}

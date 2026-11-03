@@ -4,5 +4,5 @@ export function matchingTeamFonts(fonts:TeamFont[],names:string[]):TeamFont[]{co
 export async function loadBrowserFont(font:TeamFont,signal?:AbortSignal,previewAlias?:string):Promise<FontFace[]>{
  const response=await fetch(font.url,{credentials:'same-origin',signal});if(!response.ok)throw new Error(`字体「${font.full_name}」加载失败`);const bytes=await response.arrayBuffer(),names=previewAlias?[previewAlias]:[...new Set([font.postscript_name,font.full_name,font.family])];
  const faces=await Promise.all(names.map(name=>new FontFace(JSON.stringify(name),bytes,{weight:String(font.weight),style:font.style}).load()));
- if(signal?.aborted)throw new DOMException('字体加载已取消','AbortError');for(const face of faces)document.fonts.add(face);return faces;
+ if(signal?.aborted)throw new DOMException('字体加载已取消','AbortError');for(const face of faces)document.fonts.add(face);window.dispatchEvent(new Event('viewer-fonts-changed'));return faces;
 }

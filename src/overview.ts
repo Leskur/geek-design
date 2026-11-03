@@ -20,3 +20,9 @@ export function previewBoards(boards:Layer[],camera:Camera,width:number,height:n
  candidates.sort((a,b)=>a.do_objectID===selectedId?-1:b.do_objectID===selectedId?1:distance(a)-distance(b));
  return new Set(candidates.slice(0,limit).map(b=>b.do_objectID));
 }
+
+// Use raster previews at small scales even for selected boards; geometry remains interactive.
+export function pageRenderQuality(board:Layer,scale:number){
+ const screenSize=Math.max(board.frame.width,board.frame.height)*scale;
+ return {small:scale<.15||screenSize<=96,live:scale>=.5&&screenSize>160};
+}

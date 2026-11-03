@@ -35,8 +35,8 @@ export function textProperties(a:any):Record<string,string> {
 }
 export function cssForLayer(l:Layer) {
  const s=l.style||{},styles:Record<string,string>={width:`${number(l.frame.width)}px`,height:`${number(l.frame.height)}px`};
- const opacity=s.contextSettings?.opacity;if(opacity!=null&&opacity!==1)styles.opacity=number(opacity);
- const radii=cornerRadii(l);if(radii?.some(Boolean))styles['border-radius']=radii.every(x=>x===radii[0])?`${number(radii[0])}px`:radii.map(r=>`${number(r)}px`).join(' ');
+ const opacity=s.contextSettings?.opacity;if(opacity!=null&&number(opacity)!=='1')styles.opacity=number(opacity);
+ const radii=cornerRadii(l);if(radii?.some(r=>number(r)!=='0'))styles['border-radius']=radii.every(x=>x===radii[0])?`${number(radii[0])}px`:radii.map(r=>`${number(r)}px`).join(' ');
  if(l._class==='oval')styles['border-radius']='50%';
  const fills=(s.fills||[]).filter((f:any)=>f.isEnabled);
  if(l._class!=='text'){
@@ -44,9 +44,12 @@ export function cssForLayer(l:Layer) {
   if(paints.length===1&&paints[0])styles[fills[0].fillType===0?'background-color':'background']=paints[0];
   else if(paints.length>1&&paints.every(Boolean))styles.background=paints.map((p:string,i:number)=>fills[i].fillType===0?`linear-gradient(${p}, ${p})`:p).reverse().join(', ');
  }
+ const background=l._background||(l._class==='artboard'&&l.hasBackgroundColor?l.backgroundColor:null);
+ if(background&&!fills.length)styles['background-color']=cssColor(background);
  const border=(s.borders||[]).find((p:any)=>p.isEnabled&&p.fillType===0);if(border)styles.border=`${number(border.thickness||0)}px solid ${cssColor(border.color,border.contextSettings?.opacity??1)}`;
  const shadows=[...(s.shadows||[]).filter((s:any)=>s.isEnabled).map((s:any)=>shadowCSS(s)),...(s.innerShadows||[]).filter((s:any)=>s.isEnabled).map((s:any)=>shadowCSS(s,true))];if(shadows.length)styles['box-shadow']=shadows.join(', ');
- const transforms=[l.rotation?`rotate(${number(-l.rotation)}deg)`:'',l.isFlippedHorizontal?'scaleX(-1)':'',l.isFlippedVertical?'scaleY(-1)':''].filter(Boolean);if(transforms.length)styles.transform=transforms.join(' ');
+ const rotation=Number(number(-((l.rotation||0)%360)));
+ const transforms=[rotation?`rotate(${rotation}deg)`:'',l.isFlippedHorizontal?'scaleX(-1)':'',l.isFlippedVertical?'scaleY(-1)':''].filter(Boolean);if(transforms.length)styles.transform=transforms.join(' ');
  const runs=l._class==='text'?textRuns(l).map(r=>textProperties(r.attributes)):[];
  let mixed=false;
  if(runs.length){for(const [key,value] of Object.entries(runs[0])){if(runs.every(r=>r[key]===value))styles[key]=value;else mixed=true;}if(runs.some(r=>Object.keys(r).some(key=>runs[0][key]!==r[key])))mixed=true;}
@@ -57,10 +60,10 @@ export {color};
 
 
 export function cssSections(l:Layer){
- const layout=new Set(['width','height']),text=new Set(['font-family','font-size','font-weight','line-height','letter-spacing','text-align','font-style','text-decoration','color']);
- const parts={layout:[] as string[],text:[] as string[],style:[] as string[]};
- for(const line of cssForLayer(l).split('\n')){if(line.startsWith('/*'))continue;const key=line.split(':')[0];parts[layout.has(key)?'layout':text.has(key)?'text':'style'].push(line);}
- return [{id:'layout',label:'布局',code:parts.layout.join('\n')},{id:'text',label:'文字',code:parts.text.join('\n')},{id:'style',label:'外观',code:parts.style.join('\n')}].filter(p=>p.code);
+ const layout=new Set(['width','height']);
+ const parts={layout:[] as string[],style:[] as string[]};
+ for(const line of cssForLayer(l).split('\n')){if(line.startsWith('/*'))continue;const key=line.split(':')[0];parts[layout.has(key)?'layout':'style'].push(line);}
+ return [{id:'layout',label:'布局',code:parts.layout.join('\n')},{id:'style',label:'样式',code:parts.style.join('\n')}].filter(p=>p.code);
 }
 export function layerColors(root:Layer){
  const found=new Map<string,{color:any;opacity:number;label:string}>();

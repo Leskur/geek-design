@@ -1,0 +1,4 @@
+.overview-viewport,.interactive-canvas{cursor:grab!important}
+.page-board-surface,.page-board-surface *,.interactive-canvas .design-svg,.interactive-canvas .design-svg *{cursor:url('./assets/cursor-default.svg') 3 3,default!important}
+.overview-viewport.is-hand,.overview-viewport.is-hand *,.interactive-canvas.is-space,.interactive-canvas.is-space *{cursor:grab!important}
+.overview-viewport.dragging,.overview-viewport.dragging *,.interactive-canvas.is-dragging,.interactive-canvas.is-dragging *{cursor:grabbing!important}

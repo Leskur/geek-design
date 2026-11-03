@@ -1,3 +1,4 @@
+import {pageRenderQuality} from '../src/overview';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {pageBounds,fitPage,zoomPage,boardVisible,matchesLayer,previewBoards} from '../src/overview';
@@ -27,4 +28,13 @@ test('overview bounds simultaneous previews and prioritizes selection and viewpo
  const boards=Array.from({length:601},(_,i)=>board(String(i),i*20,0,100,100));
  const ids=previewBoards(boards,{x:0,y:0,scale:1},800,600,'600',64);
  assert.equal(ids.size,64);assert.equal([...ids][0],'600');assert.ok(ids.has('17'));assert.equal(ids.has('599'),false);
+});
+
+test('page rendering uses low samples at small scales and full detail only when useful',()=>{
+ const board:any={frame:{width:400,height:800}};
+ assert.deepEqual(pageRenderQuality(board,.1),{small:true,live:false});
+ assert.deepEqual(pageRenderQuality(board,.2),{small:false,live:false});
+ assert.deepEqual(pageRenderQuality(board,.35),{small:false,live:false});
+ assert.deepEqual(pageRenderQuality(board,.75),{small:false,live:true});
+ assert.deepEqual(pageRenderQuality({frame:{width:50,height:50}} as any,1),{small:true,live:false});
 });

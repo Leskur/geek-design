@@ -1,3 +1,4 @@
+import {hasFont,fontNames} from '../src/fonts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,readFile} from 'node:fs/promises';
@@ -38,4 +39,23 @@ test('font matching prefers an exact PostScript face and falls back to family al
  const regular={id:'r',family:'Demo',full_name:'Demo Regular',postscript_name:'Demo-Regular'},bold={id:'b',family:'Demo',full_name:'Demo Bold',postscript_name:'Demo-Bold'};
  const fonts=[regular,bold] as any;
  assert.deepEqual(matchingTeamFonts(fonts,['Demo-Bold']).map(f=>f.id),['b']);assert.deepEqual(matchingTeamFonts(fonts,['Demo']).map(f=>f.id),['r','b']);assert.deepEqual(matchingTeamFonts(fonts,['Missing']),[]);
+});
+
+test('loaded PostScript bold faces are recognized without normal-weight canvas probing',()=>{
+ const previous=Object.getOwnPropertyDescriptor(globalThis,'document');
+ try{
+  Object.defineProperty(globalThis,'document',{configurable:true,value:{fonts:new Set([{family:'"DIN-Bold"',weight:'700',status:'loaded'}]),createElement:()=>({getContext:()=>null})}});
+  assert.equal(hasFont('DIN-Bold'),true);
+  assert.equal(hasFont('DINCond-Bold'),false);
+  assert.equal(hasFont('DIN-Regular'),false);
+  (document.fonts as any).clear();(document.fonts as any).add({family:'DIN-Bold',status:'error'});
+  assert.equal(hasFont('DIN-Bold'),false);
+ }finally{if(previous)Object.defineProperty(globalThis,'document',previous);else delete (globalThis as any).document;}
+});
+
+test('page font discovery follows shared components once without expanding instances',()=>{
+ const font=(name:string)=>({MSAttributedStringFontAttribute:{attributes:{name}}});
+ const master:any={_class:'symbolMaster',style:{textStyle:{encodedAttributes:font('DIN-Bold')}},layers:[{_class:'symbolInstance',symbolID:'shared'}]};
+ const page:any={layers:Array.from({length:100001},()=>({_class:'symbolInstance',symbolID:'shared'}))};
+ assert.deepEqual(fontNames(page,{symbols:new Map([['shared',master]])}),['DIN-Bold']);
 });

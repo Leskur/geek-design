@@ -1,3 +1,5 @@
+import {FontPanel} from '../src/FontPanel';
+import {Inspector} from '../src/Inspector';
 import {TeamTree} from '../src/TeamTree';
 import {TeamPageHeader} from '../src/TeamPageHeader';
 import test from 'node:test';
@@ -66,4 +68,22 @@ test('empty project list provides creation in place only for team managers',()=>
 test('sidebar auto-expands the active project without creation or empty prompts',()=>{
  const html=renderToStaticMarkup(<TeamTree userId="u" teams={[{id:'a',name:'Alpha',role:'owner'}]} projects={[{id:'p',name:'Project',team_id:'a'}]} activeTeamId="a" activeProjectId="p" overviewPage={false} busy={false} onCreateTeam={()=>{}} onCreateProject={()=>{}} onDelete={()=>{}}/>);
  assert.match(html,/aria-expanded="true"/);assert.match(html,/href="\/projects\/p" aria-current="page"/);assert.doesNotMatch(html,/href="\/teams\/a" aria-current="page"/);assert.doesNotMatch(html,/wb-tree-team current/);assert.doesNotMatch(html,/新建项目|还没有项目|等待分配项目/);
+});
+
+test('container inspector prioritizes own layout and CSS before export and ignores child text panels',()=>{
+ const child:any={_class:'text',do_objectID:'child',frame:{x:0,y:0,width:20,height:20},attributedString:{string:'Nested copy',attributes:[]}};
+ const group:any={_class:'group',do_objectID:'container',name:'Card',frame:{x:0,y:0,width:100,height:100},layers:[child]};
+ const html=renderToStaticMarkup(<Inspector selected={group} root={group} doc={{} as any} onCopy={()=>{}} onLoadFont={()=>{}}/>);
+ assert.ok(html.indexOf('>布局</h4>')<html.indexOf('>CSS</h4>'));
+ assert.ok(html.indexOf('>CSS</h4>')<html.indexOf('aria-label="资源导出"'));
+ assert.doesNotMatch(html,/developer-copy-content|developer-typography|developer-assets/);
+ assert.ok(html.indexOf('复制 width')<html.indexOf('复制 x'));
+});
+
+test('font panel distinguishes local loading, team permissions and failed team loads',()=>{
+ const render=(doc:any)=>renderToStaticMarkup(<FontPanel doc={doc} fonts={[{name:'DIN-Bold',available:false}]} status="" onClose={()=>{}} onLoad={()=>{}}/>);
+ const local=render({source:'local'});assert.match(local,/不会上传|刷新/);assert.doesNotMatch(local,/字体库/);
+ const owner=render({source:'team',fontLibrary:{teamId:'abc',canUpload:true}});assert.match(owner,/前往字体库上传/);assert.match(owner,/href="\/teams\/abc\/fonts"/);
+ const viewer=render({source:'team',fontLibrary:{teamId:'abc',canUpload:false}});assert.match(viewer,/联系团队管理员/);assert.doesNotMatch(viewer,/前往字体库上传/);
+ const failed=render({source:'team',fontLoadError:()=> 'Network failed',retryFonts:async()=>{}});assert.match(failed,/团队字体加载失败/);assert.match(failed,/重试加载/);assert.match(failed,/临时加载/);
 });

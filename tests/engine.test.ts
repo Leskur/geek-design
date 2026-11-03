@@ -133,3 +133,10 @@ test('real Sketch: every page and artboard resolves with unique instance IDs',{s
   console.log(JSON.stringify({boards,instances,overrides,masks,shapes,masters:doc.symbols.size}));
  } finally {await doc.close();}
 });
+
+test('auto-width time labels keep their complete line while fixed text retains wrapping',()=>{
+ const render=(textBehaviour:number)=>renderToStaticMarkup(React.createElement('svg',null,React.createElement(Children,{layers:[layer('time',{_class:'text',textBehaviour,frame:frame(0,0,120,22),attributedString:{string:'11:00 ~ 12:20',attributes:[]}})],doc:{} as SketchDocument,choose:()=>{},w:200,h:100})));
+ const auto=render(0),fixed=render(1);
+ assert.match(auto,/11:00 ~ 12:20/);assert.match(auto,/white-space:pre;/);assert.match(auto,/width:max-content/);assert.match(auto,/overflow:visible/);
+ assert.match(fixed,/white-space:pre-wrap/);assert.match(fixed,/overflow-wrap:break-word/);assert.doesNotMatch(fixed,/width:max-content/);
+});

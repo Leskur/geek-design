@@ -80,9 +80,9 @@ test('container spacing uses the parent axes even when the parent is rotated',()
  const index=indexLayers(root([parent]));const spacing=spacingWithin(index.get('child')!,index.get('parent')!)!;for(const [key,value] of Object.entries({left:20,top:10,right:50,bottom:50,width:30,height:40}))near(spacing[key as keyof typeof spacing],value);
  const overflow=indexLayers(root([layer('overflow',{frame:{x:-10,y:0,width:520,height:510}})]));assert.deepEqual(spacingWithin(overflow.get('overflow')!,overflow.get('board')!),{left:-10,top:0,right:-10,bottom:-10,width:520,height:510});
 });
-test('delivery code separates layout, text and appearance without inventing padding',()=>{
+test('delivery code groups layout and styles without inventing padding',()=>{
  const l=layer('label',{_class:'text',style:{contextSettings:{opacity:.5}},attributedString:{string:'A',attributes:[{location:0,length:1,attributes:{MSAttributedStringFontAttribute:{attributes:{name:'Arial',size:14}}}}]}});
- const sections=cssSections(l);assert.deepEqual(sections.map(s=>s.id),['layout','text','style']);assert.match(sections[0].code,/width: 100px;/);assert.match(sections[1].code,/font-size: 14px;/);assert.equal(sections[2].code,'opacity: 0.5;');assert.ok(sections.every(s=>!s.code.includes('padding')));
+ const sections=cssSections(l);assert.deepEqual(sections.map(s=>s.id),['layout','style']);assert.match(sections[0].code,/width: 100px;/);assert.match(sections[1].code,/font-size: 14px;/);assert.match(sections[1].code,/opacity: 0.5;/);assert.deepEqual(sections.map(s=>s.label),['布局','样式']);assert.ok(sections.every(s=>!s.code.includes('padding')));
 });
 test('selected colors include visible descendants and preserve paint alpha',()=>{
  const c={red:1,green:0,blue:0,alpha:.5},fill={isEnabled:true,fillType:0,color:c,contextSettings:{opacity:.5}};
@@ -105,4 +105,12 @@ test('fit and focus center inside the unobscured area, including long artboards'
  near(c.y+(bounds.y+bounds.height/2)*c.scale,area.y+area.height/2);
  assert.ok(c.y+bounds.y*c.scale>=48-1e-8);assert.ok(c.y+(bounds.y+bounds.height)*c.scale<=area.height-48+1e-8);
  const widthFit=fitCameraInArea(bounds,area,4,true);near(widthFit.x+bounds.x*widthFit.scale,area.x+48);
+});
+
+test('appearance CSS omits defaults and preserves meaningful zero opacity and transforms',()=>{
+ const defaults=cssForLayer(layer('default',{rotation:360,fixedRadius:0,style:{contextSettings:{opacity:1}}}));
+ assert.doesNotMatch(defaults,/opacity:|border-radius:|transform:/);
+ const styled=cssForLayer(layer('styled',{rotation:30,fixedRadius:8,style:{contextSettings:{opacity:0}}}));
+ assert.match(styled,/opacity: 0;/);assert.match(styled,/border-radius: 8px;/);assert.match(styled,/transform: rotate\(-30deg\);/);
+ assert.match(cssForLayer(layer('flipped',{isFlippedHorizontal:true})),/transform: scaleX\(-1\);/);
 });
