@@ -6,12 +6,12 @@ import { viewportArea } from './viewport-area';
 import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
 import {
   memo,
+  startTransition,
   useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
   useState,
-  startTransition,
 } from 'react';
 import { Maximize, Frame, ArrowUpRight } from 'lucide-react';
 import type { Layer, DocumentSource } from './sketch';
@@ -23,7 +23,6 @@ import {
   boardVisible,
   matchesBoardName,
   pageBounds,
-  previewBoards,
   zoomPage,
   pageRenderQuality,
 } from './overview';
@@ -32,23 +31,31 @@ const Preview = memo(function Preview({
   thumbnails,
   load,
   priority,
-  small,
+  scale,
 }: {
   board: Layer;
   thumbnails: ThumbnailCache;
   load: boolean;
   priority: boolean;
-  small: boolean;
+  scale: number;
 }) {
-  const [url, setUrl] = useState(() => thumbnails.peek(board.do_objectID, small)),
+  const [url, setUrl] = useState(() => thumbnails.peek(board.do_objectID)),
     [failed, setFailed] = useState(false);
   useEffect(() => {
-    if (!load || url) return;
+    const cached = thumbnails.peek(board.do_objectID);
+    if (cached) {
+      setUrl(cached);
+      setFailed(false);
+    }
+    if (!load || thumbnails.covers(board, scale)) return;
     let alive = true;
     thumbnails
-      .request(board, priority, small)
-      .then((url) => {
-        if (alive) setUrl(url);
+      .request(board, priority, scale)
+      .then((next) => {
+        if (alive) {
+          setUrl(next);
+          setFailed(false);
+        }
       })
       .catch(() => {
         if (alive) setFailed(true);
@@ -56,7 +63,7 @@ const Preview = memo(function Preview({
     return () => {
       alive = false;
     };
-  }, [board, thumbnails, load, url, priority, small]);
+  }, [board, thumbnails, load, priority, scale]);
   return url ? (
     <img className="overview-thumbnail" src={url} alt="" draggable={false} decoding="async" />
   ) : (
@@ -127,6 +134,7 @@ export function PageOverview({
     [space, setSpace] = useState(false),
     [dragging, setDragging] = useState(false),
     [moving, setMoving] = useState(false),
+    [settledCamera, setSettledCamera] = useState(camera),
     [previewNotice, setPreviewNotice] = useState('');
   const drag = useRef<{
       x: number;
@@ -145,7 +153,11 @@ export function PageOverview({
     const el = viewport.current!;
     const resize = () => setSize({ w: el.clientWidth, h: el.clientHeight });
     resize();
-    if (!cameras.has(pageId)) setCamera(fitCameraInArea(bounds, viewportArea(el)));
+    if (!cameras.has(pageId)) {
+      const next = fitCameraInArea(bounds, viewportArea(el));
+      setCamera(next);
+      setSettledCamera(next);
+    }
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     return () => observer.disconnect();
@@ -231,23 +243,23 @@ export function PageOverview({
   }, []);
   useEffect(() => {
     setMoving(true);
-    const timer = setTimeout(() => setMoving(false), 160);
+    const timer = setTimeout(() => {
+      setSettledCamera(camera);
+      setMoving(false);
+    }, 160);
     return () => clearTimeout(timer);
   }, [camera]);
+  const viewCamera = moving ? settledCamera : camera;
+  const visible = boards.filter((b) => boardVisible(b, viewCamera, size.w, size.h, 240));
   useEffect(() => {
     thumbnails.setPaused(moving || dragging);
-    return () => thumbnails.setPaused(true);
   }, [thumbnails, moving, dragging]);
-  const visible = boards.filter((b) =>
-    boardVisible(b, camera, size.w, size.h, doc.thumbnail ? 240 : 100),
-  );
-  const detailed = previewBoards(
-    visible,
-    camera,
-    size.w,
-    size.h,
-    selectedId,
-    doc.thumbnail ? 64 : 16,
+  useEffect(
+    () => () => {
+      thumbnails.dropQueued();
+      thumbnails.setPaused(true);
+    },
+    [thumbnails],
   );
   const measurement = useMemo(() => {
     const b = boards.find((b) => b.do_objectID === selectedId);
@@ -268,7 +280,6 @@ export function PageOverview({
   const cameraFrame = useRef(0),
     pendingCamera = useRef<Camera | null>(null);
   function queueCamera(update: (camera: Camera) => Camera) {
-    setMoving(true);
     pendingCamera.current = update(pendingCamera.current || current.current);
     if (!cameraFrame.current)
       cameraFrame.current = requestAnimationFrame(() => {
@@ -361,7 +372,7 @@ export function PageOverview({
         </div>
       </ViewerToolbar>
       <div
-        className={`overview-viewport${space ? ' is-hand' : ''}${dragging ? ' dragging' : ''}`}
+        className={`overview-viewport${space ? ' is-hand' : ''}${dragging ? ' dragging' : ''}${moving ? ' is-moving' : ''}`}
         ref={viewport}
         tabIndex={0}
         aria-label="页面总览画布"
@@ -428,14 +439,16 @@ export function PageOverview({
               match = matchesBoardName(b, search),
               width = Math.max(1, f.width * camera.scale),
               height = Math.max(1, f.height * camera.scale);
-            const quality = pageRenderQuality(b, camera.scale),
-              active = selectedId === b.do_objectID || inspectBoardId === b.do_objectID,
-              small = quality.small || !detailed.has(b.do_objectID);
+            const quality = pageRenderQuality(b, viewCamera.scale),
+              active = selectedId === b.do_objectID || inspectBoardId === b.do_objectID;
             return (
               <div
                 key={b.do_objectID}
                 onPointerEnter={() => inspectBoard(b.do_objectID)}
-                onPointerLeave={stopInspectionTimer}
+                onPointerLeave={() => {
+                  stopInspectionTimer();
+                  setInspectBoardId((current) => (current === b.do_objectID ? null : current));
+                }}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setMenu({ x: e.clientX, y: e.clientY, board: b });
@@ -446,7 +459,7 @@ export function PageOverview({
                   top: f.y,
                   width: f.width,
                   height: f.height,
-                  outlineWidth: (selectedId === b.do_objectID ? 2 : 1) / camera.scale,
+                  outlineWidth: (selectedId === b.do_objectID ? 2 : 1) / viewCamera.scale,
                 }}
               >
                 {(width > 45 || selectedId === b.do_objectID || (search && match)) && (
@@ -472,8 +485,8 @@ export function PageOverview({
                   doc={doc}
                   cache={cache}
                   inspect={active}
-                  live={active && quality.live}
-                  scale={camera.scale}
+                  live={active && quality.live && !moving}
+                  scale={viewCamera.scale}
                   selected={selectedId === b.do_objectID ? selected : null}
                   measurement={
                     measurement
@@ -487,12 +500,11 @@ export function PageOverview({
                   onError={setPreviewNotice}
                 >
                   <Preview
-                    key={String(small)}
                     board={b}
                     thumbnails={thumbnails}
                     priority={selectedId === b.do_objectID}
-                    small={small}
-                    load={(!!doc.thumbnail || detailed.has(b.do_objectID)) && !moving && !dragging}
+                    scale={viewCamera.scale}
+                    load={!moving && !dragging}
                   />
                 </PageBoard>
                 {selectedId === b.do_objectID && (

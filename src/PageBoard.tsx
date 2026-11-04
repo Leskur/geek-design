@@ -38,13 +38,13 @@ export function PageBoard({
 }) {
   const [hover, setHover] = useState<string | null>(null);
   const scene = useMemo(() => {
-    if (!inspect) return null;
+    if (!inspect && !live) return null;
     try {
       return cache.get(board);
     } catch {
       return null;
     }
-  }, [board, cache, inspect]);
+  }, [board, cache, inspect, live]);
   const index = useMemo(() => (scene ? cache.index(scene.root) : null), [scene, cache]);
   const chosen = selected && index?.get(selected.do_objectID),
     hovered = hover && index?.get(hover);
@@ -58,7 +58,6 @@ export function PageBoard({
       const rect = e.currentTarget.getBoundingClientRect(),
         x = (e.clientX - rect.left) / scale,
         y = (e.clientY - rect.top) / scale;
-      // The thumbnail has no layer DOM yet. Use saved geometry for its first selection.
       for (const entry of [...entries.values()].reverse()) {
         const [a, b, c, d, tx, ty] = entry.matrix,
           det = a * d - b * c;
@@ -105,7 +104,7 @@ export function PageBoard({
       }}
       onPointerLeave={() => setHover(null)}
     >
-      {!live && children}
+      {children}
       {scene && (
         <svg
           className={live ? 'page-board-svg' : 'page-board-overlay'}

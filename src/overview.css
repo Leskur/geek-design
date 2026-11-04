@@ -207,6 +207,9 @@
   transform-origin: 0 0;
   will-change: transform;
 }
+.overview-viewport.is-moving .overview-world {
+  pointer-events: none;
+}
 .overview-thumbnail {
   display: block;
   width: 100%;
@@ -748,6 +751,8 @@
 }
 .page-board-svg {
   display: block;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
 }
 .page-board-surface > .overview-thumbnail,
