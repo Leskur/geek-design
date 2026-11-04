@@ -4,8 +4,8 @@
 }
 .page-board-surface,
 .page-board-surface *,
-.interactive-canvas .design-svg,
-.interactive-canvas .design-svg * {
+.interactive-canvas > .work-canvas,
+.overview-viewport > .work-canvas {
   cursor:
     url('./assets/cursor-default.svg') 3 3,
     default !important;

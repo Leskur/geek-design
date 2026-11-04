@@ -114,8 +114,9 @@ test('zoom preserves the world point under the pointer and clamps extremes', () 
     next = zoomAt(c, 2, anchor);
   near((anchor.x - next.x) / next.scale, (anchor.x - c.x) / c.scale);
   near((anchor.y - next.y) / next.scale, (anchor.y - c.y) / c.scale);
-  assert.equal(zoomAt(c, 100, anchor).scale, 4);
-  assert.equal(zoomAt(c, 0, anchor).scale, 0.001);
+  assert.equal(zoomAt(c, 100, anchor).scale, 100);
+  assert.equal(zoomAt(c, 1000, anchor).scale, 256);
+  assert.equal(zoomAt(c, 0, anchor).scale, 0.02);
 });
 test('separated rectangles measure edge gaps, not center distances', () => {
   const a = { x: 10, y: 20, width: 40, height: 30 },

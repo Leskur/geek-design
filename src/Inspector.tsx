@@ -414,9 +414,9 @@ export function Inspector({
             )}
             {codePanel}
             {spacing && (
-              <section className="container-spacing" aria-label="容器边缘距离">
+              <section className="container-spacing" aria-label="距父级边缘">
                 <div className="inspector-section-title">
-                  <h4>容器边缘距离</h4>
+                  <h4>距父级边缘</h4>
                   <span>px</span>
                 </div>
                 <div className="box-distance">

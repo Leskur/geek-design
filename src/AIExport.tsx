@@ -124,7 +124,7 @@ export function AIExport({
                 disabled={!canSelect}
                 onChange={() => setScope('selection')}
               />
-              选中图层 / 容器
+              选中的图层
             </label>
           </div>
           <div className="ai-export-summary">

@@ -33,7 +33,8 @@ test('overview zoom preserves the point under the pointer and culls offscreen bo
     next = zoomPage(old, 0.2, anchor);
   assert.ok(Math.abs((anchor.x - old.x) / old.scale - (anchor.x - next.x) / next.scale) < 1e-8);
   assert.equal(boardVisible(board('far', 100000, 0), next, 800, 600), false);
-  assert.equal(zoomPage(old, 100, anchor).scale, 4);
+  assert.equal(zoomPage(old, 100, anchor).scale, 100);
+  assert.equal(zoomPage(old, 1000, anchor).scale, 256);
 });
 test('unified search finds board names, nested text and component override content', () => {
   const b = board('Opening', 0, 0);

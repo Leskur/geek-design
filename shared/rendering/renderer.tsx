@@ -287,13 +287,17 @@ export function fontStyle(a: any): CSSProperties {
   };
 }
 export const ThumbnailTextContext = createContext(false);
+/** Low-detail preview: compact text and skip expensive filters (shadows). */
+export const LiteRenderContext = createContext(false);
 function Text({ l }: { l: Layer }) {
   const runs = textRuns(l),
     first = runs[0]?.attributes || {},
     p = first.paragraphStyle || {},
     size = first.MSAttributedStringFontAttribute?.attributes?.size || 14,
     vertical = l.style?.textStyle?.verticalAlignment || 0;
-  const compact = useContext(ThumbnailTextContext);
+  const thumbnailText = useContext(ThumbnailTextContext),
+    liteRender = useContext(LiteRenderContext),
+    compact = thumbnailText || liteRender;
   const autoWidth = l.textBehaviour === 0;
   if (compact) {
     const style = fontStyle(first),
@@ -377,6 +381,9 @@ function Text({ l }: { l: Layer }) {
 
 export function Node({ l, doc, choose, interactive = true }: Props) {
   const key = useId().replace(/:/g, '');
+  const liteRender = useContext(LiteRenderContext),
+    thumbnailText = useContext(ThumbnailTextContext),
+    lite = liteRender || thumbnailText;
   if (l.isVisible === false || l._hiddenSymbol || l._class === 'slice') return null;
   const { width: w, height: h } = l.frame,
     s = l.style || {};
@@ -389,13 +396,15 @@ export function Node({ l, doc, choose, interactive = true }: Props) {
     'star',
     'polygon',
   ].includes(l._class);
-  const shadows = (s.shadows || [])
-    .filter((x: any) => x.isEnabled)
-    .map(
-      (x: any) =>
-        `drop-shadow(${x.offsetX || 0}px ${x.offsetY || 0}px ${Math.max(0, (x.blurRadius || 0) / 2)}px ${color(x.color)})`,
-    )
-    .join(' ');
+  const shadows = lite
+    ? ''
+    : (s.shadows || [])
+        .filter((x: any) => x.isEnabled)
+        .map(
+          (x: any) =>
+            `drop-shadow(${x.offsetX || 0}px ${x.offsetY || 0}px ${Math.max(0, (x.blurRadius || 0) / 2)}px ${color(x.color)})`,
+        )
+        .join(' ');
   return (
     <g
       data-layer={interactive ? l.do_objectID : undefined}
@@ -411,8 +420,9 @@ export function Node({ l, doc, choose, interactive = true }: Props) {
       }
       style={{
         cursor: interactive ? 'pointer' : undefined,
-        mixBlendMode: (blends[s.contextSettings?.blendMode || 0] ||
-          'normal') as CSSProperties['mixBlendMode'],
+        mixBlendMode: (lite
+          ? 'normal'
+          : blends[s.contextSettings?.blendMode || 0] || 'normal') as CSSProperties['mixBlendMode'],
         filter: shadows || undefined,
       }}
     >

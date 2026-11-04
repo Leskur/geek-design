@@ -7,7 +7,16 @@ import { ThumbnailCache } from './ThumbnailCache';
 import type { Camera } from './interaction';
 import { Logo } from './Logo';
 import { Plus, Frame, Download, Link, FileImage, SpellCheck2 } from 'lucide-react';
-import React, { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  lazy,
+  Suspense,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { SketchDocument, type Layer, type DocumentSource } from './sketch';
 import { Canvas } from './Canvas';
 import { RemoteDocument } from './RemoteDocument';
@@ -15,8 +24,10 @@ import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
 import { routeFor, matchesId, localOnly, withBase } from './routes';
+import { detailEnabled } from './detail-entry';
 import { PageList } from './PageList';
 import { Inspector } from './Inspector';
+import type { Scene } from '../shared/rendering/scene';
 
 import { fontNames } from '../shared/fonts';
 import { hasFont } from './fonts';
@@ -48,7 +59,8 @@ export function App() {
     [error, setError] = useState(''),
     [search, setSearch] = useState(''),
     [mode, setMode] = useState<'overview' | 'detail'>('overview'),
-    [toast, setToast] = useState('');
+    [toast, setToast] = useState(''),
+    [scene, setScene] = useState<Scene | null>(null);
   const input = useRef<HTMLInputElement>(null);
   const loadId = useRef(0),
     pageId = useRef(0),
@@ -60,7 +72,30 @@ export function App() {
     [doc, cache],
   );
   useEffect(() => () => thumbnails?.dispose(), [thumbnails]);
-  const scene = useMemo(() => (board && cache ? cache.get(board) : null), [board, cache]);
+  useEffect(() => {
+    if (!detailEnabled && mode === 'detail') setMode('overview');
+  }, [mode]);
+  // Defer scene expand so the first paint can show a thumbnail like team overview.
+  useEffect(() => {
+    if (!board || !cache) {
+      setScene(null);
+      return;
+    }
+    setScene(null);
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      try {
+        const next = cache.get(board);
+        if (!cancelled) startTransition(() => setScene(next));
+      } catch (e) {
+        if (!cancelled) setError((e as Error).message || '无法解析画板');
+      }
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [board, cache]);
   const overviewSelection = useRef<{
     pageId: string;
     board: Layer | null;
@@ -143,10 +178,7 @@ export function App() {
       setStatus('读取组件和页面…');
       await next.loadSymbols();
       const requested = new URLSearchParams(location.search),
-        first =
-          next.pages.find((x) => x.id === requested.get('page')) ||
-          next.pages.find((x) => /UI\(H5\)/i.test(x.name)) ||
-          next.pages[0];
+        first = next.pages.find((x) => x.id === requested.get('page')) || next.pages[0];
       const p = await next.page(first.id);
       if (token !== loadId.current) {
         await next.close();
@@ -164,7 +196,7 @@ export function App() {
       cameras.current.clear();
       setFocus(null);
       setDetailFocus(null);
-      setMode(requested.has('artboard') ? 'detail' : 'overview');
+      setMode(detailEnabled && requested.has('artboard') ? 'detail' : 'overview');
       setStatus('');
       if (old) await old.close();
     } catch (e) {
@@ -250,7 +282,7 @@ export function App() {
         setSearch('');
         setFocus(null);
         setDetailFocus(null);
-        setMode(params.get('artboard') && b ? 'detail' : 'overview');
+        setMode(detailEnabled && params.get('artboard') && b ? 'detail' : 'overview');
       } catch (e) {
         if (!disposed) setError((e as Error).message);
       }
@@ -292,6 +324,7 @@ export function App() {
     setSelected(b);
   }
   function openBoard(b: Layer) {
+    if (!detailEnabled) return;
     if (mode === 'overview' && page)
       overviewSelection.current = { pageId: page.do_objectID, board, selected };
     recordBoard(b);
@@ -312,6 +345,12 @@ export function App() {
   }
   function navigateLayer(b: Layer, l: Layer) {
     if (mode === 'overview') {
+      setBoard(b);
+      setSelected(l);
+      setFocus((old) => ({ id: l.do_objectID, serial: (old?.serial || 0) + 1 }));
+      return;
+    }
+    if (!detailEnabled) {
       setBoard(b);
       setSelected(l);
       setFocus((old) => ({ id: l.do_objectID, serial: (old?.serial || 0) + 1 }));
@@ -575,7 +614,6 @@ export function App() {
             <PageOverview
               toolbarHost={toolbarHost}
               zoomHost={zoomHost}
-              key={page.do_objectID}
               boards={boards}
               pageId={page.do_objectID}
               pageName={page.name}
@@ -594,15 +632,17 @@ export function App() {
               cameras={cameras.current}
               focus={focus}
             />
-          ) : scene ? (
+          ) : board && thumbnails ? (
             <Canvas
-              key={`detail:${page?.do_objectID}:${board?.do_objectID}`}
+              key={`detail:${page?.do_objectID}:${board.do_objectID}`}
               cameras={cameras.current}
-              cameraKey={`detail:${page?.do_objectID}:${board?.do_objectID}`}
+              cameraKey={`detail:${page?.do_objectID}:${board.do_objectID}`}
               toolbarHost={toolbarHost}
               zoomHost={zoomHost}
               doc={doc}
               scene={scene}
+              board={board}
+              thumbnails={thumbnails}
               pageName={page?.name || ''}
               selected={selected}
               onSelect={choose}

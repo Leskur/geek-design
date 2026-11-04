@@ -1,4 +1,5 @@
 import { BlobReader, BlobWriter, TextWriter, ZipReader, type FileEntry } from '@zip.js/zip.js';
+import { readAsset, writeAsset } from './asset-cache';
 import { metadata, registerSymbols, type Layer, type DocumentSource } from '../shared/document';
 export { color, hex, point, path } from '../shared/document';
 export type { Layer, DocumentSource } from '../shared/document';
@@ -19,7 +20,9 @@ export class SketchDocument implements DocumentSource {
   >();
   private imageRequests = new Map<string, Promise<string>>();
   private closed = false;
+  assetKey: string;
   constructor(public file: File) {
+    this.assetKey = `local:${file.name}:${file.size}:${file.lastModified}`;
     this.reader = new ZipReader(new BlobReader(file));
     if (typeof Worker !== 'undefined') {
       this.parser = new Worker(new URL('./json.worker.ts', import.meta.url), { type: 'module' });
@@ -90,7 +93,9 @@ export class SketchDocument implements DocumentSource {
         this.entries.get(ref) ||
         [...this.entries.values()].find((x) => x.filename.startsWith(ref + '.'));
       if (!e || e.uncompressedSize > 80 * 1024 * 1024) return '';
-      const blob = await e.getData(new BlobWriter());
+      const cached = await readAsset(this.assetKey, ref, 'full');
+      const blob = cached || (await e.getData(new BlobWriter()));
+      if (!cached) void writeAsset(this.assetKey, ref, 'full', blob);
       if (this.closed) return '';
       const url = URL.createObjectURL(blob);
       this.urls.set(ref, url);

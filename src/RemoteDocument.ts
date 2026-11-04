@@ -4,6 +4,7 @@ import type { DocumentSource, Layer, PageInfo } from '../shared/document';
 import { api } from './api';
 import { rememberDocument } from './workbench';
 import { routeFor, revisionPath } from './routes';
+import { readAsset, writeAsset } from './asset-cache';
 export class RemoteDocument implements DocumentSource {
   source = 'team' as const;
   file = { name: '团队文档', size: 0 };
@@ -60,7 +61,10 @@ export class RemoteDocument implements DocumentSource {
       });
     return this.fontRefresh;
   }
-  constructor(public revisionId: string) {}
+  constructor(public revisionId: string) {
+    this.assetKey = `team:${revisionId}`;
+  }
+  assetKey: string;
   async open() {
     this.manifest = await api(`/revisions/${encodeURIComponent(this.revisionId)}/manifest`, {
       signal: this.abort.signal,
@@ -183,12 +187,20 @@ export class RemoteDocument implements DocumentSource {
       (Object.entries(assets).find(([name]) => name.startsWith(ref + '.'))?.[1] as any);
     if (!entry) return '';
     const task = (async () => {
+      const cached = await readAsset(this.assetKey, ref, 'full');
+      if (cached) {
+        if (this.abort.signal.aborted) return '';
+        const url = URL.createObjectURL(cached);
+        this.urls.set(ref, url);
+        return url;
+      }
       const response = await fetch(
         `/api/revisions/${encodeURIComponent(this.revisionId)}/assets/${entry.hash}`,
         { credentials: 'same-origin', signal: this.abort.signal },
       );
       if (!response.ok) throw new Error('资源读取失败');
       const blob = await response.blob();
+      void writeAsset(this.assetKey, ref, 'full', blob);
       if (this.abort.signal.aborted) return '';
       const url = URL.createObjectURL(blob);
       this.urls.set(ref, url);

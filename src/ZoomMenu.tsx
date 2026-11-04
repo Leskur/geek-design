@@ -36,7 +36,7 @@ export function ZoomMenu({
           <button title="适合视图 (Ctrl + 0)" onClick={onFit}>
             {fitLabel}
           </button>
-          {[0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 4].map((value) => (
+          {[0.1, 0.25, 0.5, 0.75, 1, 1.5, 2, 4, 8, 16, 32, 64, 128, 256].map((value) => (
             <button
               key={value}
               title={value === 1 ? '原始大小 (Ctrl + 1)' : undefined}

@@ -1,85 +1,93 @@
 import { MousePointer2 } from 'lucide-react';
 import { ZoomMenu } from './ZoomMenu';
-import { PageBoard } from './PageBoard';
 import { ContextMenu, type MenuPosition } from './ContextMenu';
 import { viewportArea } from './viewport-area';
 import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
-import {
-  memo,
-  startTransition,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
-import { Maximize, Frame, ArrowUpRight } from 'lucide-react';
-import type { Layer, DocumentSource } from './sketch';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Maximize, ArrowUpRight } from 'lucide-react';
+import { detailEnabled } from './detail-entry';
+import { color, type Layer, type DocumentSource } from './sketch';
 import type { SceneCache } from './SceneCache';
 import type { ThumbnailCache } from './ThumbnailCache';
-
-import { fitCameraInArea, isEditingTarget, panFromAnchor, type Camera } from './interaction';
+import { drawArtboard } from './canvas-scene';
+import { ImageLod } from './image-lod';
 import {
-  boardVisible,
-  matchesBoardName,
-  pageBounds,
-  zoomPage,
-  pageRenderQuality,
-} from './overview';
-const Preview = memo(function Preview({
-  board,
-  thumbnails,
-  load,
-  priority,
-  scale,
-}: {
-  board: Layer;
-  thumbnails: ThumbnailCache;
-  load: boolean;
-  priority: boolean;
+  fitCameraInArea,
+  hitAtPoint,
+  isEditingTarget,
+  panFromAnchor,
+  type Camera,
+  type IndexedLayer,
+} from './interaction';
+import { boardVisible, matchesBoardName, pageBounds, zoomPage } from './overview';
+
+/** Below this on-screen size, paint the fixed mini instead of the layer tree. */
+const LIVE_SCREEN = 280;
+/** Keep generating pictures until the frame has spent this long, then continue next frame. */
+const BUILD_BUDGET_MS = 48;
+/** Zoomed-out pictures stay at most this long edge. On-screen size is usually smaller. */
+const COARSE_CAP = 480;
+/** Extra CSS pixels around the viewport so a short pan reuses the sharp slice. */
+const SHARP_PAD = 192;
+
+type BoardPicture = {
+  canvas: HTMLCanvasElement;
   scale: number;
-}) {
-  const [url, setUrl] = useState(() => thumbnails.peek(board.do_objectID)),
-    [failed, setFailed] = useState(false);
-  useEffect(() => {
-    const cached = thumbnails.peek(board.do_objectID);
-    if (cached) {
-      setUrl(cached);
-      setFailed(false);
-    }
-    if (!load || thumbnails.covers(board, scale)) return;
-    let alive = true;
-    thumbnails
-      .request(board, priority, scale)
-      .then((next) => {
-        if (alive) {
-          setUrl(next);
-          setFailed(false);
-        }
-      })
-      .catch(() => {
-        if (alive) setFailed(true);
-      });
-    return () => {
-      alive = false;
-    };
-  }, [board, thumbnails, load, priority, scale]);
-  return url ? (
-    <img className="overview-thumbnail" src={url} alt="" draggable={false} decoding="async" />
-  ) : (
-    <span className="overview-placeholder">
-      <Frame size={16} />
-      <span>{failed ? '预览暂不可用' : load ? '正在生成缩略图' : ''}</span>
-    </span>
+  sharp: boolean;
+  stale?: boolean;
+  /** Board-local rect when the canvas is only the on-screen slice. */
+  crop?: { x: number; y: number; width: number; height: number };
+  /** Full-board picture kept under a slice, so a pan does not open a hole. */
+  base?: HTMLCanvasElement;
+};
+
+function boardSlice(board: Layer, cam: Camera, viewW: number, viewH: number, pad: number) {
+  const f = board.frame;
+  const x0 = Math.max(f.x, (-pad - cam.x) / cam.scale);
+  const y0 = Math.max(f.y, (-pad - cam.y) / cam.scale);
+  const x1 = Math.min(f.x + f.width, (viewW + pad - cam.x) / cam.scale);
+  const y1 = Math.min(f.y + f.height, (viewH + pad - cam.y) / cam.scale);
+  return {
+    x: x0 - f.x,
+    y: y0 - f.y,
+    width: Math.max(1, x1 - x0),
+    height: Math.max(1, y1 - y0),
+  };
+}
+
+function sliceCovers(
+  crop: { x: number; y: number; width: number; height: number },
+  need: { x: number; y: number; width: number; height: number },
+) {
+  return (
+    crop.x <= need.x + 0.5 &&
+    crop.y <= need.y + 0.5 &&
+    crop.x + crop.width >= need.x + need.width - 0.5 &&
+    crop.y + crop.height >= need.y + need.height - 0.5
   );
-});
+}
+
+/** Pixel size for a sharp board. Boards larger than the window keep only the visible slice, at screen pixels. */
+function sharpPixels(board: Layer, cam: Camera, dpr: number, viewW: number, viewH: number) {
+  const f = board.frame;
+  const sx = cam.scale * dpr;
+  const slice = boardSlice(board, cam, viewW, viewH, SHARP_PAD);
+  const covers =
+    slice.x <= 0.5 &&
+    slice.y <= 0.5 &&
+    slice.x + slice.width >= f.width - 0.5 &&
+    slice.y + slice.height >= f.height - 0.5;
+  if (covers) return { crop: undefined, width: f.width * sx, height: f.height * sx };
+  return { crop: slice, width: slice.width * sx, height: slice.height * sx };
+}
+
 export function PageOverview({
   boards,
   pageId,
   pageName,
   doc,
   cache,
-  thumbnails,
+  thumbnails: _thumbnails,
   selectedId,
   selected,
   onLayer,
@@ -108,33 +116,16 @@ export function PageOverview({
   toolbarHost?: HTMLElement | null;
   zoomHost?: HTMLElement | null;
 }) {
-  const [menu, setMenu] = useState<(MenuPosition & { board: Layer }) | null>(null),
-    [alt, setAlt] = useState(false);
-  const [inspectBoardId, setInspectBoardId] = useState<string | null>(null),
-    inspectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  function stopInspectionTimer() {
-    if (inspectionTimer.current) {
-      clearTimeout(inspectionTimer.current);
-      inspectionTimer.current = null;
-    }
-  }
-  function inspectBoard(id: string) {
-    stopInspectionTimer();
-    inspectionTimer.current = setTimeout(() => {
-      if (!spaceKey.current && !drag.current?.pan) startTransition(() => setInspectBoardId(id));
-    }, 120);
-  }
-  useEffect(() => () => stopInspectionTimer(), []);
+  const [menu, setMenu] = useState<(MenuPosition & { board: Layer }) | null>(null);
   const viewport = useRef<HTMLDivElement>(null),
+    surface = useRef<HTMLCanvasElement>(null),
     bounds = useMemo(() => pageBounds(boards), [boards]);
   const [camera, setCamera] = useState<Camera>(
-      () => cameras.get(pageId) || { x: 0, y: 0, scale: 0.01 },
+      () => cameras.get(pageId) || { x: 0, y: 0, scale: 0.02 },
     ),
     [size, setSize] = useState({ w: 0, h: 0 }),
     [space, setSpace] = useState(false),
     [dragging, setDragging] = useState(false),
-    [moving, setMoving] = useState(false),
-    [settledCamera, setSettledCamera] = useState(camera),
     [previewNotice, setPreviewNotice] = useState('');
   const drag = useRef<{
       x: number;
@@ -147,22 +138,407 @@ export function PageOverview({
     } | null>(null),
     moved = useRef(false),
     spaceKey = useRef(false),
-    current = useRef(camera);
+    current = useRef(camera),
+    cameraFrame = useRef(0),
+    pendingCamera = useRef<Camera | null>(null),
+    paintFrame = useRef(0),
+    paint = useRef<() => void>(() => {}),
+    roots = useRef(new Map<string, Layer>()),
+    pictures = useRef(new Map<string, BoardPicture>()),
+    pictureRefs = useRef(new Map<string, Set<string>>()),
+    pendingRefs = useRef(new Set<string>()),
+    settled = useRef(true),
+    shownPage = useRef(pageId),
+    cameraEpoch = useRef(0),
+    seenEpoch = useRef(0),
+    hover = useRef<{ boardId: string; layerId: string | null; entry: IndexedLayer | null } | null>(
+      null,
+    ),
+    repaint = useRef(() => {}),
+    images = useRef(
+      new ImageLod(doc, (ref) => {
+        if (settled.current) {
+          dropPictures(ref);
+          repaint.current();
+        } else pendingRefs.current.add(ref);
+      }),
+    ),
+    imageDoc = useRef(doc);
   current.current = camera;
+
+  function queueCamera(update: (camera: Camera) => Camera) {
+    settled.current = false;
+    pendingCamera.current = update(pendingCamera.current || current.current);
+    schedulePaint();
+    if (!cameraFrame.current)
+      cameraFrame.current = requestAnimationFrame(() => {
+        cameraFrame.current = 0;
+        const next = pendingCamera.current;
+        pendingCamera.current = null;
+        if (next) {
+          current.current = next;
+          setCamera(next);
+        }
+      });
+  }
+  function paintCamera() {
+    return pendingCamera.current || current.current;
+  }
+  function resizeSurface() {
+    const v = viewport.current,
+      canvas = surface.current;
+    if (!v || !canvas) return 1;
+    const dpr = window.devicePixelRatio || 1,
+      w = Math.max(1, Math.round(v.clientWidth * dpr)),
+      h = Math.max(1, Math.round(v.clientHeight * dpr));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    return dpr;
+  }
+  function paintSurface() {
+    const canvas = surface.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const dpr = resizeSurface(),
+      cam = paintCamera(),
+      w = size.w || viewport.current?.clientWidth || 0,
+      h = size.h || viewport.current?.clientHeight || 0;
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr * cam.scale, 0, 0, dpr * cam.scale, dpr * cam.x, dpr * cam.y);
+    const visible = boards.filter((b) => boardVisible(b, cam, w, h, 240));
+    const budget = { start: performance.now(), built: 0, more: false };
+    if (settled.current && !dragging) {
+      for (const b of visible) {
+        const live = boardSharp(b, cam.scale);
+        if (usablePicture(b, live, cam, dpr, w, h)) continue;
+        boardPicture(b, live, cam, dpr, w, h, budget);
+        if (budget.more) break;
+      }
+    }
+    for (const b of visible) {
+      const f = b.frame,
+        match = matchesBoardName(b, search),
+        boardSelected = selected?.do_objectID === b.do_objectID,
+        pointer = hover.current,
+        boardHovered = pointer?.boardId === b.do_objectID && !pointer.entry && !boardSelected,
+        dimmed = !!(search && !match);
+      const entry = pictures.current.get(b.do_objectID);
+      const picture = entry?.canvas;
+      ctx.save();
+      if (dimmed) ctx.globalAlpha = 0.28;
+      if (picture && entry?.crop) {
+        const c = entry.crop;
+        if (entry.base) ctx.drawImage(entry.base, f.x, f.y, f.width, f.height);
+        else {
+          ctx.fillStyle = b.hasBackgroundColor ? color(b.backgroundColor) : '#fff';
+          ctx.fillRect(f.x, f.y, f.width, f.height);
+        }
+        ctx.imageSmoothingEnabled = Math.abs(entry.scale - cam.scale) >= 0.001;
+        ctx.drawImage(picture, f.x + c.x, f.y + c.y, c.width, c.height);
+      } else if (picture) ctx.drawImage(picture, f.x, f.y, f.width, f.height);
+      else {
+        ctx.fillStyle = b.hasBackgroundColor ? color(b.backgroundColor) : '#fff';
+        ctx.fillRect(f.x, f.y, f.width, f.height);
+      }
+      ctx.strokeStyle = boardSelected
+        ? '#7656e8'
+        : boardHovered
+          ? '#9c84e3'
+          : search && match
+            ? '#9c84e3'
+            : '#d5d8e2';
+      ctx.lineWidth = (boardSelected ? 2 : boardHovered ? 1.5 : 1) / cam.scale;
+      if (boardHovered) ctx.setLineDash([4 / cam.scale, 3 / cam.scale]);
+      ctx.strokeRect(f.x, f.y, f.width, f.height);
+      ctx.setLineDash([]);
+      if (
+        pointer?.boardId === b.do_objectID &&
+        pointer.entry &&
+        pointer.entry.layer.do_objectID !== selected?.do_objectID
+      )
+        strokeEntry(ctx, pointer.entry, f.x, f.y, cam.scale, '#9c84e3', 1, [3, 2]);
+      if (selected && selected.do_objectID !== b.do_objectID && selectedId === b.do_objectID) {
+        const entry = cache.index(boardRoot(b)).get(selected.do_objectID);
+        if (entry) strokeEntry(ctx, entry, f.x, f.y, cam.scale, '#7656e8', 1.5);
+      }
+      ctx.restore();
+    }
+    // Labels in screen space
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.font = '10px Inter, "Segoe UI", sans-serif';
+    ctx.textBaseline = 'bottom';
+    for (const b of visible) {
+      const f = b.frame,
+        match = matchesBoardName(b, search),
+        selected = selectedId === b.do_objectID,
+        hovered = hover.current?.boardId === b.do_objectID,
+        screenW = f.width * cam.scale,
+        screenH = f.height * cam.scale;
+      if (screenW <= 45 && !selected && !hovered && !(search && match)) continue;
+      if (search && !match) continue;
+      const x = f.x * cam.scale + cam.x,
+        y = f.y * cam.scale + cam.y - 6;
+      ctx.fillStyle = selected ? '#5b45c2' : hovered ? '#7055d8' : '#8f919f';
+      ctx.textAlign = 'left';
+      ctx.fillText(b.name, x, y);
+      if (detailEnabled && selected) {
+        ctx.fillStyle = '#7656e8';
+        ctx.fillRect(x, f.y * cam.scale + cam.y + screenH + 6, 72, 22);
+        ctx.fillStyle = '#fff';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('打开单画板', x + 8, f.y * cam.scale + cam.y + screenH + 17);
+        ctx.textBaseline = 'bottom';
+      }
+    }
+    if (!boards.length) {
+      ctx.fillStyle = '#8f919f';
+      ctx.font = '13px Inter, "Segoe UI", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(
+        '这个页面还没有画板',
+        (viewport.current?.clientWidth || 0) / 2,
+        (viewport.current?.clientHeight || 0) / 2,
+      );
+    }
+    if (budget.more) schedulePaint();
+  }
+  function boardSharp(board: Layer, scale: number) {
+    return Math.max(board.frame.width, board.frame.height) * scale > LIVE_SCREEN;
+  }
+  function coarseSize(board: Layer, scale: number, dpr: number) {
+    const frame = board.frame;
+    const longest = Math.max(frame.width, frame.height) || 1;
+    const target = Math.min(COARSE_CAP, Math.max(1, longest * scale * dpr));
+    const fit = Math.min(1, target / longest);
+    return {
+      width: Math.max(1, Math.round(frame.width * fit)),
+      height: Math.max(1, Math.round(frame.height * fit)),
+    };
+  }
+  function usablePicture(
+    board: Layer,
+    sharp: boolean,
+    cam: Camera,
+    dpr: number,
+    viewW: number,
+    viewH: number,
+  ) {
+    const prev = pictures.current.get(board.do_objectID);
+    if (!prev || prev.stale) return null;
+    if (sharp) {
+      if (!prev.sharp || Math.abs(prev.scale - cam.scale) >= 0.001) return null;
+      if (!prev.crop) return prev.canvas;
+      return sliceCovers(prev.crop, boardSlice(board, cam, viewW, viewH, 0)) ? prev.canvas : null;
+    }
+    if (prev.crop) return null;
+    if (prev.sharp) return prev.canvas;
+    const need = coarseSize(board, cam.scale, dpr);
+    return prev.canvas.width + 1 >= need.width && prev.canvas.height + 1 >= need.height
+      ? prev.canvas
+      : null;
+  }
+  function boardPicture(
+    board: Layer,
+    sharp: boolean,
+    cam: Camera,
+    dpr: number,
+    viewW: number,
+    viewH: number,
+    budget: { start: number; built: number; more: boolean },
+  ) {
+    const id = board.do_objectID;
+    const scale = cam.scale;
+    const prev = pictures.current.get(id);
+    const ready = usablePicture(board, sharp, cam, dpr, viewW, viewH);
+    if (ready) return ready;
+    if (!settled.current || dragging) return prev?.canvas;
+    if (budget.built > 0 && performance.now() - budget.start > BUILD_BUDGET_MS) {
+      budget.more = true;
+      return prev?.canvas;
+    }
+    budget.built += 1;
+    const frame = board.frame;
+    let crop: BoardPicture['crop'];
+    let width = frame.width;
+    let height = frame.height;
+    if (sharp) {
+      const raster = sharpPixels(board, cam, dpr, viewW, viewH);
+      crop = raster.crop;
+      width = raster.width;
+      height = raster.height;
+      if (crop && Math.abs(width / crop.width - scale * dpr) < 0.01) {
+        const sx = scale * dpr;
+        const pxX = Math.max(0, Math.floor(crop.x * sx));
+        const pxY = Math.max(0, Math.floor(crop.y * sx));
+        const pxR = Math.min(frame.width * sx, Math.ceil((crop.x + crop.width) * sx));
+        const pxB = Math.min(frame.height * sx, Math.ceil((crop.y + crop.height) * sx));
+        width = Math.max(1, pxR - pxX);
+        height = Math.max(1, pxB - pxY);
+        crop = { x: pxX / sx, y: pxY / sx, width: width / sx, height: height / sx };
+      }
+    } else {
+      const size = coarseSize(board, scale, dpr);
+      width = size.width;
+      height = size.height;
+    }
+    const shot = document.createElement('canvas');
+    shot.width = Math.max(1, Math.round(width));
+    shot.height = Math.max(1, Math.round(height));
+    const shotCtx = shot.getContext('2d');
+    if (!shotCtx) return prev?.canvas;
+    if (crop) {
+      const px = shot.width / crop.width;
+      const py = shot.height / crop.height;
+      shotCtx.setTransform(px, 0, 0, py, -crop.x * px, -crop.y * py);
+    } else shotCtx.setTransform(shot.width / frame.width, 0, 0, shot.height / frame.height, 0, 0);
+    let root = roots.current.get(id);
+    if (!root) {
+      root = cache.get(board).root;
+      roots.current.set(id, root);
+    }
+    const used = new Set<string>();
+    const covered = crop ? crop.width : frame.width;
+    const minPoint = shot.width > 0 ? covered / shot.width : 0;
+    drawArtboard(
+      shotCtx,
+      root,
+      doc,
+      (ref) => {
+        used.add(ref);
+        return images.current.image(ref, !sharp);
+      },
+      { minPoint },
+    );
+    pictureRefs.current.set(id, used);
+    const base = crop
+      ? prev?.base || (prev && !prev.crop ? prev.canvas : undefined)
+      : undefined;
+    const next: BoardPicture = { canvas: shot, scale, sharp, crop, base };
+    pictures.current.set(id, next);
+    return shot;
+  }
+  function dropPictures(ref: string) {
+    for (const [id, refs] of pictureRefs.current) {
+      if (!refs.has(ref)) continue;
+      const prev = pictures.current.get(id);
+      if (prev) prev.stale = true;
+    }
+  }
+  function schedulePaint() {
+    if (paintFrame.current) return;
+    paintFrame.current = requestAnimationFrame(() => {
+      paintFrame.current = 0;
+      paint.current();
+    });
+  }
+  paint.current = paintSurface;
+  repaint.current = schedulePaint;
+  function boardRoot(board: Layer) {
+    let root = roots.current.get(board.do_objectID);
+    if (!root) {
+      root = cache.get(board).root;
+      roots.current.set(board.do_objectID, root);
+    }
+    return root;
+  }
+  function strokeEntry(
+    ctx: CanvasRenderingContext2D,
+    entry: IndexedLayer,
+    x: number,
+    y: number,
+    scale: number,
+    color: string,
+    width: number,
+    dash?: number[],
+  ) {
+    const [first, ...rest] = entry.corners;
+    if (!first) return;
+    ctx.beginPath();
+    ctx.moveTo(x + first.x, y + first.y);
+    for (const point of rest) ctx.lineTo(x + point.x, y + point.y);
+    ctx.closePath();
+    ctx.strokeStyle = color;
+    ctx.lineWidth = width / scale;
+    ctx.setLineDash(dash ? dash.map((part) => part / scale) : []);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+  function setHover(next: { boardId: string; layerId: string | null; entry: IndexedLayer | null } | null) {
+    const prev = hover.current;
+    if (prev?.boardId === next?.boardId && prev?.layerId === next?.layerId) return;
+    hover.current = next;
+    schedulePaint();
+  }
+  function hitBoard(clientX: number, clientY: number) {
+    const v = viewport.current;
+    if (!v) return null;
+    const rect = v.getBoundingClientRect(),
+      cam = paintCamera(),
+      x = (clientX - rect.left - cam.x) / cam.scale,
+      y = (clientY - rect.top - cam.y) / cam.scale;
+    for (let i = boards.length - 1; i >= 0; i--) {
+      const f = boards[i].frame;
+      if (x >= f.x && y >= f.y && x <= f.x + f.width && y <= f.y + f.height) return boards[i];
+    }
+    return null;
+  }
+  function pick(clientX: number, clientY: number, parent = false) {
+    const board = hitBoard(clientX, clientY);
+    const v = viewport.current;
+    if (!board || !v) return board ? { board, entry: null } : null;
+    const rect = v.getBoundingClientRect(),
+      cam = paintCamera(),
+      x = (clientX - rect.left - cam.x) / cam.scale - board.frame.x,
+      y = (clientY - rect.top - cam.y) / cam.scale - board.frame.y,
+      root = boardRoot(board);
+    return { board, entry: hitAtPoint({ x, y }, root, cache.index(root), parent) };
+  }
+  function hitOpenButton(clientX: number, clientY: number, board: Layer) {
+    const v = viewport.current;
+    if (!v || selectedId !== board.do_objectID) return false;
+    const rect = v.getBoundingClientRect(),
+      cam = paintCamera(),
+      f = board.frame,
+      x = f.x * cam.scale + cam.x,
+      y = f.y * cam.scale + cam.y + f.height * cam.scale + 6,
+      px = clientX - rect.left,
+      py = clientY - rect.top;
+    return px >= x && py >= y && px <= x + 72 && py <= y + 22;
+  }
+
   useLayoutEffect(() => {
     const el = viewport.current!;
-    const resize = () => setSize({ w: el.clientWidth, h: el.clientHeight });
-    resize();
-    if (!cameras.has(pageId)) {
-      const next = fitCameraInArea(bounds, viewportArea(el));
-      setCamera(next);
-      setSettledCamera(next);
+    if (shownPage.current !== pageId) {
+      cameras.set(shownPage.current, camera);
+      shownPage.current = pageId;
+      cameraEpoch.current += 1;
     }
+    const saved = cameras.get(pageId);
+    const next = saved || fitCameraInArea(bounds, viewportArea(el));
+    pendingCamera.current = null;
+    current.current = next;
+    hover.current = null;
+    cameras.set(pageId, next);
+    setCamera(next);
+    const resize = () => {
+      setSize({ w: el.clientWidth, h: el.clientHeight });
+      schedulePaint();
+    };
+    resize();
     const observer = new ResizeObserver(resize);
     observer.observe(el);
     return () => observer.disconnect();
   }, [pageId, bounds, cameras]);
   useEffect(() => {
+    if (seenEpoch.current !== cameraEpoch.current) {
+      seenEpoch.current = cameraEpoch.current;
+      return;
+    }
     cameras.set(pageId, camera);
   }, [camera, cameras, pageId]);
   useEffect(() => {
@@ -173,15 +549,11 @@ export function PageOverview({
       el = viewport.current;
     if (!b || !el) return;
     try {
-      const entry = cache.index(cache.get(b).root).get(focus.id),
-        target = entry
-          ? { ...entry.bounds, x: entry.bounds.x + b.frame.x, y: entry.bounds.y + b.frame.y }
-          : b.frame;
-      setCamera(fitCameraInArea(target, viewportArea(el), 2));
+      setCamera(fitCameraInArea(b.frame, viewportArea(el), 2));
     } catch (e) {
       setPreviewNotice((e as Error).message);
     }
-  }, [focus, boards, cache]);
+  }, [focus, boards]);
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
       if (isEditingTarget(e.target)) return;
@@ -190,21 +562,15 @@ export function PageOverview({
         spaceKey.current = true;
         setSpace(true);
       }
-      if (e.key === 'Alt') {
-        e.preventDefault();
-        setAlt(true);
-      }
       if (e.key === 'Escape') onSelect(null);
     };
     const up = (e: KeyboardEvent) => {
-      if (e.key === 'Alt') setAlt(false);
       if (e.code === 'Space') {
         spaceKey.current = false;
         setSpace(false);
       }
     };
     const reset = () => {
-      setAlt(false);
       spaceKey.current = false;
       setSpace(false);
       setDragging(false);
@@ -241,64 +607,44 @@ export function PageOverview({
     el.addEventListener('wheel', wheel, { passive: false });
     return () => el.removeEventListener('wheel', wheel);
   }, []);
-  useEffect(() => {
-    setMoving(true);
-    const timer = setTimeout(() => {
-      setSettledCamera(camera);
-      setMoving(false);
-    }, 160);
-    return () => clearTimeout(timer);
-  }, [camera]);
-  const viewCamera = moving ? settledCamera : camera;
-  const visible = boards.filter((b) => boardVisible(b, viewCamera, size.w, size.h, 240));
-  useEffect(() => {
-    thumbnails.setPaused(moving || dragging);
-  }, [thumbnails, moving, dragging]);
-  useEffect(
-    () => () => {
-      thumbnails.dropQueued();
-      thumbnails.setPaused(true);
-    },
-    [thumbnails],
-  );
-  const measurement = useMemo(() => {
-    const b = boards.find((b) => b.do_objectID === selectedId);
-    if (!b || !selected) return null;
-    try {
-      const entry = cache.index(cache.get(b).root).get(selected.do_objectID);
-      return entry
-        ? { ...entry.bounds, x: entry.bounds.x + b.frame.x, y: entry.bounds.y + b.frame.y }
-        : null;
-    } catch {
-      return null;
-    }
-  }, [boards, selectedId, selected, cache]);
-  function locate(b: Layer) {
-    const el = viewport.current;
-    if (el) queueCamera(() => fitCameraInArea(b.frame, viewportArea(el)));
-  }
-  const cameraFrame = useRef(0),
-    pendingCamera = useRef<Camera | null>(null);
-  function queueCamera(update: (camera: Camera) => Camera) {
-    pendingCamera.current = update(pendingCamera.current || current.current);
-    if (!cameraFrame.current)
-      cameraFrame.current = requestAnimationFrame(() => {
-        cameraFrame.current = 0;
-        const next = pendingCamera.current;
-        pendingCamera.current = null;
-        if (next) {
-          current.current = next;
-          setCamera(next);
-        }
-      });
-  }
   useEffect(
     () => () => {
       cancelAnimationFrame(cameraFrame.current);
-      cameras.set(pageId, pendingCamera.current || current.current);
+      cancelAnimationFrame(paintFrame.current);
+      cameraFrame.current = 0;
+      paintFrame.current = 0;
     },
-    [cameras, pageId],
+    [],
   );
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      settled.current = true;
+      for (const ref of pendingRefs.current) dropPictures(ref);
+      pendingRefs.current.clear();
+      schedulePaint();
+    }, 160);
+    return () => window.clearTimeout(timer);
+  }, [camera.x, camera.y, camera.scale]);
+  useEffect(() => {
+    if (imageDoc.current === doc) return;
+    imageDoc.current = doc;
+    roots.current.clear();
+    pictures.current.clear();
+    pictureRefs.current.clear();
+    pendingRefs.current.clear();
+    images.current.clear();
+    images.current = new ImageLod(doc, (ref) => {
+      if (settled.current) {
+        dropPictures(ref);
+        repaint.current();
+      } else pendingRefs.current.add(ref);
+    });
+    schedulePaint();
+  }, [doc]);
+  useEffect(() => {
+    schedulePaint();
+  }, [camera, boards, selectedId, selected, search, size, dragging]);
+
   function zoom(f: number) {
     const el = viewport.current;
     if (!el) return;
@@ -340,6 +686,7 @@ export function PageOverview({
     }
     drag.current = null;
     setDragging(false);
+    schedulePaint();
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
@@ -372,18 +719,19 @@ export function PageOverview({
         </div>
       </ViewerToolbar>
       <div
-        className={`overview-viewport${space ? ' is-hand' : ''}${dragging ? ' dragging' : ''}${moving ? ' is-moving' : ''}`}
+        className={`overview-viewport${space ? ' is-hand' : ''}${dragging ? ' dragging' : ''}`}
         ref={viewport}
         tabIndex={0}
         aria-label="页面总览画布"
         data-camera-x={camera.x.toFixed(2)}
         data-camera-y={camera.y.toFixed(2)}
         data-camera-scale={camera.scale.toFixed(5)}
+        data-surface="canvas"
         onPointerDown={(e) => {
           if (e.button !== 0 && e.button !== 1) return;
           e.currentTarget.focus({ preventScroll: true });
           moved.current = false;
-          if (e.altKey || (e.target instanceof Element && e.target.closest('button,a'))) return;
+          if (e.altKey) return;
           const pan = spaceKey.current || e.button === 1;
           drag.current = {
             id: e.pointerId,
@@ -403,7 +751,25 @@ export function PageOverview({
         }}
         onPointerMove={(e) => {
           const d = drag.current;
-          if (!d || d.id !== e.pointerId) return;
+          if (!d || d.id !== e.pointerId) {
+            if (spaceKey.current || dragging) setHover(null);
+            else {
+              const hit = pick(e.clientX, e.clientY, e.shiftKey);
+              if (!hit) setHover(null);
+              else {
+                const cam = paintCamera();
+                const sharp =
+                  Math.max(hit.board.frame.width, hit.board.frame.height) * cam.scale > LIVE_SCREEN;
+                const entry = sharp ? hit.entry : null;
+                setHover({
+                  boardId: hit.board.do_objectID,
+                  layerId: entry?.layer.do_objectID ?? null,
+                  entry,
+                });
+              }
+            }
+            return;
+          }
           if (!d.pan) {
             if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) <= 4) return;
             d.pan = true;
@@ -412,6 +778,7 @@ export function PageOverview({
             setDragging(true);
           }
           e.preventDefault();
+          setHover(null);
           const next = panFromAnchor(
             d.camera,
             { x: d.startX, y: d.startY },
@@ -421,123 +788,62 @@ export function PageOverview({
         }}
         onPointerUp={finish}
         onPointerCancel={finish}
+        onPointerLeave={() => setHover(null)}
         onLostPointerCapture={() => {
           drag.current = null;
           setDragging(false);
         }}
         onClick={(e) => {
-          if (e.target === e.currentTarget && !moved.current && !spaceKey.current) onSelect(null);
+          if (moved.current || spaceKey.current) return;
+          const hit = pick(e.clientX, e.clientY, e.shiftKey);
+          if (detailEnabled && hit && hitOpenButton(e.clientX, e.clientY, hit.board)) {
+            onOpen(hit.board);
+            return;
+          }
+          if (!hit) {
+            onSelect(null);
+            return;
+          }
+          if (hit.entry) onLayer(hit.board, hit.entry.layer);
+          else onSelect(hit.board);
+        }}
+        onDoubleClick={(e) => {
+          if (moved.current || spaceKey.current) return;
+          const board = hitBoard(e.clientX, e.clientY);
+          if (detailEnabled && board) onOpen(board);
+        }}
+        onContextMenu={(e) => {
+          const board = hitBoard(e.clientX, e.clientY);
+          if (!board) return;
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY, board });
         }}
       >
-        <div
-          className="overview-world"
-          style={{ transform: `translate(${camera.x}px,${camera.y}px) scale(${camera.scale})` }}
-        >
-          {' '}
-          {visible.map((b) => {
-            const f = b.frame,
-              match = matchesBoardName(b, search),
-              width = Math.max(1, f.width * camera.scale),
-              height = Math.max(1, f.height * camera.scale);
-            const quality = pageRenderQuality(b, viewCamera.scale),
-              active = selectedId === b.do_objectID || inspectBoardId === b.do_objectID;
-            return (
-              <div
-                key={b.do_objectID}
-                onPointerEnter={() => inspectBoard(b.do_objectID)}
-                onPointerLeave={() => {
-                  stopInspectionTimer();
-                  setInspectBoardId((current) => (current === b.do_objectID ? null : current));
-                }}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  setMenu({ x: e.clientX, y: e.clientY, board: b });
-                }}
-                className={`overview-board${selectedId === b.do_objectID ? ' selected' : ''}${search && !match ? ' dimmed' : ''}${search && match ? ' matched' : ''}`}
-                style={{
-                  left: f.x,
-                  top: f.y,
-                  width: f.width,
-                  height: f.height,
-                  outlineWidth: (selectedId === b.do_objectID ? 2 : 1) / viewCamera.scale,
-                }}
-              >
-                {(width > 45 || selectedId === b.do_objectID || (search && match)) && (
-                  <button
-                    className="overview-board-label"
-                    style={{
-                      maxWidth: Math.max(width, 80),
-                      transform: `scale(${1 / camera.scale})`,
-                      transformOrigin: 'bottom left',
-                      bottom: `calc(100% + ${5 / camera.scale}px)`,
-                    }}
-                    title={b.name}
-                    aria-label={`定位画板 ${b.name}`}
-                    onClick={() => {
-                      if (!moved.current && !spaceKey.current) onSelect(b);
-                    }}
-                  >
-                    {b.name}
-                  </button>
-                )}
-                <PageBoard
-                  board={b}
-                  doc={doc}
-                  cache={cache}
-                  inspect={active}
-                  live={active && quality.live && !moving}
-                  scale={viewCamera.scale}
-                  selected={selectedId === b.do_objectID ? selected : null}
-                  measurement={
-                    measurement
-                      ? { ...measurement, x: measurement.x - f.x, y: measurement.y - f.y }
-                      : null
-                  }
-                  alt={alt}
-                  enabled={() => !moved.current && !spaceKey.current}
-                  onSelect={(layer) => onLayer(b, layer)}
-                  onLocate={() => locate(b)}
-                  onError={setPreviewNotice}
-                >
-                  <Preview
-                    board={b}
-                    thumbnails={thumbnails}
-                    priority={selectedId === b.do_objectID}
-                    scale={viewCamera.scale}
-                    load={!moving && !dragging}
-                  />
-                </PageBoard>
-                {selectedId === b.do_objectID && (
-                  <button
-                    style={{
-                      transform: `scale(${1 / camera.scale})`,
-                      transformOrigin: 'top left',
-                      top: f.height + 5 / camera.scale,
-                    }}
-                    className="overview-enter"
-                    aria-label={`打开单画板 ${b.name}`}
-                    onClick={() => onOpen(b)}
-                  >
-                    <ArrowUpRight size={12} />
-                    打开单画板
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        {!boards.length && <div className="overview-empty">这个页面还没有画板</div>}
+        <canvas ref={surface} className="work-canvas" />
       </div>
       {menu && (
         <ContextMenu position={menu} onClose={() => setMenu(null)}>
-          <button onClick={() => locate(menu.board)}>
+          <button
+            onClick={() => {
+              const el = viewport.current;
+              if (el) queueCamera(() => fitCameraInArea(menu.board.frame, viewportArea(el)));
+              setMenu(null);
+            }}
+          >
             <Maximize size={14} />
             缩放到画板
           </button>
-          <button onClick={() => onOpen(menu.board)}>
-            <ArrowUpRight size={14} />
-            打开单画板
-          </button>
+          {detailEnabled && (
+            <button
+              onClick={() => {
+                onOpen(menu.board);
+                setMenu(null);
+              }}
+            >
+              <ArrowUpRight size={14} />
+              打开单画板
+            </button>
+          )}
         </ContextMenu>
       )}
       {previewNotice && (

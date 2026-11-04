@@ -19,7 +19,7 @@ export function pageBounds(boards: Layer[]): Rect {
 }
 export function fitPage(bounds: Rect, width: number, height: number): Camera {
   const scale = Math.max(
-    0.001,
+    0.02,
     Math.min(1, Math.max(1, width - 100) / bounds.width, Math.max(1, height - 100) / bounds.height),
   );
   return {
@@ -29,7 +29,7 @@ export function fitPage(bounds: Rect, width: number, height: number): Camera {
   };
 }
 export function zoomPage(camera: Camera, scale: number, anchor: Point): Camera {
-  const next = Math.max(0.001, Math.min(4, scale)),
+  const next = Math.max(0.02, Math.min(256, scale)),
     ratio = next / camera.scale;
   return {
     scale: next,

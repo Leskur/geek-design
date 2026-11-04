@@ -738,8 +738,13 @@ footer b {
 .interactive-canvas.is-dragging * {
   cursor: grabbing !important;
 }
-.interactive-canvas .paper-wrap > .design-svg {
-  overflow: visible;
+.interactive-canvas > .work-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
 }
 .inspection-overlay {
   isolation: isolate;

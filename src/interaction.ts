@@ -106,7 +106,7 @@ export function inspectionTarget(
   return entry || null;
 }
 export function zoomAt(camera: Camera, scale: number, anchor: Point): Camera {
-  const next = Math.max(0.001, Math.min(4, scale)),
+  const next = Math.max(0.02, Math.min(256, scale)),
     ratio = next / camera.scale;
   return {
     x: anchor.x - (anchor.x - camera.x) * ratio,
@@ -214,9 +214,75 @@ export function spacingWithin(entry: IndexedLayer, container: IndexedLayer) {
   };
 }
 
+export function countLayers(l: Layer): number {
+  return 1 + (l.layers || []).reduce((n, c) => n + countLayers(c), 0);
+}
+
+/** Convex quad test for indexed layer corners (TL→TR→BR→BL). */
+export function pointInQuad(p: Point, corners: Point[]) {
+  if (corners.length < 4) return false;
+  let sign = 0;
+  for (let i = 0; i < 4; i++) {
+    const a = corners[i],
+      b = corners[(i + 1) % 4],
+      cross = (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+    if (Math.abs(cross) < 1e-9) continue;
+    const next = cross > 0 ? 1 : -1;
+    if (!sign) sign = next;
+    else if (next !== sign) return false;
+  }
+  return true;
+}
+
+export function pointerToArtboard(
+  client: Point,
+  viewport: DOMRect,
+  camera: Camera,
+): Point {
+  return {
+    x: (client.x - viewport.left - camera.x) / camera.scale,
+    y: (client.y - viewport.top - camera.y) / camera.scale,
+  };
+}
+
+/** Topmost visible layer under a point in artboard space (paint order). */
+export function hitAtPoint(
+  point: Point,
+  root: Layer,
+  index: Map<string, IndexedLayer>,
+  parent = false,
+): IndexedLayer | null {
+  function search(layers: Layer[]): IndexedLayer | null {
+    for (let i = layers.length - 1; i >= 0; i--) {
+      const l = layers[i];
+      if (l.isVisible === false || l._hiddenSymbol || l._class === 'slice') continue;
+      const entry = index.get(l.do_objectID);
+      if (!entry || !pointInQuad(point, entry.corners)) continue;
+      const shapeGroup = l._class === 'shapeGroup';
+      const shape = [
+        'rectangle',
+        'oval',
+        'shapePath',
+        'triangle',
+        'star',
+        'polygon',
+      ].includes(l._class);
+      if (!shapeGroup && !shape && l.layers?.length) {
+        const inner = search(l.layers);
+        if (inner) return inner;
+      }
+      return inspectionTarget(l.do_objectID, index, parent);
+    }
+    return null;
+  }
+  if (point.x < 0 || point.y < 0 || point.x > root.frame.width || point.y > root.frame.height)
+    return null;
+  return search(root.layers || []);
+}
+
 export function fitCameraInArea(bounds: Rect, area: Rect, maxScale = 1, widthOnly = false): Camera {
   const scale = Math.max(
-    0.001,
+    0.02,
     Math.min(
       maxScale,
       Math.max(1, area.width - 96) / Math.max(1, bounds.width),

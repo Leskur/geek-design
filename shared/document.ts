@@ -14,6 +14,8 @@ export interface DocumentSource {
   styles: Map<string, any>;
   source: 'local' | 'team';
   revisionId?: string;
+  /** Stable id for Cache Storage. Same file or revision keeps the same image bytes. */
+  assetKey?: string;
   fontLibrary?: { teamId: string; canUpload: boolean };
   fontLoadError?(name: string): string | undefined;
   retryFonts?(): Promise<void>;

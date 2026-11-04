@@ -1,13 +1,18 @@
 import type { Layer, DocumentSource } from './sketch';
 import type { SceneCache } from './SceneCache';
-import { thumbnailPixelScale, thumbnailSize } from './thumbnail-size';
+import { previewPixelScale, previewSize, type PreviewMode } from './thumbnail-size';
+import type { RasterView } from './thumbnail-markup';
 
-type Entry = { url: string; width: number; height: number };
+type Entry = { url: string; width: number; height: number; blob: boolean };
+type ViewEntry = Entry & { sig: string };
 type Job = {
-  id: string;
+  key: string;
   board: Layer;
+  mode: PreviewMode;
   width: number;
   height: number;
+  view?: RasterView;
+  sig?: string;
   resolve: (url: string) => void;
   reject: (e: unknown) => void;
 };
@@ -17,45 +22,62 @@ function thumbnailConcurrency() {
   return Math.max(1, Math.min(2, cores - 2));
 }
 
+function cacheKey(boardId: string, mode: PreviewMode) {
+  return `${boardId}:${mode}`;
+}
+
+/**
+ * One preview pipeline for local and team:
+ * client-side SVG markup is the reliable path; doc.thumbnail is an optional fast path.
+ * Overview mini and detail 原图分 key 缓存，避免互相盖住导致「放大不重绘」。
+ */
 export class ThumbnailCache {
   private values = new Map<string, Entry>();
+  private views = new Map<string, ViewEntry>();
+  private viewWanted = new Map<string, { view: RasterView; width: number; height: number; sig: string }>();
   private pending = new Map<string, Promise<string>>();
+  private wanted = new Map<string, { width: number; height: number }>();
   private queue: Job[] = [];
   private active = 0;
   private disposed = false;
   private paused = false;
-  private workers: Worker[] = [];
-  private idle: Worker[] = [];
-  private nextRequestId = 0;
-  private workersEnabled = typeof Worker !== 'undefined';
   private api?: typeof import('./thumbnail-renderer');
   constructor(
     private doc: DocumentSource,
     private scenes: SceneCache,
     private concurrency = thumbnailConcurrency(),
   ) {}
-  peek(id: string) {
-    return this.values.get(id)?.url || '';
+  peek(id: string, mode: PreviewMode = 'overview') {
+    return this.values.get(cacheKey(id, mode))?.url || this.values.get(cacheKey(id, 'detail'))?.url || '';
   }
-  covers(board: Layer, viewScale: number) {
-    const cached = this.values.get(board.do_objectID);
+  entry(id: string, mode: PreviewMode = 'overview') {
+    return this.values.get(cacheKey(id, mode)) || null;
+  }
+  covers(board: Layer, viewScale: number, mode: PreviewMode = 'overview') {
+    const cached = this.values.get(cacheKey(board.do_objectID, mode));
     if (!cached) return false;
-    const { width, height } = thumbnailSize(board, viewScale);
+    const { width, height } = previewSize(board, viewScale, mode);
     return cached.width >= width && cached.height >= height;
   }
-  request(board: Layer, priority = false, viewScale = 1): Promise<string> {
-    const id = board.do_objectID,
-      { width, height } = thumbnailSize(board, viewScale),
-      cached = this.values.get(id);
+  request(
+    board: Layer,
+    priority = false,
+    viewScale = 1,
+    mode: PreviewMode = 'overview',
+  ): Promise<string> {
+    const key = cacheKey(board.do_objectID, mode),
+      { width, height } = previewSize(board, viewScale, mode),
+      cached = this.values.get(key);
     if (cached && cached.width >= width && cached.height >= height) {
-      this.values.delete(id);
-      this.values.set(id, cached);
+      this.values.delete(key);
+      this.values.set(key, cached);
       return Promise.resolve(cached.url);
     }
     if (this.disposed) return Promise.reject(new Error('文档已关闭'));
-    const existing = this.pending.get(id);
+    this.wanted.set(key, { width, height });
+    const existing = this.pending.get(key);
     if (existing) {
-      const i = this.queue.findIndex((j) => j.id === id);
+      const i = this.queue.findIndex((j) => j.key === key);
       if (i >= 0) {
         if (this.queue[i].width < width) {
           this.queue[i].width = width;
@@ -63,127 +85,146 @@ export class ThumbnailCache {
         }
         if (priority) this.queue.unshift(this.queue.splice(i, 1)[0]);
       }
+      // 已在渲染中：等当前完成后再按 wanted 补更大一档
       return existing;
     }
-    if (this.doc.thumbnail) {
-      const remote = this.doc
-        .thumbnail(board.do_objectID, thumbnailPixelScale(viewScale) < 0.5)
-        .then((url) => {
-          if (this.disposed) throw new Error('文档已关闭');
-          this.values.set(id, { url, width, height });
-          return url;
-        })
-        .finally(() => this.pending.delete(id));
-      this.pending.set(id, remote);
-      return remote;
-    }
-    const promise = new Promise<string>((resolve, reject) => {
-      const job = { id, board, width, height, resolve, reject };
-      priority ? this.queue.unshift(job) : this.queue.push(job);
-    });
-    this.pending.set(id, promise);
-    void this.work();
+    const run =
+      this.doc.thumbnail && mode === 'overview'
+        ? this.doc
+            .thumbnail(board.do_objectID, previewPixelScale(viewScale, mode) < 0.5)
+            .then((url) => {
+              if (this.disposed) throw new Error('文档已关闭');
+              this.remember(key, url, width, height, false);
+              return url;
+            })
+            .catch(() => this.enqueue(board, mode, width, height, priority))
+        : this.enqueue(board, mode, width, height, priority);
+    const promise = run
+      .then((url) => this.ensureWanted(board, mode, url))
+      .finally(() => this.pending.delete(key));
+    this.pending.set(key, promise);
     return promise;
   }
-  private ensureWorkers() {
-    if (!this.workersEnabled || this.workers.length || this.disposed) return;
-    for (let i = 0; i < this.concurrency; i++) this.spawnWorker();
+  /** Detail: raster only the visible window into a viewport-sized bitmap. Canvas stays screen-sized. */
+  requestViewport(board: Layer, view: RasterView, width: number, height: number): Promise<string> {
+    const id = board.do_objectID,
+      sig = `${width}x${height}@${view.x.toFixed(1)},${view.y.toFixed(1)},${view.width.toFixed(1)},${view.height.toFixed(1)}`,
+      key = `${id}:view`,
+      cached = this.views.get(id);
+    this.viewWanted.set(id, { view, width, height, sig });
+    if (cached?.sig === sig) return Promise.resolve(cached.url);
+    if (this.disposed) return Promise.reject(new Error('文档已关闭'));
+    const existing = this.pending.get(key);
+    if (existing) return existing.then(() => this.finishViewport(board));
+    const promise = this.enqueue(board, 'detail', width, height, true, view, sig)
+      .then(() => this.finishViewport(board))
+      .finally(() => this.pending.delete(key));
+    this.pending.set(key, promise);
+    return promise;
   }
-  private spawnWorker() {
-    const { createThumbnailWorker } = this.api!;
-    const worker = createThumbnailWorker();
-    worker.addEventListener('error', () => this.disableWorkers());
-    this.workers.push(worker);
-    this.idle.push(worker);
+  private finishViewport(board: Layer): Promise<string> {
+    const id = board.do_objectID,
+      want = this.viewWanted.get(id),
+      cached = this.views.get(id);
+    if (!want) return Promise.resolve(cached?.url || '');
+    if (cached?.sig === want.sig) return Promise.resolve(cached.url);
+    return this.enqueue(board, 'detail', want.width, want.height, true, want.view, want.sig).then(
+      () => this.finishViewport(board),
+    );
   }
-  private disableWorkers() {
-    this.workersEnabled = false;
-    for (const worker of this.workers) worker.terminate();
-    this.workers = [];
-    this.idle = [];
+  private ensureWanted(board: Layer, mode: PreviewMode, url: string): Promise<string> {
+    const key = cacheKey(board.do_objectID, mode),
+      need = this.wanted.get(key),
+      cached = this.values.get(key);
+    if (!need || !cached) return Promise.resolve(url);
+    if (cached.width >= need.width && cached.height >= need.height) return Promise.resolve(cached.url);
+    return this.enqueue(board, mode, need.width, need.height, true);
+  }
+  private enqueue(
+    board: Layer,
+    mode: PreviewMode,
+    width: number,
+    height: number,
+    priority: boolean,
+    view?: RasterView,
+    sig?: string,
+  ) {
+    const key = view ? `${board.do_objectID}:view` : cacheKey(board.do_objectID, mode);
+    return new Promise<string>((resolve, reject) => {
+      const job = { key, board, mode, width, height, view, sig, resolve, reject };
+      priority ? this.queue.unshift(job) : this.queue.push(job);
+      void this.work();
+    });
+  }
+  private remember(key: string, url: string, width: number, height: number, blob: boolean) {
+    const prev = this.values.get(key);
+    if (prev?.blob && prev.url !== url) URL.revokeObjectURL(prev.url);
+    this.values.set(key, { url, width, height, blob });
   }
   private async work() {
     if (this.paused || this.disposed) return;
     this.api ??= await import('./thumbnail-renderer');
-    this.ensureWorkers();
-    if (!this.workersEnabled) {
-      while (this.active < this.concurrency && this.queue.length && !this.paused && !this.disposed) {
-        const job = this.queue.shift();
-        if (!job) break;
-        this.active++;
-        void this.run(job, null);
-      }
-      return;
-    }
-    while (this.idle.length && this.queue.length && !this.paused && !this.disposed) {
+    while (this.active < this.concurrency && this.queue.length && !this.paused && !this.disposed) {
       const job = this.queue.shift();
-      const worker = this.idle.pop();
-      if (!job || !worker) break;
+      if (!job) break;
       this.active++;
-      void this.run(job, worker);
+      void this.run(job);
     }
   }
-  private async run(job: Job, worker: Worker | null) {
+  private async run(job: Job) {
     const api = this.api!;
     try {
-      const blob = await this.render(job, worker, api);
+      const viewWant = job.view ? this.viewWanted.get(job.board.do_objectID) : undefined;
+      const boardNeed = job.view ? undefined : this.wanted.get(job.key);
+      const width = viewWant?.width || Math.max(job.width, boardNeed?.width || 0),
+        height = viewWant?.height || Math.max(job.height, boardNeed?.height || 0),
+        view = viewWant?.view || job.view,
+        sig = viewWant?.sig || job.sig;
+      const blob = await api.renderThumbnail(
+        job.board,
+        this.doc,
+        this.scenes,
+        width,
+        height,
+        view,
+      );
       if (this.disposed) {
         job.reject(new Error('文档已关闭'));
         return;
       }
-      const prev = this.values.get(job.id);
-      if (prev && prev.width >= job.width && prev.height >= job.height) {
+      if (view && sig) {
+        const latest = this.viewWanted.get(job.board.do_objectID);
+        if (latest && latest.sig !== sig) {
+          job.resolve('');
+          return;
+        }
+        const url = URL.createObjectURL(blob);
+        const prev = this.views.get(job.board.do_objectID);
+        if (prev?.blob && prev.url !== url) URL.revokeObjectURL(prev.url);
+        this.views.set(job.board.do_objectID, { url, width, height, blob: true, sig });
+        job.resolve(url);
+        return;
+      }
+      const prev = this.values.get(job.key);
+      if (prev && prev.width >= width && prev.height >= height) {
         job.resolve(prev.url);
         return;
       }
       const url = URL.createObjectURL(blob);
-      if (prev && !this.doc.thumbnail) URL.revokeObjectURL(prev.url);
-      this.values.set(job.id, { url, width: job.width, height: job.height });
+      this.remember(job.key, url, width, height, true);
       job.resolve(url);
     } catch (e) {
       job.reject(e);
     } finally {
-      this.pending.delete(job.id);
       this.active--;
       if (!this.paused && !this.disposed) void this.work();
     }
-  }
-  private async render(
-    job: Job,
-    worker: Worker | null,
-    api: typeof import('./thumbnail-renderer'),
-  ) {
-    const root = this.scenes.get(job.board).root,
-      { width, height } = job,
-      images = await api.collectThumbnailImages(root, this.doc);
-    if (this.disposed) throw new Error('文档已关闭');
-    if (!worker) return api.renderThumbnail(job.board, this.doc, this.scenes, width, height);
-    let result: Awaited<ReturnType<typeof api.renderThumbnailInWorker>>;
-    try {
-      result = await api.renderThumbnailInWorker(worker, ++this.nextRequestId, {
-        root,
-        images,
-        width,
-        height,
-      });
-    } catch (error) {
-      if (this.disposed) throw error;
-      return api.renderThumbnail(job.board, this.doc, this.scenes, width, height);
-    } finally {
-      if (this.workers.includes(worker)) {
-        this.idle.push(worker);
-        if (!this.paused && !this.disposed) void this.work();
-      }
-    }
-    if (result.markup) return api.thumbnailBlob(result.markup);
-    if (result.buffer) return new Blob([result.buffer], { type: 'image/png' });
-    throw new Error('无法生成缩略图');
   }
   dropQueued() {
     const leftover = this.queue;
     this.queue = [];
     for (const job of leftover) {
-      this.pending.delete(job.id);
+      this.pending.delete(job.key);
       job.reject(new Error('预览已取消'));
     }
   }
@@ -193,9 +234,12 @@ export class ThumbnailCache {
   }
   dispose() {
     this.disposed = true;
-    this.disableWorkers();
-    if (!this.doc.thumbnail) for (const entry of this.values.values()) URL.revokeObjectURL(entry.url);
+    for (const entry of this.values.values()) if (entry.blob) URL.revokeObjectURL(entry.url);
+    for (const entry of this.views.values()) if (entry.blob) URL.revokeObjectURL(entry.url);
     this.values.clear();
+    this.views.clear();
+    this.viewWanted.clear();
+    this.wanted.clear();
     for (const job of this.queue) job.reject(new Error('文档已关闭'));
     this.queue = [];
     this.pending.clear();

@@ -12,22 +12,26 @@ export function collectImageRefs(layer: Layer, refs = new Set<string>()) {
   return refs;
 }
 
+export type RasterView = { x: number; y: number; width: number; height: number };
+
 export function thumbnailMarkup(
   root: Layer,
   images: Record<string, string>,
   width: number,
   height: number,
+  view?: RasterView,
 ) {
   const source = {
     previewImages: new Map(Object.entries(images)),
     image: async (ref: string) => images[ref] || '',
   } as unknown as DocumentSource;
+  const box = view || { x: 0, y: 0, width: root.frame.width, height: root.frame.height };
   return renderToStaticMarkup(
     <svg
       xmlns="http://www.w3.org/2000/svg"
       width={width}
       height={height}
-      viewBox={`0 0 ${root.frame.width} ${root.frame.height}`}
+      viewBox={`${box.x} ${box.y} ${box.width} ${box.height}`}
     >
       <rect
         width={root.frame.width}
