@@ -254,10 +254,6 @@
   }
 }
 
-.workspace > .left > .page-switcher:first-child {
-  margin-top: 18px;
-  margin-bottom: 0;
-}
 .workspace > .left > .search {
   margin-top: 12px;
 }
@@ -299,9 +295,6 @@
   padding-top: 16px;
   padding-bottom: 0;
 }
-.workspace > .left > .page-switcher {
-  margin-bottom: 0;
-}
 .workspace > .left > .search {
   margin-top: 10px;
   margin-bottom: 12px;
@@ -323,11 +316,11 @@
 .unified-board-row {
   min-height: 38px;
 }
-.workspace > .left .page-switcher-trigger,
-.workspace > .left .page-switcher-option {
+.workspace > .left .page-list-item {
   font-size: 13px;
+  min-height: 36px;
 }
-.workspace > .left .page-switcher-count {
+.workspace > .left .page-list-count {
   font-size: 11px;
 }
 .workspace > .left .search {

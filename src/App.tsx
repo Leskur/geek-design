@@ -15,7 +15,7 @@ import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
 import { routeFor, matchesId } from './routes';
-import { PageSwitcher } from './PageSwitcher';
+import { PageList } from './PageList';
 import { Inspector } from './Inspector';
 
 import { fontNames } from '../shared/fonts';
@@ -455,7 +455,7 @@ export function App() {
         <div className="workspace viewer-workspace">
           <aside className="left">
             <h2 className="navigation-section-title">页面</h2>
-            <PageSwitcher
+            <PageList
               pages={doc.pages}
               value={page?.do_objectID || ''}
               disabled={busy}
