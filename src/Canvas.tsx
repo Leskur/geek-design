@@ -1,96 +1,469 @@
-import {MousePointer2} from 'lucide-react';
-import {ZoomMenu} from './ZoomMenu';
-import {viewportArea} from './viewport-area';
-import {ViewerToolbar,useViewerShortcuts} from './ViewerToolbar';
-import React,{memo,useEffect,useLayoutEffect,useMemo,useRef,useState} from 'react';
-import type {Layer,DocumentSource} from './sketch';
-import {color} from './sketch';
-import type {Scene} from './scene';
-import {Children} from './renderer';
-import {fitCameraInArea,panFromAnchor,inspectionTarget,indexLayers,isEditingTarget,measure,panBy,zoomAt,type Camera,type Distance,type IndexedLayer} from './interaction';
+import { MousePointer2 } from 'lucide-react';
+import { ZoomMenu } from './ZoomMenu';
+import { viewportArea } from './viewport-area';
+import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
+import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { Layer, DocumentSource } from './sketch';
+import { color } from './sketch';
+import type { Scene } from '../shared/rendering/scene';
+import { Children } from '../shared/rendering/renderer';
+import {
+  fitCameraInArea,
+  panFromAnchor,
+  inspectionTarget,
+  indexLayers,
+  isEditingTarget,
+  measure,
+  panBy,
+  zoomAt,
+  type Camera,
+  type Distance,
+  type IndexedLayer,
+} from './interaction';
 
-const ignore=()=>{};
-export const Drawing=memo(function Drawing({root,doc}:{root:Layer;doc:DocumentSource}){return <Children layers={root.layers||[]} doc={doc} choose={ignore} w={root.frame.width} h={root.frame.height}/>;});
-export function Outline({entry,scale,kind}:{entry:IndexedLayer;scale:number;kind:'selected'|'hover'}) {
- return <polygon data-testid={`${kind}-outline`} data-layer-id={entry.layer.do_objectID} points={entry.corners.map(p=>`${p.x},${p.y}`).join(' ')} fill="none" stroke={kind==='selected'?'#7656e8':'#9c84e3'} strokeWidth={(kind==='selected'?1.5:1)/scale} strokeDasharray={kind==='hover'?`${3/scale} ${2/scale}`:undefined}/>;
+const ignore = () => {};
+export const Drawing = memo(function Drawing({ root, doc }: { root: Layer; doc: DocumentSource }) {
+  return (
+    <Children
+      layers={root.layers || []}
+      doc={doc}
+      choose={ignore}
+      w={root.frame.width}
+      h={root.frame.height}
+    />
+  );
+});
+export function Outline({
+  entry,
+  scale,
+  kind,
+}: {
+  entry: IndexedLayer;
+  scale: number;
+  kind: 'selected' | 'hover';
+}) {
+  return (
+    <polygon
+      data-testid={`${kind}-outline`}
+      data-layer-id={entry.layer.do_objectID}
+      points={entry.corners.map((p) => `${p.x},${p.y}`).join(' ')}
+      fill="none"
+      stroke={kind === 'selected' ? '#7656e8' : '#9c84e3'}
+      strokeWidth={(kind === 'selected' ? 1.5 : 1) / scale}
+      strokeDasharray={kind === 'hover' ? `${3 / scale} ${2 / scale}` : undefined}
+    />
+  );
 }
-export function Ruler({distance:d,scale}:{distance:Distance;scale:number}) {
- const x=(d.from.x+d.to.x)/2,y=(d.from.y+d.to.y)/2,label=`${Number(d.value.toFixed(1))}`,width=(label.length*6+12)/scale,height=17/scale;
- const lx=d.axis==='x'?x-width/2:x+7/scale,ly=d.axis==='x'?y-23/scale:y-height/2;
- return <g className="distance" data-distance={Number(d.value.toFixed(3))}>
-  {d.guides.map((g,i)=><line key={i} x1={g.from.x} y1={g.from.y} x2={g.to.x} y2={g.to.y} strokeDasharray={`${3/scale} ${3/scale}`} opacity=".6"/>)}
-  <line x1={d.from.x} y1={d.from.y} x2={d.to.x} y2={d.to.y}/>
-  {[d.from,d.to].map((p,i)=><line key={i} x1={p.x-(d.axis==='y'?3/scale:0)} y1={p.y-(d.axis==='x'?3/scale:0)} x2={p.x+(d.axis==='y'?3/scale:0)} y2={p.y+(d.axis==='x'?3/scale:0)}/>)}
-  <rect x={lx} y={ly} width={width} height={height} rx={3/scale} fill="#f45a76" stroke="none"/>
-  <text data-testid="measurement-label" x={lx+width/2} y={ly+height/2} dominantBaseline="central" textAnchor="middle" fontSize={10/scale} fill="white" stroke="none">{label}</text>
- </g>;
+export function Ruler({ distance: d, scale }: { distance: Distance; scale: number }) {
+  const x = (d.from.x + d.to.x) / 2,
+    y = (d.from.y + d.to.y) / 2,
+    label = `${Number(d.value.toFixed(1))}`,
+    width = (label.length * 6 + 12) / scale,
+    height = 17 / scale;
+  const lx = d.axis === 'x' ? x - width / 2 : x + 7 / scale,
+    ly = d.axis === 'x' ? y - 23 / scale : y - height / 2;
+  return (
+    <g className="distance" data-distance={Number(d.value.toFixed(3))}>
+      {d.guides.map((g, i) => (
+        <line
+          key={i}
+          x1={g.from.x}
+          y1={g.from.y}
+          x2={g.to.x}
+          y2={g.to.y}
+          strokeDasharray={`${3 / scale} ${3 / scale}`}
+          opacity=".6"
+        />
+      ))}
+      <line x1={d.from.x} y1={d.from.y} x2={d.to.x} y2={d.to.y} />
+      {[d.from, d.to].map((p, i) => (
+        <line
+          key={i}
+          x1={p.x - (d.axis === 'y' ? 3 / scale : 0)}
+          y1={p.y - (d.axis === 'x' ? 3 / scale : 0)}
+          x2={p.x + (d.axis === 'y' ? 3 / scale : 0)}
+          y2={p.y + (d.axis === 'x' ? 3 / scale : 0)}
+        />
+      ))}
+      <rect
+        x={lx}
+        y={ly}
+        width={width}
+        height={height}
+        rx={3 / scale}
+        fill="#f45a76"
+        stroke="none"
+      />
+      <text
+        data-testid="measurement-label"
+        x={lx + width / 2}
+        y={ly + height / 2}
+        dominantBaseline="central"
+        textAnchor="middle"
+        fontSize={10 / scale}
+        fill="white"
+        stroke="none"
+      >
+        {label}
+      </text>
+    </g>
+  );
 }
 
-export function Canvas({doc,scene,pageName,selected,onSelect,onWarnings,onOverview,focusRequest,toolbarHost,zoomHost,cameras,cameraKey}:{doc:DocumentSource;scene:Scene;pageName:string;selected:Layer|null;onSelect:(l:Layer|null)=>void;onWarnings:()=>void;onOverview:()=>void;focusRequest:{id:string;serial:number}|null;toolbarHost?:HTMLElement|null;zoomHost?:HTMLElement|null;cameras?:Map<string,Camera>;cameraKey?:string}) {
- const root=scene.root,viewport=useRef<HTMLDivElement>(null),index=useMemo(()=>indexLayers(root),[root]);
- const key=cameraKey||root.do_objectID;
- const [camera,setCameraState]=useState<Camera>(()=>cameras?.get(key)||{x:60,y:50,scale:.7}),[space,setSpace]=useState(false),[dragging,setDragging]=useState(false),[alt,setAlt]=useState(false),[inside,setInside]=useState(false),[hoverId,setHoverId]=useState<string|null>(null);
- const cameraRef=useRef(camera);
- function setCamera(update:Camera|((camera:Camera)=>Camera)){const next=typeof update==='function'?update(cameraRef.current):update;cameraRef.current=next;cameras?.set(key,next);setCameraState(next);}
- const keys=useRef({space:false,alt:false}),drag=useRef<{id:number;x:number;y:number;camera:Camera;pan:boolean}|null>(null),suppress=useRef(false);
- const selectedEntry=selected?index.get(selected.do_objectID):null,hovered=hoverId?index.get(hoverId):null;
- const target=alt&&inside&&selectedEntry&&!hovered?index.get(root.do_objectID):hovered;
- const distances=alt&&selectedEntry&&target&&selectedEntry!==target&&!space&&!dragging?measure(selectedEntry.bounds,target.bounds):[];
- function fit(widthOnly=false){const v=viewport.current;if(v)setCamera(fitCameraInArea({x:0,y:0,width:root.frame.width,height:root.frame.height},viewportArea(v),widthOnly?4:1,widthOnly));}
- useLayoutEffect(()=>{setHoverId(null);if(!cameras?.has(key))fit();},[root,key,cameras]);
- useEffect(()=>{const el=viewport.current,entry=focusRequest?index.get(focusRequest.id):null;if(el&&entry)setCamera(fitCameraInArea(entry.bounds,viewportArea(el),2));},[focusRequest,index]);
- useEffect(()=>{
-  const v=viewport.current;if(!v)return;
-  const wheel=(e:WheelEvent)=>{
-   e.preventDefault();const factor=e.deltaMode===1?16:e.deltaMode===2?v.clientHeight:1;
-   const bounds=v.getBoundingClientRect();setHoverId(null);
-   if(e.ctrlKey||e.metaKey)setCamera(c=>zoomAt(c,c.scale*Math.exp(-e.deltaY*.002),{x:e.clientX-bounds.x,y:e.clientY-bounds.y}));
-   else setCamera(c=>panBy(c,-(e.shiftKey&&!e.deltaX?e.deltaY:e.deltaX)*factor,-(e.shiftKey&&!e.deltaX?0:e.deltaY)*factor));
-  };
-  v.addEventListener('wheel',wheel,{passive:false});return()=>{v.removeEventListener('wheel',wheel)};
- },[root]);
- useEffect(()=>{
-  function reset(){keys.current={space:false,alt:false};setSpace(false);setAlt(false);setDragging(false);setHoverId(null);drag.current=null;}
-  function down(e:KeyboardEvent){
-   if(isEditingTarget(e.target)||e.ctrlKey||e.metaKey)return;
-   if(e.code==='Space'){e.preventDefault();keys.current.space=true;setSpace(true);setHoverId(null);}
-   if(e.key==='Alt'){e.preventDefault();keys.current.alt=true;setAlt(true);}
-   if(e.key==='Escape'){e.preventDefault();if(e.repeat)return;setHoverId(null);if(!selectedEntry){onOverview();return;}const parent=selectedEntry?.parent?index.get(selectedEntry.parent):null;onSelect(parent?.parent?parent.layer:null);}
+export function Canvas({
+  doc,
+  scene,
+  pageName,
+  selected,
+  onSelect,
+  onWarnings,
+  onOverview,
+  focusRequest,
+  toolbarHost,
+  zoomHost,
+  cameras,
+  cameraKey,
+}: {
+  doc: DocumentSource;
+  scene: Scene;
+  pageName: string;
+  selected: Layer | null;
+  onSelect: (l: Layer | null) => void;
+  onWarnings: () => void;
+  onOverview: () => void;
+  focusRequest: { id: string; serial: number } | null;
+  toolbarHost?: HTMLElement | null;
+  zoomHost?: HTMLElement | null;
+  cameras?: Map<string, Camera>;
+  cameraKey?: string;
+}) {
+  const root = scene.root,
+    viewport = useRef<HTMLDivElement>(null),
+    index = useMemo(() => indexLayers(root), [root]);
+  const key = cameraKey || root.do_objectID;
+  const [camera, setCameraState] = useState<Camera>(
+      () => cameras?.get(key) || { x: 60, y: 50, scale: 0.7 },
+    ),
+    [space, setSpace] = useState(false),
+    [dragging, setDragging] = useState(false),
+    [alt, setAlt] = useState(false),
+    [inside, setInside] = useState(false),
+    [hoverId, setHoverId] = useState<string | null>(null);
+  const cameraRef = useRef(camera);
+  function setCamera(update: Camera | ((camera: Camera) => Camera)) {
+    const next = typeof update === 'function' ? update(cameraRef.current) : update;
+    cameraRef.current = next;
+    cameras?.set(key, next);
+    setCameraState(next);
   }
-  function up(e:KeyboardEvent){if(e.code==='Space'){e.preventDefault();keys.current.space=false;setSpace(false);}if(e.key==='Alt'){keys.current.alt=false;setAlt(false);}}
-  function hidden(){if(document.hidden)reset();}
-  window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',reset);document.addEventListener('visibilitychange',hidden);
-  return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',reset);document.removeEventListener('visibilitychange',hidden)};
- },[index,selectedEntry,onSelect,onOverview]);
- function rawId(target:EventTarget|null){return target instanceof Element?target.closest('[data-layer]')?.getAttribute('data-layer')||null:null;}
- function hit(target:EventTarget|null,parent=false){return inspectionTarget(rawId(target),index,parent)?.layer.do_objectID||null;}
- function end(e:React.PointerEvent<HTMLDivElement>){const d=drag.current;if(d?.id!==e.pointerId)return;
-  if(e.type==='pointerup'&&(d.pan||Math.hypot(e.clientX-d.x,e.clientY-d.y)>4)){suppress.current=true;setCamera(panFromAnchor(d.camera,d,{x:e.clientX,y:e.clientY}));}
-  drag.current=null;setDragging(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
- }
- function click(e:React.MouseEvent<SVGSVGElement>){
-  e.stopPropagation();e.preventDefault();if(suppress.current||keys.current.space||keys.current.alt||e.altKey)return;
-  const id=hit(e.target,e.shiftKey);onSelect(id?index.get(id)!.layer:null);
- }
- function zoom(factor:number){const v=viewport.current;if(v){const area=viewportArea(v);setCamera(c=>zoomAt(c,c.scale*factor,{x:area.x+area.width/2,y:area.y+area.height/2}));}}
- useViewerShortcuts(zoom,()=>fit(),()=>zoom(1/cameraRef.current.scale));
+  const keys = useRef({ space: false, alt: false }),
+    drag = useRef<{ id: number; x: number; y: number; camera: Camera; pan: boolean } | null>(null),
+    suppress = useRef(false);
+  const selectedEntry = selected ? index.get(selected.do_objectID) : null,
+    hovered = hoverId ? index.get(hoverId) : null;
+  const target = alt && inside && selectedEntry && !hovered ? index.get(root.do_objectID) : hovered;
+  const distances =
+    alt && selectedEntry && target && selectedEntry !== target && !space && !dragging
+      ? measure(selectedEntry.bounds, target.bounds)
+      : [];
+  function fit(widthOnly = false) {
+    const v = viewport.current;
+    if (v)
+      setCamera(
+        fitCameraInArea(
+          { x: 0, y: 0, width: root.frame.width, height: root.frame.height },
+          viewportArea(v),
+          widthOnly ? 4 : 1,
+          widthOnly,
+        ),
+      );
+  }
+  useLayoutEffect(() => {
+    setHoverId(null);
+    if (!cameras?.has(key)) fit();
+  }, [root, key, cameras]);
+  useEffect(() => {
+    const el = viewport.current,
+      entry = focusRequest ? index.get(focusRequest.id) : null;
+    if (el && entry) setCamera(fitCameraInArea(entry.bounds, viewportArea(el), 2));
+  }, [focusRequest, index]);
+  useEffect(() => {
+    const v = viewport.current;
+    if (!v) return;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const factor = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? v.clientHeight : 1;
+      const bounds = v.getBoundingClientRect();
+      setHoverId(null);
+      if (e.ctrlKey || e.metaKey)
+        setCamera((c) =>
+          zoomAt(c, c.scale * Math.exp(-e.deltaY * 0.002), {
+            x: e.clientX - bounds.x,
+            y: e.clientY - bounds.y,
+          }),
+        );
+      else
+        setCamera((c) =>
+          panBy(
+            c,
+            -(e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * factor,
+            -(e.shiftKey && !e.deltaX ? 0 : e.deltaY) * factor,
+          ),
+        );
+    };
+    v.addEventListener('wheel', wheel, { passive: false });
+    return () => {
+      v.removeEventListener('wheel', wheel);
+    };
+  }, [root]);
+  useEffect(() => {
+    function reset() {
+      keys.current = { space: false, alt: false };
+      setSpace(false);
+      setAlt(false);
+      setDragging(false);
+      setHoverId(null);
+      drag.current = null;
+    }
+    function down(e: KeyboardEvent) {
+      if (isEditingTarget(e.target) || e.ctrlKey || e.metaKey) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        keys.current.space = true;
+        setSpace(true);
+        setHoverId(null);
+      }
+      if (e.key === 'Alt') {
+        e.preventDefault();
+        keys.current.alt = true;
+        setAlt(true);
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        if (e.repeat) return;
+        setHoverId(null);
+        if (!selectedEntry) {
+          onOverview();
+          return;
+        }
+        const parent = selectedEntry?.parent ? index.get(selectedEntry.parent) : null;
+        onSelect(parent?.parent ? parent.layer : null);
+      }
+    }
+    function up(e: KeyboardEvent) {
+      if (e.code === 'Space') {
+        e.preventDefault();
+        keys.current.space = false;
+        setSpace(false);
+      }
+      if (e.key === 'Alt') {
+        keys.current.alt = false;
+        setAlt(false);
+      }
+    }
+    function hidden() {
+      if (document.hidden) reset();
+    }
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', reset);
+    document.addEventListener('visibilitychange', hidden);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', reset);
+      document.removeEventListener('visibilitychange', hidden);
+    };
+  }, [index, selectedEntry, onSelect, onOverview]);
+  function rawId(target: EventTarget | null) {
+    return target instanceof Element
+      ? target.closest('[data-layer]')?.getAttribute('data-layer') || null
+      : null;
+  }
+  function hit(target: EventTarget | null, parent = false) {
+    return inspectionTarget(rawId(target), index, parent)?.layer.do_objectID || null;
+  }
+  function end(e: React.PointerEvent<HTMLDivElement>) {
+    const d = drag.current;
+    if (d?.id !== e.pointerId) return;
+    if (e.type === 'pointerup' && (d.pan || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 4)) {
+      suppress.current = true;
+      setCamera(panFromAnchor(d.camera, d, { x: e.clientX, y: e.clientY }));
+    }
+    drag.current = null;
+    setDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  }
+  function click(e: React.MouseEvent<SVGSVGElement>) {
+    e.stopPropagation();
+    e.preventDefault();
+    if (suppress.current || keys.current.space || keys.current.alt || e.altKey) return;
+    const id = hit(e.target, e.shiftKey);
+    onSelect(id ? index.get(id)!.layer : null);
+  }
+  function zoom(factor: number) {
+    const v = viewport.current;
+    if (v) {
+      const area = viewportArea(v);
+      setCamera((c) =>
+        zoomAt(c, c.scale * factor, { x: area.x + area.width / 2, y: area.y + area.height / 2 }),
+      );
+    }
+  }
+  useViewerShortcuts(
+    zoom,
+    () => fit(),
+    () => zoom(1 / cameraRef.current.scale),
+  );
 
- return <main className="center">
-  <ViewerToolbar host={toolbarHost}><span>{pageName}<i>/</i><b>{root.name}</b></span><div><button aria-label="默认工具" aria-pressed={true} title="默认工具" onClick={()=>viewport.current?.focus({preventScroll:true})}><MousePointer2 size={18}/></button><ZoomMenu host={zoomHost} scale={camera.scale} onScale={scale=>zoom(scale/cameraRef.current.scale)} onFit={()=>fit()} fitLabel="适合画板"/></div></ViewerToolbar>
-  <div ref={viewport} className={`viewport interactive-canvas${space?' is-space':''}${dragging?' is-dragging':''}`} tabIndex={0} aria-label="设计画布，悬停预览，单击选中内部图层，Shift 选择父级，拖动平移画布，按住 Alt 测量间距" data-space={space} data-dragging={dragging} data-camera-x={camera.x.toFixed(2)} data-camera-y={camera.y.toFixed(2)}
-   onPointerDown={e=>{suppress.current=false;if(e.button!==0&&e.button!==1)return;e.currentTarget.focus({preventScroll:true});if(keys.current.alt||e.altKey)return;const pan=keys.current.space||e.button===1;drag.current={id:e.pointerId,x:e.clientX,y:e.clientY,camera:{...cameraRef.current},pan};if(pan){e.preventDefault();suppress.current=true;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);setHoverId(null);}}}
-   onPointerMove={e=>{const d=drag.current;if(d&&d.id===e.pointerId){if(!d.pan){if(Math.hypot(e.clientX-d.x,e.clientY-d.y)<=4)return;d.pan=true;suppress.current=true;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);setHoverId(null);}e.preventDefault();setCamera(panFromAnchor(d.camera,d,{x:e.clientX,y:e.clientY}));return;}if(keys.current.space)return;setHoverId(hit(e.target,e.shiftKey&&!keys.current.alt&&!e.altKey));}}
-   onPointerUp={end} onPointerCancel={end} onLostPointerCapture={()=>{drag.current=null;setDragging(false);}} onPointerEnter={()=>setInside(true)} onPointerLeave={()=>{setInside(false);if(!drag.current)setHoverId(null);}}
-   onClick={e=>{if(e.target===e.currentTarget&&!suppress.current&&!keys.current.space&&!keys.current.alt)onSelect(null);}}
-   onClickCapture={e=>{if(suppress.current||keys.current.space||keys.current.alt){e.stopPropagation();e.preventDefault();}}}>
-   <div className="paper-wrap" style={{position:'absolute',margin:0,left:camera.x,top:camera.y,width:root.frame.width*camera.scale}}><div className="board-label">{root.name}</div>
-    <svg className="design-svg" width={root.frame.width*camera.scale} height={root.frame.height*camera.scale} viewBox={`0 0 ${root.frame.width} ${root.frame.height}`} style={{background:root.hasBackgroundColor?color(root.backgroundColor):'#fff',overflow:'visible'}} onClickCapture={click}>
-     <Drawing root={root} doc={doc}/>
-     <g className="inspection-overlay" pointerEvents="none">{selectedEntry&&<Outline entry={selectedEntry} scale={camera.scale} kind="selected"/>}{hovered&&hovered!==selectedEntry&&!space&&!dragging&&<Outline entry={hovered} scale={camera.scale} kind="hover"/>}<g stroke="#f45a76" strokeWidth={1/camera.scale}>{distances.map((d,i)=><Ruler key={i} distance={d} scale={camera.scale}/>)}</g></g>
-    </svg>
-   </div>
-
-  </div>
-  {scene.warnings.length>0&&<div className="canvas-foot"><button className="compatibility" onClick={onWarnings}>查看 {scene.warnings.length} 项兼容提示</button></div>}
- </main>;
+  return (
+    <main className="center">
+      <ViewerToolbar host={toolbarHost}>
+        <span>
+          {pageName}
+          <i>/</i>
+          <b>{root.name}</b>
+        </span>
+        <div>
+          <button
+            aria-label="默认工具"
+            aria-pressed={true}
+            title="默认工具"
+            onClick={() => viewport.current?.focus({ preventScroll: true })}
+          >
+            <MousePointer2 size={18} />
+          </button>
+          <ZoomMenu
+            host={zoomHost}
+            scale={camera.scale}
+            onScale={(scale) => zoom(scale / cameraRef.current.scale)}
+            onFit={() => fit()}
+            fitLabel="适合画板"
+          />
+        </div>
+      </ViewerToolbar>
+      <div
+        ref={viewport}
+        className={`viewport interactive-canvas${space ? ' is-space' : ''}${dragging ? ' is-dragging' : ''}`}
+        tabIndex={0}
+        aria-label="设计画布，悬停预览，单击选中内部图层，Shift 选择父级，拖动平移画布，按住 Alt 测量间距"
+        data-space={space}
+        data-dragging={dragging}
+        data-camera-x={camera.x.toFixed(2)}
+        data-camera-y={camera.y.toFixed(2)}
+        onPointerDown={(e) => {
+          suppress.current = false;
+          if (e.button !== 0 && e.button !== 1) return;
+          e.currentTarget.focus({ preventScroll: true });
+          if (keys.current.alt || e.altKey) return;
+          const pan = keys.current.space || e.button === 1;
+          drag.current = {
+            id: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            camera: { ...cameraRef.current },
+            pan,
+          };
+          if (pan) {
+            e.preventDefault();
+            suppress.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDragging(true);
+            setHoverId(null);
+          }
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (d && d.id === e.pointerId) {
+            if (!d.pan) {
+              if (Math.hypot(e.clientX - d.x, e.clientY - d.y) <= 4) return;
+              d.pan = true;
+              suppress.current = true;
+              e.currentTarget.setPointerCapture(e.pointerId);
+              setDragging(true);
+              setHoverId(null);
+            }
+            e.preventDefault();
+            setCamera(panFromAnchor(d.camera, d, { x: e.clientX, y: e.clientY }));
+            return;
+          }
+          if (keys.current.space) return;
+          setHoverId(hit(e.target, e.shiftKey && !keys.current.alt && !e.altKey));
+        }}
+        onPointerUp={end}
+        onPointerCancel={end}
+        onLostPointerCapture={() => {
+          drag.current = null;
+          setDragging(false);
+        }}
+        onPointerEnter={() => setInside(true)}
+        onPointerLeave={() => {
+          setInside(false);
+          if (!drag.current) setHoverId(null);
+        }}
+        onClick={(e) => {
+          if (
+            e.target === e.currentTarget &&
+            !suppress.current &&
+            !keys.current.space &&
+            !keys.current.alt
+          )
+            onSelect(null);
+        }}
+        onClickCapture={(e) => {
+          if (suppress.current || keys.current.space || keys.current.alt) {
+            e.stopPropagation();
+            e.preventDefault();
+          }
+        }}
+      >
+        <div
+          className="paper-wrap"
+          style={{
+            position: 'absolute',
+            margin: 0,
+            left: camera.x,
+            top: camera.y,
+            width: root.frame.width * camera.scale,
+          }}
+        >
+          <div className="board-label">{root.name}</div>
+          <svg
+            className="design-svg"
+            width={root.frame.width * camera.scale}
+            height={root.frame.height * camera.scale}
+            viewBox={`0 0 ${root.frame.width} ${root.frame.height}`}
+            style={{
+              background: root.hasBackgroundColor ? color(root.backgroundColor) : '#fff',
+              overflow: 'visible',
+            }}
+            onClickCapture={click}
+          >
+            <Drawing root={root} doc={doc} />
+            <g className="inspection-overlay" pointerEvents="none">
+              {selectedEntry && (
+                <Outline entry={selectedEntry} scale={camera.scale} kind="selected" />
+              )}
+              {hovered && hovered !== selectedEntry && !space && !dragging && (
+                <Outline entry={hovered} scale={camera.scale} kind="hover" />
+              )}
+              <g stroke="#f45a76" strokeWidth={1 / camera.scale}>
+                {distances.map((d, i) => (
+                  <Ruler key={i} distance={d} scale={camera.scale} />
+                ))}
+              </g>
+            </g>
+          </svg>
+        </div>
+      </div>
+      {scene.warnings.length > 0 && (
+        <div className="canvas-foot">
+          <button className="compatibility" onClick={onWarnings}>
+            查看 {scene.warnings.length} 项兼容提示
+          </button>
+        </div>
+      )}
+    </main>
+  );
 }

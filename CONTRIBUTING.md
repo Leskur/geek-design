@@ -33,14 +33,16 @@ npm run dev
 | --- | --- |
 | `src/App.tsx` | 文件、页面、选择状态和查看器顶栏 |
 | `src/PageOverview.tsx`、`src/PageBoard.tsx`、`src/Canvas.tsx` | 页面与单画板交互、渲染 |
-| `src/scene.ts`、`src/renderer.tsx`、`src/properties.ts` | 组件展开、绘制和 CSS 属性 |
+| `shared/rendering/`、`src/properties.ts` | 组件展开、绘制和 CSS 属性 |
 | `src/Inspector.tsx`、`src/SelectionExport.tsx`、`src/selection-export.tsx` | 开发检查、切图与导出 |
 | `server/` | 账号、权限、上传、字体、解析与预览任务 |
-| `shared/` | 前后端共享类型与文档工具 |
+| `shared/` | 前后端共享的文档类型、字体规则、场景与渲染代码 |
 | `tests/` | Node.js 测试与服务端集成测试 |
 | `docs/` | 使用、部署和实现说明 |
 
 ## 修改约定
+
+模块职责和依赖方向见 [代码结构](docs/architecture.md)。使用 `npm run format` 统一源代码格式，提交前通过 `npm run format:check`。
 
 - 保持改动聚焦；不要混入无关的重排或格式化。
 - 修改查看器时兼顾页面与单画板、本地与团队模式。
@@ -52,12 +54,13 @@ npm run dev
 ## 验证
 
 ```sh
+npm run format:check
 npm run check
 npm test
 npm run build
 ```
 
-`npm test` 会构建测试与服务端 worker，临时产物位于被忽略的 `.test-output/`，集成测试使用各自的临时数据目录。新增测试应覆盖实际行为或回归，避免仅重复实现。
+`npm test` 自动发现 `tests/` 直属目录中的 `*.test.ts` 和 `*.test.tsx`，构建测试与服务端 worker。临时产物位于被忽略的 `.test-output/`，集成测试使用各自的临时数据目录。新增测试应覆盖实际行为或回归，避免仅重复实现。
 
 当前有一项真实 Sketch 回归依赖开发者本地的特定样本 `fu-h5.sketch`，仓库不附带该业务文件，缺失时会跳过。该测试含固定样本断言，不能通过随意放一个同名文件来替代。字体测试优先读取 `TEST_FONT_PATH`，否则尝试已知的系统字体路径；没有可用字体时，对应文件往返测试会说明跳过原因。
 

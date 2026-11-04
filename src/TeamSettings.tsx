@@ -1,3 +1,42 @@
-export function TeamSettings({team,onRename,onDelete,busy=false}:{team:any;onRename:()=>void;onDelete:()=>void;busy?:boolean}){
- return <div className="management-team-settings"><section className="management-panel" aria-label="团队基本信息"><div className="management-setting-row"><div><span>团队名称</span><b>{team.name}</b></div>{team.role!=='member'&&<button disabled={busy} onClick={onRename}>重命名</button>}</div></section>{team.role==='owner'&&<section className="management-panel management-danger-zone"><div className="management-setting-row"><div><h2>删除团队</h2><p>删除团队及其全部项目、设计和成员关系，此操作无法撤销。</p></div><button className="gd-danger-button" disabled={busy} onClick={onDelete}>删除团队</button></div></section>}</div>;
+export function TeamSettings({
+  team,
+  onRename,
+  onDelete,
+  busy = false,
+}: {
+  team: any;
+  onRename: () => void;
+  onDelete: () => void;
+  busy?: boolean;
+}) {
+  return (
+    <div className="management-team-settings">
+      <section className="management-panel" aria-label="团队基本信息">
+        <div className="management-setting-row">
+          <div>
+            <span>团队名称</span>
+            <b>{team.name}</b>
+          </div>
+          {team.role !== 'member' && (
+            <button disabled={busy} onClick={onRename}>
+              重命名
+            </button>
+          )}
+        </div>
+      </section>
+      {team.role === 'owner' && (
+        <section className="management-panel management-danger-zone">
+          <div className="management-setting-row">
+            <div>
+              <h2>删除团队</h2>
+              <p>删除团队及其全部项目、设计和成员关系，此操作无法撤销。</p>
+            </div>
+            <button className="gd-danger-button" disabled={busy} onClick={onDelete}>
+              删除团队
+            </button>
+          </div>
+        </section>
+      )}
+    </div>
+  );
 }

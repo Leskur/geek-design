@@ -1,13 +1,17 @@
 import Database from 'better-sqlite3';
-import {randomBytes} from 'node:crypto';
-import type {LocalStorage} from './storage';
-export type User={id:string;username:string};
+import { randomBytes } from 'node:crypto';
+import type { LocalStorage } from './storage';
+export type User = { id: string; username: string };
 export class Store {
- db:Database.Database;
- private aliases=new Map<string,string>();
- constructor(public storage:LocalStorage){
-  this.db=new Database(storage.path('metadata.sqlite'));this.db.pragma('journal_mode = WAL');this.db.pragma('foreign_keys = ON');this.db.pragma('busy_timeout = 5000');
-  this.db.exec(`CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY);INSERT OR IGNORE INTO schema_migrations VALUES(2);
+  db: Database.Database;
+  private aliases = new Map<string, string>();
+  constructor(public storage: LocalStorage) {
+    this.db = new Database(storage.path('metadata.sqlite'));
+    this.db.pragma('journal_mode = WAL');
+    this.db.pragma('foreign_keys = ON');
+    this.db.pragma('busy_timeout = 5000');
+    this.db
+      .exec(`CREATE TABLE IF NOT EXISTS schema_migrations(version INTEGER PRIMARY KEY);INSERT OR IGNORE INTO schema_migrations VALUES(2);
   CREATE TABLE IF NOT EXISTS users(id TEXT PRIMARY KEY,username TEXT UNIQUE NOT NULL,password TEXT NOT NULL);
   CREATE TABLE IF NOT EXISTS sessions(hash TEXT PRIMARY KEY,user_id TEXT NOT NULL REFERENCES users(id),expires INTEGER NOT NULL);
   CREATE TABLE IF NOT EXISTS teams(id TEXT PRIMARY KEY,name TEXT NOT NULL,created INTEGER NOT NULL);
@@ -27,18 +31,54 @@ export class Store {
   CREATE TABLE IF NOT EXISTS team_fonts(id TEXT PRIMARY KEY,team_id TEXT NOT NULL REFERENCES teams(id),hash TEXT NOT NULL,filename TEXT NOT NULL,family TEXT NOT NULL,full_name TEXT NOT NULL,postscript_name TEXT NOT NULL COLLATE NOCASE,weight INTEGER NOT NULL,style TEXT NOT NULL,size INTEGER NOT NULL,created_by TEXT NOT NULL REFERENCES users(id),created INTEGER NOT NULL,UNIQUE(team_id,hash),UNIQUE(team_id,postscript_name));
   INSERT OR IGNORE INTO schema_migrations VALUES(5);
   CREATE INDEX IF NOT EXISTS revision_hash ON revisions(hash);CREATE INDEX IF NOT EXISTS pending_uploads ON uploads(status);`);
- }
- one(sql:string,...args:any[]):any{return this.db.prepare(sql).get(...args);}
- all(sql:string,...args:any[]):any[]{return this.db.prepare(sql).all(...args);}
- run(sql:string,...args:any[]){return this.db.prepare(sql).run(...args);}
- transaction<T>(fn:()=>T):T{return this.db.transaction(fn)();}
- id(){for(;;){const id=randomBytes(9).toString('base64url');if(!this.one('SELECT 1 FROM public_ids WHERE public_id=? OR internal_id=?',id,id)&&!['users','teams','projects','documents','revisions','uploads','invitations','team_fonts'].some(table=>this.one(`SELECT 1 FROM ${table} WHERE id=?`,id)))return id;}}
- publicId(id:string){
-  if(!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id))return id;
-  const cached=this.aliases.get(id);if(cached)return cached;
-  const found=this.one('SELECT public_id FROM public_ids WHERE internal_id=?',id);const value=found?.public_id||this.id();
-  if(!found)this.run('INSERT INTO public_ids VALUES(?,?)',id,value);this.aliases.set(id,value);return value;
- }
- resolveId(id:string){return typeof id==='string'?this.one('SELECT internal_id FROM public_ids WHERE public_id=?',id)?.internal_id||id:id;}
- close(){this.db.close();}
+  }
+  one(sql: string, ...args: any[]): any {
+    return this.db.prepare(sql).get(...args);
+  }
+  all(sql: string, ...args: any[]): any[] {
+    return this.db.prepare(sql).all(...args);
+  }
+  run(sql: string, ...args: any[]) {
+    return this.db.prepare(sql).run(...args);
+  }
+  transaction<T>(fn: () => T): T {
+    return this.db.transaction(fn)();
+  }
+  id() {
+    for (;;) {
+      const id = randomBytes(9).toString('base64url');
+      if (
+        !this.one('SELECT 1 FROM public_ids WHERE public_id=? OR internal_id=?', id, id) &&
+        ![
+          'users',
+          'teams',
+          'projects',
+          'documents',
+          'revisions',
+          'uploads',
+          'invitations',
+          'team_fonts',
+        ].some((table) => this.one(`SELECT 1 FROM ${table} WHERE id=?`, id))
+      )
+        return id;
+    }
+  }
+  publicId(id: string) {
+    if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/i.test(id)) return id;
+    const cached = this.aliases.get(id);
+    if (cached) return cached;
+    const found = this.one('SELECT public_id FROM public_ids WHERE internal_id=?', id);
+    const value = found?.public_id || this.id();
+    if (!found) this.run('INSERT INTO public_ids VALUES(?,?)', id, value);
+    this.aliases.set(id, value);
+    return value;
+  }
+  resolveId(id: string) {
+    return typeof id === 'string'
+      ? this.one('SELECT internal_id FROM public_ids WHERE public_id=?', id)?.internal_id || id
+      : id;
+  }
+  close() {
+    this.db.close();
+  }
 }

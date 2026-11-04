@@ -1,30 +1,310 @@
-import {useEffect,useRef,useState,type ChangeEvent} from 'react';
-import {Type,Upload,Trash2,LoaderCircle,Check,X} from 'lucide-react';
-import {api} from './api';
-import {ManagementSearch} from './ManagementSearch';
-import {Dialog} from './Dialog';
-import {loadBrowserFont,type TeamFont} from './team-fonts';
-const limit=20*1024**2;
-export function TeamFonts({team}:{team:any}){
- const [fonts,setFonts]=useState<TeamFont[]>([]),[loaded,setLoaded]=useState(false),[query,setQuery]=useState(''),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false),[progress,setProgress]=useState(''),[remove,setRemove]=useState<TeamFont|null>(null),[preview,setPreview]=useState(''),[previewLoading,setPreviewLoading]=useState('');
- const input=useRef<HTMLInputElement>(null),alive=useRef(true),working=useRef(false),controller=useRef(new AbortController()),faces=useRef<FontFace[]>([]),previewing=useRef(false);
- const manage=team.role!=='member';
- async function refresh(){const list=await api<TeamFont[]>(`/teams/${team.id}/fonts`,{signal:controller.current.signal});if(alive.current){setFonts(list);setLoaded(true);}}
- useEffect(()=>{alive.current=true;if(controller.current.signal.aborted)controller.current=new AbortController();void refresh().catch(e=>{if(alive.current)setError(e.message);});return()=>{alive.current=false;controller.current.abort();for(const face of faces.current)document.fonts.delete(face);};},[team.id]);
- async function upload(e:ChangeEvent<HTMLInputElement>){const files=Array.from(e.target.files||[]);e.target.value='';if(!files.length||working.current)return;working.current=true;setBusy(true);setError('');setNotice('');let added=0,duplicates=0;
-  try{for(const file of files){if(!/[.](ttf|otf|woff|woff2)$/i.test(file.name)||file.size>limit)throw Error(`${file.name}：支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB`);setProgress(`正在上传 ${file.name}`);const response=await fetch(`/api/teams/${team.id}/fonts`,{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/octet-stream','X-Font-Filename':encodeURIComponent(file.name)},body:await file.arrayBuffer(),signal:controller.current.signal});const result=await response.json();if(!response.ok)throw Error(result.error||'上传失败');result.duplicate?duplicates++:added++;}}
-  catch(e){if(alive.current)setError((e as Error).message);}finally{try{await refresh();}catch(e){if(alive.current)setError((e as Error).message);}working.current=false;if(alive.current){setBusy(false);setProgress('');if(added||duplicates)setNotice([added?`已添加 ${added} 个字体`:'',duplicates?`${duplicates} 个重复字体已跳过`:''].filter(Boolean).join('，'));}}
- }
- async function showPreview(font:TeamFont){if(previewing.current)return;if(preview===font.id){setPreview('');return;}previewing.current=true;setPreviewLoading(font.id);setError('');try{const next=await loadBrowserFont(font,controller.current.signal,`team-font-preview-${font.id}`);for(const face of faces.current)document.fonts.delete(face);faces.current=next;setPreview(font.id);}catch(e){if(alive.current)setError((e as Error).message);}finally{previewing.current=false;if(alive.current)setPreviewLoading('');}}
- async function deleteFont(){if(!remove||working.current)return;working.current=true;setBusy(true);setError('');try{await api(`/teams/${team.id}/fonts/${remove.id}`,{method:'DELETE'});if(preview===remove.id){setPreview('');for(const face of faces.current)document.fonts.delete(face);faces.current=[];}await refresh();setRemove(null);setNotice('字体已删除');}catch(e){setError((e as Error).message);}finally{working.current=false;if(alive.current)setBusy(false);}}
- const visible=fonts.filter(f=>`${f.family} ${f.full_name} ${f.postscript_name} ${f.filename}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
- return <div className="management-fonts">
- {error&&!remove&&<div className="team-error" role="alert">{error}{!loaded&&<button onClick={()=>{setError('');void refresh().catch(e=>setError(e.message));}}>重新加载</button>}</div>}
- {notice&&<div className="wb-notice" role="status"><Check size={15}/><span>{notice}</span><button className="wb-icon-button" aria-label="关闭提示" onClick={()=>setNotice('')}><X size={13}/></button></div>}
- <div className="management-font-toolbar"><ManagementSearch label="搜索字体" value={query} onChange={setQuery} disabled={!loaded}/>{manage&&<button className="primary" disabled={busy} onClick={()=>input.current?.click()}>{busy?<LoaderCircle size={15} className="wb-spin"/>:<Upload size={15}/>}上传字体</button>}<input ref={input} hidden type="file" aria-label="选择字体文件" accept=".ttf,.otf,.woff,.woff2" multiple onChange={e=>void upload(e)}/></div>
- {progress&&<p className="management-caption" role="status">{progress}</p>}
- {!loaded&&!error?<div className="wb-loading" role="status"><LoaderCircle size={20} className="wb-spin"/>正在读取字体…</div>:loaded&&(visible.length?<section className="management-panel" aria-label="团队字体库">{visible.map(font=><div className="management-font-entry" key={font.id}><div className="management-font-row"><span className="management-font-icon"><Type size={21}/></span><div className="management-font-identity"><b>{font.full_name}</b><span title={font.filename}>{font.filename} · {font.weight} · {font.style==='italic'?'斜体':'常规'} · {(font.size/1024**2).toFixed(2)} MB</span></div><button disabled={!!previewLoading} onClick={()=>void showPreview(font)}>{previewLoading===font.id?'加载中…':preview===font.id?'收起':'预览'}</button>{manage&&<button className="wb-icon-button" disabled={busy} aria-label={`删除字体 ${font.full_name}`} onClick={()=>{setError('');setRemove(font);}}><Trash2 size={15}/></button>}</div>{preview===font.id&&<div className="management-font-preview" style={{fontFamily:`"team-font-preview-${font.id}"`,fontWeight:font.weight,fontStyle:font.style}}>设计让协作更简单<br/>The quick brown fox 0123456789</div>}</div>)}</section>:<div className="wb-soft-empty"><Type size={30}/><h3>{query?'没有找到匹配的字体':'团队字体库还是空的'}</h3><p>{query?'试试字体名称或文件名。':'上传团队常用字体，查看设计时自动匹配。'}</p>{query?<button onClick={()=>setQuery('')}>清除搜索</button>:manage&&<button onClick={()=>input.current?.click()}><Upload size={15}/>上传字体</button>}</div>)}
- <p className="management-caption">支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB。团队设计详情会自动匹配已上传的字体。</p>
- {remove&&<Dialog title="删除字体" onClose={()=>{if(!busy)setRemove(null);}}><div className="wb-upload-body"><p className="wb-dialog-description">删除「{remove.full_name}」？之后打开团队设计时将不再加载该字体，可能使用替代字体。</p>{error&&<p className="team-error" role="alert">{error}</p>}<div className="wb-dialog-actions"><button disabled={busy} onClick={()=>setRemove(null)}>取消</button><button className="gd-danger-button" disabled={busy} onClick={()=>void deleteFont()}>{busy?'删除中…':'删除字体'}</button></div></div></Dialog>}
- </div>;
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
+import { Type, Upload, Trash2, LoaderCircle, Check, X } from 'lucide-react';
+import { api } from './api';
+import { ManagementSearch } from './ManagementSearch';
+import { Dialog } from './Dialog';
+import { loadBrowserFont, type TeamFont } from './team-fonts';
+const limit = 20 * 1024 ** 2;
+export function TeamFonts({ team }: { team: any }) {
+  const [fonts, setFonts] = useState<TeamFont[]>([]),
+    [loaded, setLoaded] = useState(false),
+    [query, setQuery] = useState(''),
+    [error, setError] = useState(''),
+    [notice, setNotice] = useState(''),
+    [busy, setBusy] = useState(false),
+    [progress, setProgress] = useState(''),
+    [remove, setRemove] = useState<TeamFont | null>(null),
+    [preview, setPreview] = useState(''),
+    [previewLoading, setPreviewLoading] = useState('');
+  const input = useRef<HTMLInputElement>(null),
+    alive = useRef(true),
+    working = useRef(false),
+    controller = useRef(new AbortController()),
+    faces = useRef<FontFace[]>([]),
+    previewing = useRef(false);
+  const manage = team.role !== 'member';
+  async function refresh() {
+    const list = await api<TeamFont[]>(`/teams/${team.id}/fonts`, {
+      signal: controller.current.signal,
+    });
+    if (alive.current) {
+      setFonts(list);
+      setLoaded(true);
+    }
+  }
+  useEffect(() => {
+    alive.current = true;
+    if (controller.current.signal.aborted) controller.current = new AbortController();
+    void refresh().catch((e) => {
+      if (alive.current) setError(e.message);
+    });
+    return () => {
+      alive.current = false;
+      controller.current.abort();
+      for (const face of faces.current) document.fonts.delete(face);
+    };
+  }, [team.id]);
+  async function upload(e: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || []);
+    e.target.value = '';
+    if (!files.length || working.current) return;
+    working.current = true;
+    setBusy(true);
+    setError('');
+    setNotice('');
+    let added = 0,
+      duplicates = 0;
+    try {
+      for (const file of files) {
+        if (!/[.](ttf|otf|woff|woff2)$/i.test(file.name) || file.size > limit)
+          throw Error(`${file.name}：支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB`);
+        setProgress(`正在上传 ${file.name}`);
+        const response = await fetch(`/api/teams/${team.id}/fonts`, {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/octet-stream',
+            'X-Font-Filename': encodeURIComponent(file.name),
+          },
+          body: await file.arrayBuffer(),
+          signal: controller.current.signal,
+        });
+        const result = await response.json();
+        if (!response.ok) throw Error(result.error || '上传失败');
+        result.duplicate ? duplicates++ : added++;
+      }
+    } catch (e) {
+      if (alive.current) setError((e as Error).message);
+    } finally {
+      try {
+        await refresh();
+      } catch (e) {
+        if (alive.current) setError((e as Error).message);
+      }
+      working.current = false;
+      if (alive.current) {
+        setBusy(false);
+        setProgress('');
+        if (added || duplicates)
+          setNotice(
+            [
+              added ? `已添加 ${added} 个字体` : '',
+              duplicates ? `${duplicates} 个重复字体已跳过` : '',
+            ]
+              .filter(Boolean)
+              .join('，'),
+          );
+      }
+    }
+  }
+  async function showPreview(font: TeamFont) {
+    if (previewing.current) return;
+    if (preview === font.id) {
+      setPreview('');
+      return;
+    }
+    previewing.current = true;
+    setPreviewLoading(font.id);
+    setError('');
+    try {
+      const next = await loadBrowserFont(
+        font,
+        controller.current.signal,
+        `team-font-preview-${font.id}`,
+      );
+      for (const face of faces.current) document.fonts.delete(face);
+      faces.current = next;
+      setPreview(font.id);
+    } catch (e) {
+      if (alive.current) setError((e as Error).message);
+    } finally {
+      previewing.current = false;
+      if (alive.current) setPreviewLoading('');
+    }
+  }
+  async function deleteFont() {
+    if (!remove || working.current) return;
+    working.current = true;
+    setBusy(true);
+    setError('');
+    try {
+      await api(`/teams/${team.id}/fonts/${remove.id}`, { method: 'DELETE' });
+      if (preview === remove.id) {
+        setPreview('');
+        for (const face of faces.current) document.fonts.delete(face);
+        faces.current = [];
+      }
+      await refresh();
+      setRemove(null);
+      setNotice('字体已删除');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      working.current = false;
+      if (alive.current) setBusy(false);
+    }
+  }
+  const visible = fonts.filter((f) =>
+    `${f.family} ${f.full_name} ${f.postscript_name} ${f.filename}`
+      .toLocaleLowerCase()
+      .includes(query.trim().toLocaleLowerCase()),
+  );
+  return (
+    <div className="management-fonts">
+      {error && !remove && (
+        <div className="team-error" role="alert">
+          {error}
+          {!loaded && (
+            <button
+              onClick={() => {
+                setError('');
+                void refresh().catch((e) => setError(e.message));
+              }}
+            >
+              重新加载
+            </button>
+          )}
+        </div>
+      )}
+      {notice && (
+        <div className="wb-notice" role="status">
+          <Check size={15} />
+          <span>{notice}</span>
+          <button className="wb-icon-button" aria-label="关闭提示" onClick={() => setNotice('')}>
+            <X size={13} />
+          </button>
+        </div>
+      )}
+      <div className="management-font-toolbar">
+        <ManagementSearch label="搜索字体" value={query} onChange={setQuery} disabled={!loaded} />
+        {manage && (
+          <button className="primary" disabled={busy} onClick={() => input.current?.click()}>
+            {busy ? <LoaderCircle size={15} className="wb-spin" /> : <Upload size={15} />}上传字体
+          </button>
+        )}
+        <input
+          ref={input}
+          hidden
+          type="file"
+          aria-label="选择字体文件"
+          accept=".ttf,.otf,.woff,.woff2"
+          multiple
+          onChange={(e) => void upload(e)}
+        />
+      </div>
+      {progress && (
+        <p className="management-caption" role="status">
+          {progress}
+        </p>
+      )}
+      {!loaded && !error ? (
+        <div className="wb-loading" role="status">
+          <LoaderCircle size={20} className="wb-spin" />
+          正在读取字体…
+        </div>
+      ) : (
+        loaded &&
+        (visible.length ? (
+          <section className="management-panel" aria-label="团队字体库">
+            {visible.map((font) => (
+              <div className="management-font-entry" key={font.id}>
+                <div className="management-font-row">
+                  <span className="management-font-icon">
+                    <Type size={21} />
+                  </span>
+                  <div className="management-font-identity">
+                    <b>{font.full_name}</b>
+                    <span title={font.filename}>
+                      {font.filename} · {font.weight} · {font.style === 'italic' ? '斜体' : '常规'}{' '}
+                      · {(font.size / 1024 ** 2).toFixed(2)} MB
+                    </span>
+                  </div>
+                  <button disabled={!!previewLoading} onClick={() => void showPreview(font)}>
+                    {previewLoading === font.id ? '加载中…' : preview === font.id ? '收起' : '预览'}
+                  </button>
+                  {manage && (
+                    <button
+                      className="wb-icon-button"
+                      disabled={busy}
+                      aria-label={`删除字体 ${font.full_name}`}
+                      onClick={() => {
+                        setError('');
+                        setRemove(font);
+                      }}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
+                {preview === font.id && (
+                  <div
+                    className="management-font-preview"
+                    style={{
+                      fontFamily: `"team-font-preview-${font.id}"`,
+                      fontWeight: font.weight,
+                      fontStyle: font.style,
+                    }}
+                  >
+                    设计让协作更简单
+                    <br />
+                    The quick brown fox 0123456789
+                  </div>
+                )}
+              </div>
+            ))}
+          </section>
+        ) : (
+          <div className="wb-soft-empty">
+            <Type size={30} />
+            <h3>{query ? '没有找到匹配的字体' : '团队字体库还是空的'}</h3>
+            <p>{query ? '试试字体名称或文件名。' : '上传团队常用字体，查看设计时自动匹配。'}</p>
+            {query ? (
+              <button onClick={() => setQuery('')}>清除搜索</button>
+            ) : (
+              manage && (
+                <button onClick={() => input.current?.click()}>
+                  <Upload size={15} />
+                  上传字体
+                </button>
+              )
+            )}
+          </div>
+        ))
+      )}
+      <p className="management-caption">
+        支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB。团队设计详情会自动匹配已上传的字体。
+      </p>
+      {remove && (
+        <Dialog
+          title="删除字体"
+          onClose={() => {
+            if (!busy) setRemove(null);
+          }}
+        >
+          <div className="wb-upload-body">
+            <p className="wb-dialog-description">
+              删除「{remove.full_name}」？之后打开团队设计时将不再加载该字体，可能使用替代字体。
+            </p>
+            {error && (
+              <p className="team-error" role="alert">
+                {error}
+              </p>
+            )}
+            <div className="wb-dialog-actions">
+              <button disabled={busy} onClick={() => setRemove(null)}>
+                取消
+              </button>
+              <button
+                className="gd-danger-button"
+                disabled={busy}
+                onClick={() => void deleteFont()}
+              >
+                {busy ? '删除中…' : '删除字体'}
+              </button>
+            </div>
+          </div>
+        </Dialog>
+      )}
+    </div>
+  );
 }

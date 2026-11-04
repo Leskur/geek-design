@@ -1,56 +1,538 @@
-import {MousePointer2} from 'lucide-react';
-import {ZoomMenu} from './ZoomMenu';
-import {PageBoard} from './PageBoard';
-import {ContextMenu,type MenuPosition} from './ContextMenu';
-import {viewportArea} from './viewport-area';
-import {ViewerToolbar,useViewerShortcuts} from './ViewerToolbar';
-import {memo,useEffect,useLayoutEffect,useMemo,useRef,useState,startTransition} from 'react';
-import {Maximize,Frame,ArrowUpRight} from 'lucide-react';
-import type {Layer,DocumentSource} from './sketch';
-import type {SceneCache} from './SceneCache';
-import type {ThumbnailCache} from './ThumbnailCache';
+import { MousePointer2 } from 'lucide-react';
+import { ZoomMenu } from './ZoomMenu';
+import { PageBoard } from './PageBoard';
+import { ContextMenu, type MenuPosition } from './ContextMenu';
+import { viewportArea } from './viewport-area';
+import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
+import {
+  memo,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  startTransition,
+} from 'react';
+import { Maximize, Frame, ArrowUpRight } from 'lucide-react';
+import type { Layer, DocumentSource } from './sketch';
+import type { SceneCache } from './SceneCache';
+import type { ThumbnailCache } from './ThumbnailCache';
 
-import {fitCameraInArea,isEditingTarget,panFromAnchor,type Camera} from './interaction';
-import {boardVisible,matchesBoardName,pageBounds,previewBoards,zoomPage,pageRenderQuality} from './overview';
-const Preview=memo(function Preview({board,thumbnails,load,priority,small}:{board:Layer;thumbnails:ThumbnailCache;load:boolean;priority:boolean;small:boolean}){
- const [url,setUrl]=useState(()=>thumbnails.peek(board.do_objectID,small)),[failed,setFailed]=useState(false);
- useEffect(()=>{if(!load||url)return;let alive=true;thumbnails.request(board,priority,small).then(url=>{if(alive)setUrl(url);}).catch(()=>{if(alive)setFailed(true);});return()=>{alive=false;};},[board,thumbnails,load,url,priority,small]);
- return url?<img className="overview-thumbnail" src={url} alt="" draggable={false} decoding="async"/>:<span className="overview-placeholder"><Frame size={16}/><span>{failed?'预览暂不可用':load?'正在生成缩略图':''}</span></span>;
+import { fitCameraInArea, isEditingTarget, panFromAnchor, type Camera } from './interaction';
+import {
+  boardVisible,
+  matchesBoardName,
+  pageBounds,
+  previewBoards,
+  zoomPage,
+  pageRenderQuality,
+} from './overview';
+const Preview = memo(function Preview({
+  board,
+  thumbnails,
+  load,
+  priority,
+  small,
+}: {
+  board: Layer;
+  thumbnails: ThumbnailCache;
+  load: boolean;
+  priority: boolean;
+  small: boolean;
+}) {
+  const [url, setUrl] = useState(() => thumbnails.peek(board.do_objectID, small)),
+    [failed, setFailed] = useState(false);
+  useEffect(() => {
+    if (!load || url) return;
+    let alive = true;
+    thumbnails
+      .request(board, priority, small)
+      .then((url) => {
+        if (alive) setUrl(url);
+      })
+      .catch(() => {
+        if (alive) setFailed(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [board, thumbnails, load, url, priority, small]);
+  return url ? (
+    <img className="overview-thumbnail" src={url} alt="" draggable={false} decoding="async" />
+  ) : (
+    <span className="overview-placeholder">
+      <Frame size={16} />
+      <span>{failed ? '预览暂不可用' : load ? '正在生成缩略图' : ''}</span>
+    </span>
+  );
 });
-export function PageOverview({boards,pageId,pageName,doc,cache,thumbnails,selectedId,selected,onLayer,search,onSelect,onOpen,cameras,focus,toolbarHost,zoomHost}:{boards:Layer[];pageId:string;pageName:string;doc:DocumentSource;cache:SceneCache;thumbnails:ThumbnailCache;selectedId?:string;selected:Layer|null;onLayer:(board:Layer,layer:Layer)=>void;search:string;onSelect:(b:Layer|null)=>void;onOpen:(b:Layer)=>void;cameras:Map<string,Camera>;focus:{id:string;serial:number}|null;toolbarHost?:HTMLElement|null;zoomHost?:HTMLElement|null}){
- const [menu,setMenu]=useState<(MenuPosition&{board:Layer})|null>(null),[alt,setAlt]=useState(false);
- const [inspectBoardId,setInspectBoardId]=useState<string|null>(null),inspectionTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
- function stopInspectionTimer(){if(inspectionTimer.current){clearTimeout(inspectionTimer.current);inspectionTimer.current=null;}}
- function inspectBoard(id:string){stopInspectionTimer();inspectionTimer.current=setTimeout(()=>{if(!spaceKey.current&&!drag.current?.pan)startTransition(()=>setInspectBoardId(id));},120);}
- useEffect(()=>()=>stopInspectionTimer(),[]);
- const viewport=useRef<HTMLDivElement>(null),bounds=useMemo(()=>pageBounds(boards),[boards]);
- const [camera,setCamera]=useState<Camera>(()=>cameras.get(pageId)||{x:0,y:0,scale:.01}),[size,setSize]=useState({w:0,h:0}),[space,setSpace]=useState(false),[dragging,setDragging]=useState(false),[moving,setMoving]=useState(false),[previewNotice,setPreviewNotice]=useState('');
- const drag=useRef<{x:number;y:number;startX:number;startY:number;id:number;pan:boolean;camera:Camera}|null>(null),moved=useRef(false),spaceKey=useRef(false),current=useRef(camera);current.current=camera;
- useLayoutEffect(()=>{const el=viewport.current!;const resize=()=>setSize({w:el.clientWidth,h:el.clientHeight});resize();if(!cameras.has(pageId))setCamera(fitCameraInArea(bounds,viewportArea(el)));const observer=new ResizeObserver(resize);observer.observe(el);return()=>observer.disconnect();},[pageId,bounds,cameras]);
- useEffect(()=>{cameras.set(pageId,camera);},[camera,cameras,pageId]);
- useEffect(()=>{if(!focus)return;const b=boards.find(b=>b.do_objectID===focus.id||focus.id.startsWith(b.do_objectID+'/')),el=viewport.current;if(!b||!el)return;try{const entry=cache.index(cache.get(b).root).get(focus.id),target=entry?{...entry.bounds,x:entry.bounds.x+b.frame.x,y:entry.bounds.y+b.frame.y}:b.frame;setCamera(fitCameraInArea(target,viewportArea(el),2));}catch(e){setPreviewNotice((e as Error).message);}},[focus,boards,cache]);
- useEffect(()=>{const down=(e:KeyboardEvent)=>{if(isEditingTarget(e.target))return;if(e.code==='Space'){e.preventDefault();spaceKey.current=true;setSpace(true);}if(e.key==='Alt'){e.preventDefault();setAlt(true);}if(e.key==='Escape')onSelect(null);};const up=(e:KeyboardEvent)=>{if(e.key==='Alt')setAlt(false);if(e.code==='Space'){spaceKey.current=false;setSpace(false);}};const reset=()=>{setAlt(false);spaceKey.current=false;setSpace(false);setDragging(false);drag.current=null;};window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',reset);return()=>{window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',reset);};},[onSelect]);
- useEffect(()=>{const el=viewport.current!;const wheel=(e:WheelEvent)=>{e.preventDefault();const rect=el.getBoundingClientRect(),factor=e.deltaMode===1?16:e.deltaMode===2?el.clientHeight:1;queueCamera(c=>e.ctrlKey||e.metaKey?zoomPage(c,c.scale*Math.exp(-e.deltaY*.002),{x:e.clientX-rect.x,y:e.clientY-rect.y}):({...c,x:c.x-(e.shiftKey&&!e.deltaX?e.deltaY:e.deltaX)*factor,y:c.y-(e.shiftKey&&!e.deltaX?0:e.deltaY)*factor}));};el.addEventListener('wheel',wheel,{passive:false});return()=>el.removeEventListener('wheel',wheel);},[]);
- useEffect(()=>{setMoving(true);const timer=setTimeout(()=>setMoving(false),160);return()=>clearTimeout(timer);},[camera]);
- useEffect(()=>{thumbnails.setPaused(moving||dragging);return()=>thumbnails.setPaused(true);},[thumbnails,moving,dragging]);
- const visible=boards.filter(b=>boardVisible(b,camera,size.w,size.h,doc.thumbnail?240:100));
- const detailed=previewBoards(visible,camera,size.w,size.h,selectedId,doc.thumbnail?64:16);
- const measurement=useMemo(()=>{const b=boards.find(b=>b.do_objectID===selectedId);if(!b||!selected)return null;try{const entry=cache.index(cache.get(b).root).get(selected.do_objectID);return entry?{...entry.bounds,x:entry.bounds.x+b.frame.x,y:entry.bounds.y+b.frame.y}:null;}catch{return null;}},[boards,selectedId,selected,cache]);
- function locate(b:Layer){const el=viewport.current;if(el)queueCamera(()=>fitCameraInArea(b.frame,viewportArea(el)));}
- const cameraFrame=useRef(0),pendingCamera=useRef<Camera|null>(null);
- function queueCamera(update:(camera:Camera)=>Camera){setMoving(true);pendingCamera.current=update(pendingCamera.current||current.current);if(!cameraFrame.current)cameraFrame.current=requestAnimationFrame(()=>{cameraFrame.current=0;const next=pendingCamera.current;pendingCamera.current=null;if(next){current.current=next;setCamera(next);}});}
- useEffect(()=>()=>{cancelAnimationFrame(cameraFrame.current);cameras.set(pageId,pendingCamera.current||current.current);},[cameras,pageId]);
- function zoom(f:number){const el=viewport.current;if(!el)return;const area=viewportArea(el);queueCamera(c=>zoomPage(c,c.scale*f,{x:area.x+area.width/2,y:area.y+area.height/2}));}
- useViewerShortcuts(zoom,()=>{const el=viewport.current;if(el)queueCamera(()=>fitCameraInArea(bounds,viewportArea(el)));},()=>zoom(1/(pendingCamera.current||current.current).scale));
- function finish(e:React.PointerEvent){const d=drag.current;if(d?.id!==e.pointerId)return;
-  if(e.type==='pointerup'&&(d.pan||Math.hypot(e.clientX-d.startX,e.clientY-d.startY)>4)){const next=panFromAnchor(d.camera,{x:d.startX,y:d.startY},{x:e.clientX,y:e.clientY});if(Math.hypot(e.clientX-d.startX,e.clientY-d.startY)>4)moved.current=true;pendingCamera.current=next;}
-  cancelAnimationFrame(cameraFrame.current);cameraFrame.current=0;const next=pendingCamera.current;pendingCamera.current=null;if(next){current.current=next;setCamera(next);}
-  drag.current=null;setDragging(false);if(e.currentTarget.hasPointerCapture(e.pointerId))e.currentTarget.releasePointerCapture(e.pointerId);
- }
+export function PageOverview({
+  boards,
+  pageId,
+  pageName,
+  doc,
+  cache,
+  thumbnails,
+  selectedId,
+  selected,
+  onLayer,
+  search,
+  onSelect,
+  onOpen,
+  cameras,
+  focus,
+  toolbarHost,
+  zoomHost,
+}: {
+  boards: Layer[];
+  pageId: string;
+  pageName: string;
+  doc: DocumentSource;
+  cache: SceneCache;
+  thumbnails: ThumbnailCache;
+  selectedId?: string;
+  selected: Layer | null;
+  onLayer: (board: Layer, layer: Layer) => void;
+  search: string;
+  onSelect: (b: Layer | null) => void;
+  onOpen: (b: Layer) => void;
+  cameras: Map<string, Camera>;
+  focus: { id: string; serial: number } | null;
+  toolbarHost?: HTMLElement | null;
+  zoomHost?: HTMLElement | null;
+}) {
+  const [menu, setMenu] = useState<(MenuPosition & { board: Layer }) | null>(null),
+    [alt, setAlt] = useState(false);
+  const [inspectBoardId, setInspectBoardId] = useState<string | null>(null),
+    inspectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  function stopInspectionTimer() {
+    if (inspectionTimer.current) {
+      clearTimeout(inspectionTimer.current);
+      inspectionTimer.current = null;
+    }
+  }
+  function inspectBoard(id: string) {
+    stopInspectionTimer();
+    inspectionTimer.current = setTimeout(() => {
+      if (!spaceKey.current && !drag.current?.pan) startTransition(() => setInspectBoardId(id));
+    }, 120);
+  }
+  useEffect(() => () => stopInspectionTimer(), []);
+  const viewport = useRef<HTMLDivElement>(null),
+    bounds = useMemo(() => pageBounds(boards), [boards]);
+  const [camera, setCamera] = useState<Camera>(
+      () => cameras.get(pageId) || { x: 0, y: 0, scale: 0.01 },
+    ),
+    [size, setSize] = useState({ w: 0, h: 0 }),
+    [space, setSpace] = useState(false),
+    [dragging, setDragging] = useState(false),
+    [moving, setMoving] = useState(false),
+    [previewNotice, setPreviewNotice] = useState('');
+  const drag = useRef<{
+      x: number;
+      y: number;
+      startX: number;
+      startY: number;
+      id: number;
+      pan: boolean;
+      camera: Camera;
+    } | null>(null),
+    moved = useRef(false),
+    spaceKey = useRef(false),
+    current = useRef(camera);
+  current.current = camera;
+  useLayoutEffect(() => {
+    const el = viewport.current!;
+    const resize = () => setSize({ w: el.clientWidth, h: el.clientHeight });
+    resize();
+    if (!cameras.has(pageId)) setCamera(fitCameraInArea(bounds, viewportArea(el)));
+    const observer = new ResizeObserver(resize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [pageId, bounds, cameras]);
+  useEffect(() => {
+    cameras.set(pageId, camera);
+  }, [camera, cameras, pageId]);
+  useEffect(() => {
+    if (!focus) return;
+    const b = boards.find(
+        (b) => b.do_objectID === focus.id || focus.id.startsWith(b.do_objectID + '/'),
+      ),
+      el = viewport.current;
+    if (!b || !el) return;
+    try {
+      const entry = cache.index(cache.get(b).root).get(focus.id),
+        target = entry
+          ? { ...entry.bounds, x: entry.bounds.x + b.frame.x, y: entry.bounds.y + b.frame.y }
+          : b.frame;
+      setCamera(fitCameraInArea(target, viewportArea(el), 2));
+    } catch (e) {
+      setPreviewNotice((e as Error).message);
+    }
+  }, [focus, boards, cache]);
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (isEditingTarget(e.target)) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        spaceKey.current = true;
+        setSpace(true);
+      }
+      if (e.key === 'Alt') {
+        e.preventDefault();
+        setAlt(true);
+      }
+      if (e.key === 'Escape') onSelect(null);
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.key === 'Alt') setAlt(false);
+      if (e.code === 'Space') {
+        spaceKey.current = false;
+        setSpace(false);
+      }
+    };
+    const reset = () => {
+      setAlt(false);
+      spaceKey.current = false;
+      setSpace(false);
+      setDragging(false);
+      drag.current = null;
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', reset);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+      window.removeEventListener('blur', reset);
+    };
+  }, [onSelect]);
+  useEffect(() => {
+    const el = viewport.current!;
+    const wheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const rect = el.getBoundingClientRect(),
+        factor = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
+      queueCamera((c) =>
+        e.ctrlKey || e.metaKey
+          ? zoomPage(c, c.scale * Math.exp(-e.deltaY * 0.002), {
+              x: e.clientX - rect.x,
+              y: e.clientY - rect.y,
+            })
+          : {
+              ...c,
+              x: c.x - (e.shiftKey && !e.deltaX ? e.deltaY : e.deltaX) * factor,
+              y: c.y - (e.shiftKey && !e.deltaX ? 0 : e.deltaY) * factor,
+            },
+      );
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, []);
+  useEffect(() => {
+    setMoving(true);
+    const timer = setTimeout(() => setMoving(false), 160);
+    return () => clearTimeout(timer);
+  }, [camera]);
+  useEffect(() => {
+    thumbnails.setPaused(moving || dragging);
+    return () => thumbnails.setPaused(true);
+  }, [thumbnails, moving, dragging]);
+  const visible = boards.filter((b) =>
+    boardVisible(b, camera, size.w, size.h, doc.thumbnail ? 240 : 100),
+  );
+  const detailed = previewBoards(
+    visible,
+    camera,
+    size.w,
+    size.h,
+    selectedId,
+    doc.thumbnail ? 64 : 16,
+  );
+  const measurement = useMemo(() => {
+    const b = boards.find((b) => b.do_objectID === selectedId);
+    if (!b || !selected) return null;
+    try {
+      const entry = cache.index(cache.get(b).root).get(selected.do_objectID);
+      return entry
+        ? { ...entry.bounds, x: entry.bounds.x + b.frame.x, y: entry.bounds.y + b.frame.y }
+        : null;
+    } catch {
+      return null;
+    }
+  }, [boards, selectedId, selected, cache]);
+  function locate(b: Layer) {
+    const el = viewport.current;
+    if (el) queueCamera(() => fitCameraInArea(b.frame, viewportArea(el)));
+  }
+  const cameraFrame = useRef(0),
+    pendingCamera = useRef<Camera | null>(null);
+  function queueCamera(update: (camera: Camera) => Camera) {
+    setMoving(true);
+    pendingCamera.current = update(pendingCamera.current || current.current);
+    if (!cameraFrame.current)
+      cameraFrame.current = requestAnimationFrame(() => {
+        cameraFrame.current = 0;
+        const next = pendingCamera.current;
+        pendingCamera.current = null;
+        if (next) {
+          current.current = next;
+          setCamera(next);
+        }
+      });
+  }
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(cameraFrame.current);
+      cameras.set(pageId, pendingCamera.current || current.current);
+    },
+    [cameras, pageId],
+  );
+  function zoom(f: number) {
+    const el = viewport.current;
+    if (!el) return;
+    const area = viewportArea(el);
+    queueCamera((c) =>
+      zoomPage(c, c.scale * f, { x: area.x + area.width / 2, y: area.y + area.height / 2 }),
+    );
+  }
+  useViewerShortcuts(
+    zoom,
+    () => {
+      const el = viewport.current;
+      if (el) queueCamera(() => fitCameraInArea(bounds, viewportArea(el)));
+    },
+    () => zoom(1 / (pendingCamera.current || current.current).scale),
+  );
+  function finish(e: React.PointerEvent) {
+    const d = drag.current;
+    if (d?.id !== e.pointerId) return;
+    if (
+      e.type === 'pointerup' &&
+      (d.pan || Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 4)
+    ) {
+      const next = panFromAnchor(
+        d.camera,
+        { x: d.startX, y: d.startY },
+        { x: e.clientX, y: e.clientY },
+      );
+      if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > 4) moved.current = true;
+      pendingCamera.current = next;
+    }
+    cancelAnimationFrame(cameraFrame.current);
+    cameraFrame.current = 0;
+    const next = pendingCamera.current;
+    pendingCamera.current = null;
+    if (next) {
+      current.current = next;
+      setCamera(next);
+    }
+    drag.current = null;
+    setDragging(false);
+    if (e.currentTarget.hasPointerCapture(e.pointerId))
+      e.currentTarget.releasePointerCapture(e.pointerId);
+  }
 
- return <main className="center page-overview"><ViewerToolbar host={toolbarHost}><span>{pageName}<i>/</i>页面总览 · {boards.length} 个画板</span><div><button aria-label="默认工具" aria-pressed={true} title="默认工具" onClick={()=>viewport.current?.focus({preventScroll:true})}><MousePointer2 size={18}/></button><ZoomMenu host={zoomHost} scale={camera.scale} onScale={scale=>zoom(scale/(pendingCamera.current||current.current).scale)} onFit={()=>queueCamera(()=>fitCameraInArea(bounds,viewportArea(viewport.current!)))} fitLabel="适合全部"/></div></ViewerToolbar><div className={`overview-viewport${space?' is-hand':''}${dragging?' dragging':''}`} ref={viewport} tabIndex={0} aria-label="页面总览画布" data-camera-x={camera.x.toFixed(2)} data-camera-y={camera.y.toFixed(2)} data-camera-scale={camera.scale.toFixed(5)} onPointerDown={e=>{if(e.button!==0&&e.button!==1)return;e.currentTarget.focus({preventScroll:true});moved.current=false;if(e.altKey||e.target instanceof Element&&e.target.closest('button,a'))return;const pan=spaceKey.current||e.button===1;drag.current={id:e.pointerId,x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY,pan,camera:{...(pendingCamera.current||current.current)}};if(pan){e.preventDefault();moved.current=true;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);}}} onPointerMove={e=>{const d=drag.current;if(!d||d.id!==e.pointerId)return;if(!d.pan){if(Math.hypot(e.clientX-d.startX,e.clientY-d.startY)<=4)return;d.pan=true;moved.current=true;e.currentTarget.setPointerCapture(e.pointerId);setDragging(true);}e.preventDefault();const next=panFromAnchor(d.camera,{x:d.startX,y:d.startY},{x:e.clientX,y:e.clientY});queueCamera(()=>next);}} onPointerUp={finish} onPointerCancel={finish} onLostPointerCapture={()=>{drag.current=null;setDragging(false);}} onClick={e=>{if(e.target===e.currentTarget&&!moved.current&&!spaceKey.current)onSelect(null);}}>
- <div className="overview-world" style={{transform:`translate(${camera.x}px,${camera.y}px) scale(${camera.scale})`}}> {visible.map(b=>{const f=b.frame,match=matchesBoardName(b,search),width=Math.max(1,f.width*camera.scale),height=Math.max(1,f.height*camera.scale);const quality=pageRenderQuality(b,camera.scale),active=selectedId===b.do_objectID||inspectBoardId===b.do_objectID,small=quality.small||!detailed.has(b.do_objectID);return <div key={b.do_objectID} onPointerEnter={()=>inspectBoard(b.do_objectID)} onPointerLeave={stopInspectionTimer} onContextMenu={e=>{e.preventDefault();setMenu({x:e.clientX,y:e.clientY,board:b});}} className={`overview-board${selectedId===b.do_objectID?' selected':''}${search&&!match?' dimmed':''}${search&&match?' matched':''}`} style={{left:f.x,top:f.y,width:f.width,height:f.height,outlineWidth:(selectedId===b.do_objectID?2:1)/camera.scale}}>{(width>45||selectedId===b.do_objectID||(search&&match))&&<button className="overview-board-label" style={{maxWidth:Math.max(width,80),transform:`scale(${1/camera.scale})`,transformOrigin:'bottom left',bottom:`calc(100% + ${5/camera.scale}px)`}} title={b.name} aria-label={`定位画板 ${b.name}`} onClick={()=>{if(!moved.current&&!spaceKey.current)onSelect(b);}}>{b.name}</button>}<PageBoard board={b} doc={doc} cache={cache} inspect={active} live={active&&quality.live} scale={camera.scale} selected={selectedId===b.do_objectID?selected:null} measurement={measurement?{...measurement,x:measurement.x-f.x,y:measurement.y-f.y}:null} alt={alt} enabled={()=>!moved.current&&!spaceKey.current} onSelect={layer=>onLayer(b,layer)} onLocate={()=>locate(b)} onError={setPreviewNotice}><Preview key={String(small)} board={b} thumbnails={thumbnails} priority={selectedId===b.do_objectID} small={small} load={(!!doc.thumbnail||detailed.has(b.do_objectID))&&!moving&&!dragging}/></PageBoard>{selectedId===b.do_objectID&&<button style={{transform:`scale(${1/camera.scale})`,transformOrigin:'top left',top:f.height+5/camera.scale}} className="overview-enter" aria-label={`打开单画板 ${b.name}`} onClick={()=>onOpen(b)}><ArrowUpRight size={12}/>打开单画板</button>}</div>;})}
- </div>
- {!boards.length&&<div className="overview-empty">这个页面还没有画板</div>}
- </div>{menu&&<ContextMenu position={menu} onClose={()=>setMenu(null)}><button onClick={()=>locate(menu.board)}><Maximize size={14}/>缩放到画板</button><button onClick={()=>onOpen(menu.board)}><ArrowUpRight size={14}/>打开单画板</button></ContextMenu>}{previewNotice&&<div className="canvas-foot" role="status">{previewNotice}</div>}</main>;
+  return (
+    <main className="center page-overview">
+      <ViewerToolbar host={toolbarHost}>
+        <span>
+          {pageName}
+          <i>/</i>页面总览 · {boards.length} 个画板
+        </span>
+        <div>
+          <button
+            aria-label="默认工具"
+            aria-pressed={true}
+            title="默认工具"
+            onClick={() => viewport.current?.focus({ preventScroll: true })}
+          >
+            <MousePointer2 size={18} />
+          </button>
+          <ZoomMenu
+            host={zoomHost}
+            scale={camera.scale}
+            onScale={(scale) => zoom(scale / (pendingCamera.current || current.current).scale)}
+            onFit={() =>
+              queueCamera(() => fitCameraInArea(bounds, viewportArea(viewport.current!)))
+            }
+            fitLabel="适合全部"
+          />
+        </div>
+      </ViewerToolbar>
+      <div
+        className={`overview-viewport${space ? ' is-hand' : ''}${dragging ? ' dragging' : ''}`}
+        ref={viewport}
+        tabIndex={0}
+        aria-label="页面总览画布"
+        data-camera-x={camera.x.toFixed(2)}
+        data-camera-y={camera.y.toFixed(2)}
+        data-camera-scale={camera.scale.toFixed(5)}
+        onPointerDown={(e) => {
+          if (e.button !== 0 && e.button !== 1) return;
+          e.currentTarget.focus({ preventScroll: true });
+          moved.current = false;
+          if (e.altKey || (e.target instanceof Element && e.target.closest('button,a'))) return;
+          const pan = spaceKey.current || e.button === 1;
+          drag.current = {
+            id: e.pointerId,
+            x: e.clientX,
+            y: e.clientY,
+            startX: e.clientX,
+            startY: e.clientY,
+            pan,
+            camera: { ...(pendingCamera.current || current.current) },
+          };
+          if (pan) {
+            e.preventDefault();
+            moved.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDragging(true);
+          }
+        }}
+        onPointerMove={(e) => {
+          const d = drag.current;
+          if (!d || d.id !== e.pointerId) return;
+          if (!d.pan) {
+            if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) <= 4) return;
+            d.pan = true;
+            moved.current = true;
+            e.currentTarget.setPointerCapture(e.pointerId);
+            setDragging(true);
+          }
+          e.preventDefault();
+          const next = panFromAnchor(
+            d.camera,
+            { x: d.startX, y: d.startY },
+            { x: e.clientX, y: e.clientY },
+          );
+          queueCamera(() => next);
+        }}
+        onPointerUp={finish}
+        onPointerCancel={finish}
+        onLostPointerCapture={() => {
+          drag.current = null;
+          setDragging(false);
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !moved.current && !spaceKey.current) onSelect(null);
+        }}
+      >
+        <div
+          className="overview-world"
+          style={{ transform: `translate(${camera.x}px,${camera.y}px) scale(${camera.scale})` }}
+        >
+          {' '}
+          {visible.map((b) => {
+            const f = b.frame,
+              match = matchesBoardName(b, search),
+              width = Math.max(1, f.width * camera.scale),
+              height = Math.max(1, f.height * camera.scale);
+            const quality = pageRenderQuality(b, camera.scale),
+              active = selectedId === b.do_objectID || inspectBoardId === b.do_objectID,
+              small = quality.small || !detailed.has(b.do_objectID);
+            return (
+              <div
+                key={b.do_objectID}
+                onPointerEnter={() => inspectBoard(b.do_objectID)}
+                onPointerLeave={stopInspectionTimer}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setMenu({ x: e.clientX, y: e.clientY, board: b });
+                }}
+                className={`overview-board${selectedId === b.do_objectID ? ' selected' : ''}${search && !match ? ' dimmed' : ''}${search && match ? ' matched' : ''}`}
+                style={{
+                  left: f.x,
+                  top: f.y,
+                  width: f.width,
+                  height: f.height,
+                  outlineWidth: (selectedId === b.do_objectID ? 2 : 1) / camera.scale,
+                }}
+              >
+                {(width > 45 || selectedId === b.do_objectID || (search && match)) && (
+                  <button
+                    className="overview-board-label"
+                    style={{
+                      maxWidth: Math.max(width, 80),
+                      transform: `scale(${1 / camera.scale})`,
+                      transformOrigin: 'bottom left',
+                      bottom: `calc(100% + ${5 / camera.scale}px)`,
+                    }}
+                    title={b.name}
+                    aria-label={`定位画板 ${b.name}`}
+                    onClick={() => {
+                      if (!moved.current && !spaceKey.current) onSelect(b);
+                    }}
+                  >
+                    {b.name}
+                  </button>
+                )}
+                <PageBoard
+                  board={b}
+                  doc={doc}
+                  cache={cache}
+                  inspect={active}
+                  live={active && quality.live}
+                  scale={camera.scale}
+                  selected={selectedId === b.do_objectID ? selected : null}
+                  measurement={
+                    measurement
+                      ? { ...measurement, x: measurement.x - f.x, y: measurement.y - f.y }
+                      : null
+                  }
+                  alt={alt}
+                  enabled={() => !moved.current && !spaceKey.current}
+                  onSelect={(layer) => onLayer(b, layer)}
+                  onLocate={() => locate(b)}
+                  onError={setPreviewNotice}
+                >
+                  <Preview
+                    key={String(small)}
+                    board={b}
+                    thumbnails={thumbnails}
+                    priority={selectedId === b.do_objectID}
+                    small={small}
+                    load={(!!doc.thumbnail || detailed.has(b.do_objectID)) && !moving && !dragging}
+                  />
+                </PageBoard>
+                {selectedId === b.do_objectID && (
+                  <button
+                    style={{
+                      transform: `scale(${1 / camera.scale})`,
+                      transformOrigin: 'top left',
+                      top: f.height + 5 / camera.scale,
+                    }}
+                    className="overview-enter"
+                    aria-label={`打开单画板 ${b.name}`}
+                    onClick={() => onOpen(b)}
+                  >
+                    <ArrowUpRight size={12} />
+                    打开单画板
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+        {!boards.length && <div className="overview-empty">这个页面还没有画板</div>}
+      </div>
+      {menu && (
+        <ContextMenu position={menu} onClose={() => setMenu(null)}>
+          <button onClick={() => locate(menu.board)}>
+            <Maximize size={14} />
+            缩放到画板
+          </button>
+          <button onClick={() => onOpen(menu.board)}>
+            <ArrowUpRight size={14} />
+            打开单画板
+          </button>
+        </ContextMenu>
+      )}
+      {previewNotice && (
+        <div className="canvas-foot" role="status">
+          {previewNotice}
+        </div>
+      )}
+    </main>
+  );
 }

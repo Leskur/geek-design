@@ -1,5 +1,331 @@
-.wb-main-nav{margin-top:8px}.wb-team-tree{flex:1;min-height:100px;padding:0 12px 24px;overflow:visible}.wb-team-tree ul{list-style:none;margin:0;padding:0}.wb-tree-heading{display:flex;align-items:center;justify-content:space-between;margin:27px 8px 12px;font-size:10px;letter-spacing:.7px;color:#b0a5bb}.wb-tree-heading>.wb-icon-button{width:23px;height:23px}.wb-tree-team{margin:7px 0 12px}.wb-tree-team-row{display:flex;align-items:center;min-height:33px;gap:2px;padding:0 3px;position:relative;border-radius:6px}.wb-tree-team-row:hover{background:#faf7fd}.wb-tree-toggle{display:flex!important;align-items:center;justify-content:center;width:21px;height:25px;flex-shrink:0;padding:3px;border:0;border-radius:4px;background:transparent;color:#b2a1c0}.wb-tree-toggle:hover{background:#eee7f6;color:#8d6bae}.wb-tree-team-name{font-size:12px;font-weight:500;text-decoration:none;color:#82718f;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding:8px 4px}.wb-tree-team.current>.wb-tree-team-row>.wb-tree-team-name{color:#8864b3}.wb-tree-menu{flex-shrink:0;position:relative;z-index:9}.wb-tree-menu[open]{z-index:12}.wb-tree-menu>summary{display:flex;align-items:center;justify-content:center;list-style:none;cursor:pointer;border-radius:4px;width:24px;height:24px;color:#bba9c8}.wb-tree-menu>summary::-webkit-details-marker{display:none}.wb-tree-menu>summary:hover,.wb-tree-menu[open]>summary{background:#eee7f6;color:#8d6bae}.wb-tree-menu>div{position:absolute;right:0;left:auto;top:28px;min-width:140px;border:1px solid #e4d9ee;border-radius:8px;padding:5px;background:white;box-shadow:0 7px 25px #44305615}.wb-tree-menu a,.wb-tree-menu button{display:flex!important;align-items:center;justify-content:flex-start!important;gap:9px;padding:9px 10px;width:100%;border:0;border-radius:4px;background:transparent;text-decoration:none;white-space:nowrap;font-size:11px!important;color:#967da6}.wb-tree-menu a:hover,.wb-tree-menu button:hover{background:#f5effb}.wb-team-tree .wb-tree-projects{margin:4px 0 7px 13px;padding:0 0 0 11px;border-left:1px solid #eee7f5}.wb-tree-projects[hidden]{display:none}.wb-tree-projects a,.wb-tree-projects .wb-tree-add{display:flex!important;align-items:center;justify-content:flex-start!important;gap:9px;width:100%;padding:10px 9px;margin:2px 0;border:0;border-radius:6px;background:transparent;font-size:11px!important;color:#a08aaf;text-decoration:none}.wb-tree-projects a:hover{background:#f9f5fd}.wb-tree-projects a.active{background:#efebfc;color:#8b65bc}.wb-tree-projects a>svg,.wb-tree-add>svg{flex-shrink:0}.wb-tree-projects a>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wb-tree-projects .wb-tree-add{font-size:10px!important;color:#b6a1c4}.wb-tree-projects .wb-tree-add:hover{background:#f7f2fc;color:#9d7db7}.wb-tree-empty{font-size:10px;color:#c2afcf;padding:10px 9px 6px}.wb-tree-no-teams{font-size:10px;line-height:1.9;color:#baabc7;padding:8px}.wb-sidebar-bottom{margin-top:auto}.wb-files-section{margin-top:0}.wb-tree-member-link{display:flex;align-items:center;gap:7px}.wb-mobile-teams{display:none}
-@media(max-width:760px){.wb-team-tree{padding-left:8px;padding-right:8px}.wb-tree-team-name{font-size:11px}.wb-tree-projects a{font-size:10px!important;padding-left:7px;gap:7px}.wb-team-tree .wb-tree-projects{padding-left:7px;margin-left:11px}}
-@media(max-width:600px){.wb-app{grid-template-columns:155px minmax(0,1fr)}.wb-tree-menu>div{right:0;left:auto}.wb-sidebar>.brand{font-size:16px;padding-left:13px;padding-right:13px}.wb-sidebar>.brand>svg{width:21px}.wb-tree-team-name{font-size:10px}.wb-team-tree .wb-tree-projects{margin-left:9px;padding-left:5px}.wb-profile>span:nth-child(2){font-size:9px}}
+.wb-main-nav {
+  margin-top: 8px;
+}
+.wb-team-tree {
+  flex: 1;
+  min-height: 100px;
+  padding: 0 12px 24px;
+  overflow: visible;
+}
+.wb-team-tree ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.wb-tree-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 27px 8px 12px;
+  font-size: 10px;
+  letter-spacing: 0.7px;
+  color: #b0a5bb;
+}
+.wb-tree-heading > .wb-icon-button {
+  width: 23px;
+  height: 23px;
+}
+.wb-tree-team {
+  margin: 7px 0 12px;
+}
+.wb-tree-team-row {
+  display: flex;
+  align-items: center;
+  min-height: 33px;
+  gap: 2px;
+  padding: 0 3px;
+  position: relative;
+  border-radius: 6px;
+}
+.wb-tree-team-row:hover {
+  background: #faf7fd;
+}
+.wb-tree-toggle {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 21px;
+  height: 25px;
+  flex-shrink: 0;
+  padding: 3px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #b2a1c0;
+}
+.wb-tree-toggle:hover {
+  background: #eee7f6;
+  color: #8d6bae;
+}
+.wb-tree-team-name {
+  font-size: 12px;
+  font-weight: 500;
+  text-decoration: none;
+  color: #82718f;
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 8px 4px;
+}
+.wb-tree-team.current > .wb-tree-team-row > .wb-tree-team-name {
+  color: #8864b3;
+}
+.wb-tree-menu {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 9;
+}
+.wb-tree-menu[open] {
+  z-index: 12;
+}
+.wb-tree-menu > summary {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  list-style: none;
+  cursor: pointer;
+  border-radius: 4px;
+  width: 24px;
+  height: 24px;
+  color: #bba9c8;
+}
+.wb-tree-menu > summary::-webkit-details-marker {
+  display: none;
+}
+.wb-tree-menu > summary:hover,
+.wb-tree-menu[open] > summary {
+  background: #eee7f6;
+  color: #8d6bae;
+}
+.wb-tree-menu > div {
+  position: absolute;
+  right: 0;
+  left: auto;
+  top: 28px;
+  min-width: 140px;
+  border: 1px solid #e4d9ee;
+  border-radius: 8px;
+  padding: 5px;
+  background: white;
+  box-shadow: 0 7px 25px #44305615;
+}
+.wb-tree-menu a,
+.wb-tree-menu button {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  gap: 9px;
+  padding: 9px 10px;
+  width: 100%;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  font-size: 11px !important;
+  color: #967da6;
+}
+.wb-tree-menu a:hover,
+.wb-tree-menu button:hover {
+  background: #f5effb;
+}
+.wb-team-tree .wb-tree-projects {
+  margin: 4px 0 7px 13px;
+  padding: 0 0 0 11px;
+  border-left: 1px solid #eee7f5;
+}
+.wb-tree-projects[hidden] {
+  display: none;
+}
+.wb-tree-projects a,
+.wb-tree-projects .wb-tree-add {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-start !important;
+  gap: 9px;
+  width: 100%;
+  padding: 10px 9px;
+  margin: 2px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 11px !important;
+  color: #a08aaf;
+  text-decoration: none;
+}
+.wb-tree-projects a:hover {
+  background: #f9f5fd;
+}
+.wb-tree-projects a.active {
+  background: #efebfc;
+  color: #8b65bc;
+}
+.wb-tree-projects a > svg,
+.wb-tree-add > svg {
+  flex-shrink: 0;
+}
+.wb-tree-projects a > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-tree-projects .wb-tree-add {
+  font-size: 10px !important;
+  color: #b6a1c4;
+}
+.wb-tree-projects .wb-tree-add:hover {
+  background: #f7f2fc;
+  color: #9d7db7;
+}
+.wb-tree-empty {
+  font-size: 10px;
+  color: #c2afcf;
+  padding: 10px 9px 6px;
+}
+.wb-tree-no-teams {
+  font-size: 10px;
+  line-height: 1.9;
+  color: #baabc7;
+  padding: 8px;
+}
+.wb-sidebar-bottom {
+  margin-top: auto;
+}
+.wb-files-section {
+  margin-top: 0;
+}
+.wb-tree-member-link {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.wb-mobile-teams {
+  display: none;
+}
+@media (max-width: 760px) {
+  .wb-team-tree {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+  .wb-tree-team-name {
+    font-size: 11px;
+  }
+  .wb-tree-projects a {
+    font-size: 10px !important;
+    padding-left: 7px;
+    gap: 7px;
+  }
+  .wb-team-tree .wb-tree-projects {
+    padding-left: 7px;
+    margin-left: 11px;
+  }
+}
+@media (max-width: 600px) {
+  .wb-app {
+    grid-template-columns: 155px minmax(0, 1fr);
+  }
+  .wb-tree-menu > div {
+    right: 0;
+    left: auto;
+  }
+  .wb-sidebar > .brand {
+    font-size: 16px;
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+  .wb-sidebar > .brand > svg {
+    width: 21px;
+  }
+  .wb-tree-team-name {
+    font-size: 10px;
+  }
+  .wb-team-tree .wb-tree-projects {
+    margin-left: 9px;
+    padding-left: 5px;
+  }
+  .wb-profile > span:nth-child(2) {
+    font-size: 9px;
+  }
+}
 /* Keep the hierarchy usable on narrow screens instead of hiding its labels. */
-@media(max-width:480px){.wb-app{grid-template-columns:145px minmax(0,1fr)}.wb-sidebar>.brand{font-size:15px;padding:23px 12px;gap:5px}.wb-sidebar>.brand>span{font-size:15px;margin-left:-5px}.wb-main-nav>a{font-size:11px;justify-content:flex-start;padding:11px 10px;gap:9px}.wb-main-nav>a>svg{width:16px;height:16px}.wb-tree-heading{font-size:9px;margin-left:5px}.wb-tree-team-name{font-size:10px}.wb-tree-projects a{font-size:10px!important}.wb-sidebar-bottom>a{justify-content:flex-start;font-size:10px;padding-left:9px;gap:9px}.wb-profile>span{display:grid}.wb-profile>span:nth-child(2){display:block;font-size:9px}.wb-profile{gap:4px;justify-content:flex-start}.wb-small-avatar{width:23px;height:23px}.wb-profile>.wb-icon-button{width:22px}.wb-app .wb-toolbar{padding:0 12px}.wb-search{width:100%}.wb-content{padding:22px 13px 40px}.wb-file-grid{grid-template-columns:minmax(0,1fr)}.wb-file-info{padding-left:10px}.wb-file-title{font-size:11px}.wb-file-cover{height:125px}}
+@media (max-width: 480px) {
+  .wb-app {
+    grid-template-columns: 145px minmax(0, 1fr);
+  }
+  .wb-sidebar > .brand {
+    font-size: 15px;
+    padding: 23px 12px;
+    gap: 5px;
+  }
+  .wb-sidebar > .brand > span {
+    font-size: 15px;
+    margin-left: -5px;
+  }
+  .wb-main-nav > a {
+    font-size: 11px;
+    justify-content: flex-start;
+    padding: 11px 10px;
+    gap: 9px;
+  }
+  .wb-main-nav > a > svg {
+    width: 16px;
+    height: 16px;
+  }
+  .wb-tree-heading {
+    font-size: 9px;
+    margin-left: 5px;
+  }
+  .wb-tree-team-name {
+    font-size: 10px;
+  }
+  .wb-tree-projects a {
+    font-size: 10px !important;
+  }
+  .wb-sidebar-bottom > a {
+    justify-content: flex-start;
+    font-size: 10px;
+    padding-left: 9px;
+    gap: 9px;
+  }
+  .wb-profile > span {
+    display: grid;
+  }
+  .wb-profile > span:nth-child(2) {
+    display: block;
+    font-size: 9px;
+  }
+  .wb-profile {
+    gap: 4px;
+    justify-content: flex-start;
+  }
+  .wb-small-avatar {
+    width: 23px;
+    height: 23px;
+  }
+  .wb-profile > .wb-icon-button {
+    width: 22px;
+  }
+  .wb-app .wb-toolbar {
+    padding: 0 12px;
+  }
+  .wb-search {
+    width: 100%;
+  }
+  .wb-content {
+    padding: 22px 13px 40px;
+  }
+  .wb-file-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .wb-file-info {
+    padding-left: 10px;
+  }
+  .wb-file-title {
+    font-size: 11px;
+  }
+  .wb-file-cover {
+    height: 125px;
+  }
+}

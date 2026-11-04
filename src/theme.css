@@ -1,126 +1,549 @@
-:root{--sp-accent:#6554d9;--sp-accent-hover:#5543c5;--sp-text:#262936;--sp-secondary:#646b7b;--sp-muted:#7b8292;--sp-border:#dfe3ec;--sp-bg:#f5f6fa;--sp-selected:#ece9ff}
-.team-app{color:var(--sp-text);--team-accent:var(--sp-accent);--team-border:var(--sp-border);--team-muted:var(--sp-muted);background:var(--sp-bg)}
-.wb-app{background:#f6f7fb;color:var(--sp-text)}
-.team-app .primary,.wb-dialog .primary,.app header .primary{background:var(--sp-accent);border-color:var(--sp-accent);color:#fff;box-shadow:0 2px 5px #41339a12}
-.team-app .primary:hover,.wb-dialog .primary:hover,.app header .primary:hover{background:var(--sp-accent-hover);border-color:var(--sp-accent-hover);color:#fff}
-.wb-app .wb-heading-actions>button.primary{background:var(--sp-accent);border-color:var(--sp-accent);color:#fff}
-.wb-app .wb-heading-actions>button.primary:hover{background:var(--sp-accent-hover);border-color:var(--sp-accent-hover)}
-.wb-brand-icon,.brand>span{color:var(--sp-accent)}
-.wb-sidebar{border-right-color:var(--sp-border)}
-.wb-main-nav>a{color:#626979;font-size:13px;font-weight:450}
-.wb-main-nav>a:hover{background:#f1f2f7}
-.wb-main-nav>a.active,.wb-project-nav>a.active{background:var(--sp-selected);color:#5743c3;font-weight:550}
-.wb-team-tree{padding-top:23px}
-.wb-tree-team{margin-top:0;margin-bottom:16px}
-.wb-tree-team-row:hover{background:#f5f6fa}
-.wb-tree-team-name{color:#434957;font-size:13px;font-weight:600}
-.wb-tree-team.current>.wb-tree-team-row>.wb-tree-team-name{color:#5140ad}
-.wb-tree-toggle,.wb-tree-menu>summary{color:#858da0}
-.wb-tree-menu>summary:hover,.wb-tree-menu[open]>summary{background:#edeaf9;color:#5743c3}
-.wb-team-tree .wb-tree-projects{border-left-color:#e1e4ee}
-.wb-tree-projects a{color:#606879;font-size:12px!important}
-.wb-tree-projects a.active{background:var(--sp-selected);color:#5540c2;font-weight:550;box-shadow:none}
-.wb-tree-projects a:hover{background:#f2f2f8;color:#4c5262}
-.wb-tree-projects a.active:hover{background:#e5e0fb;color:#5540c2}
-.wb-tree-projects .wb-tree-add{color:#858b9b;font-size:11px!important}
-.wb-tree-projects .wb-tree-add:hover{color:#6554bc;background:#f0eef8}
-.wb-tree-empty,.wb-tree-no-teams{color:#7d8596;font-size:11px}
-.wb-tree-menu>div,.wb-file-menu>div{border-color:#dce0e9;box-shadow:0 7px 25px #24283e18}
-.wb-tree-menu a,.wb-tree-menu button,.wb-file-menu a,.wb-file-menu button{color:#555d70;font-size:12px!important}
-.wb-tree-menu a:hover,.wb-tree-menu button:hover,.wb-file-menu a:hover,.wb-file-menu button:hover{background:#f0edf9;color:#5743ba}
-.wb-tree-menu-divider{height:1px;background:#e9eaf0;margin:4px 5px}
-.wb-sidebar-bottom>a,.wb-profile{color:#6c7383;font-size:12px}
-.wb-profile{border-top-color:var(--sp-border)}
-.wb-profile .wb-small-avatar{background:#eeeafb;color:#6854b7;font-weight:600}
-.wb-icon-button{color:#7b8495}
-.wb-app .wb-toolbar{border-bottom-color:var(--sp-border)}
-.wb-breadcrumb{font-size:12px;color:#8c93a3}
-.wb-breadcrumb>span{color:#7b8191}
-.wb-breadcrumb>b{color:#424959;font-weight:500}
-.wb-search{background:#f7f8fb;border-color:#e1e4ec;color:#858da0}
-.wb-search>input{font-size:12px;color:#414858}
-.wb-search input::placeholder{color:#8b93a2}
-.wb-page-heading h1,.wb-content>.team-heading h1{color:#242735;font-weight:650}
-.wb-page-heading p,.wb-content .team-heading p{color:#777f90;font-size:12px}
-.wb-section-heading h2{color:#485061;font-size:13px;font-weight:550}
-.wb-section-heading>span{color:#8a92a2;font-size:11px}
-.wb-heading-actions>.wb-icon-button{border-color:#dce1eb!important;color:#737d90}
-.wb-view-switch{border-color:#dde1eb}
-.wb-view-switch>button{color:#929bab}
-.wb-view-switch>button[aria-pressed=true]{background:#ece8fb;color:#6a50ba}
-.wb-file-card{border-color:#dce1eb;box-shadow:0 2px 3px #2f334403}
-.wb-file-card:hover{border-color:#b1a3db;box-shadow:0 5px 18px #5545910d}
-.wb-file-cover{background:#eeedf7}
-.wb-file-card:nth-child(3n+2) .wb-file-cover{background:#edf0f7}
-.wb-file-card:nth-child(3n+3) .wb-file-cover{background:#eeeff4}
-.wb-file-symbol{background:#ffffffd9;border-color:#fff;color:#8d7bb6;box-shadow:0 4px 14px #5a4a780b}
-.wb-file-symbol>span{color:#75668e;font-weight:550}
-.wb-file-extension{font-size:10px;color:#8d859f}
-.wb-file-title{color:#343b4a;font-size:13px;font-weight:550}
-.wb-file-info>p{color:#747c8e;font-size:11px}
-.wb-file-info p>span{color:#aeb5c3}
-.wb-file-menu>summary{color:#7f8799}
-.wb-file-menu>summary:hover,.wb-file-menu[open]>summary{background:#eeebf7;color:#6b51b5}
-.wb-processing{background:#ffffffdf;color:#7b6b95}
-.wb-project-empty h2{color:#414859;font-weight:550}
-.wb-project-empty p{color:#737d8f;font-size:13px}
-.wb-project-empty>small{color:#8991a1;font-size:11px}
-.wb-upload-illustration>div{border-color:#d5cdeb;background:#e9e3f6}
-.wb-upload-illustration>div:nth-child(2){background:#f4f0fb}
-.wb-upload-illustration>span{border-color:#d5cbe6;color:#9b84bf;box-shadow:0 8px 20px #7e6c9a0b}
-.wb-soft-empty,.wb-soft-empty p{color:#818a9c}
-.wb-soft-empty h3{color:#596374;font-size:15px}
-.wb-soft-empty button{color:#6954a6}
-.wb-onboarding h1{color:#333c4d}
-.wb-onboarding p{color:#768194;font-size:13px}
-.wb-loading{color:#737f91}
-.wb-notice{color:#66518f;background:#f0ebfa;border-color:#ded3ef}
-.wb-dialog{color:#485163;border-color:#d9dfeb;box-shadow:0 20px 80px #1e233d2b}
-.wb-dialog-head{border-bottom-color:#e4e7ef}
-.wb-dialog-head>h2{color:#333b4c;font-weight:600}
-.wb-create-form>p,.wb-dialog-description,.wb-upload-hint{color:#7c8494;font-size:12px}
-.wb-create-form label,.wb-upload-fields label{color:#626b7d;font-size:12px}
-.wb-create-form input,.wb-upload-fields input{background:#fff;border-color:#d9dfeb;color:#41495a}
-.wb-create-form input::placeholder,.wb-upload-fields input::placeholder{color:#929bad}
-.wb-upload-fields small{color:#9199a8}
-.wb-file-drop{border-color:#c6bbdf!important;background:#f8f6fc!important;color:#9983ba}
-.wb-file-drop>b{color:#626479;font-weight:500}
-.wb-file-drop>span{color:#8a8fa1;font-size:11px}
-.wb-upload-progress,.wb-history-heading>span{color:#71798e}
-.wb-upload-progress progress{accent-color:var(--sp-accent)}
-.wb-transfer-pill{color:#675490;border-color:#cfc4e2;box-shadow:0 4px 25px #4f3d7418}
-.team-app .team-auth>p,.team-app .auth-caption{color:#737c8e}
-.team-auth label{color:#596375}
-.team-auth input{color:#374152;border-color:#d9dfeb;background:#fff}
-.team-app .team-link,.wb-dialog a.team-link{color:#6952bb}
-.auth-tabs>a{color:#828b9c}
-.auth-tabs>a.active{color:#6048bf;border-color:#7355d1}
-.team-app .eyebrow{color:#83739c}
-.wb-content .team-panel{border-color:#dfe3ec}
-.wb-content .team-panel h3{color:#4f566a;font-size:13px;font-weight:550}
-.wb-content .team-panel h3>span{color:#8b92a1;font-size:11px}
-.wb-content .team-panel .hint,.team-app .team-empty{color:#7d8698;font-size:11px}
-.wb-content .member-identity b{color:#434c5d;font-size:13px}
-.member-identity>span,.member-identity b small{color:#8790a0}
-.invitation-row b{color:#4e586a}
-.invitation-row small{color:#828c9e}
-.member-avatar{background:#eeebf7;color:#8572b1}
-.team-status{color:#7a6a94;background:#f0ecf7}
-.team-status.ready{color:#43826b;background:#eaf4ed}
-.team-status.failed{color:#a15e6b;background:#fbecef}
-.team-revision b{color:#4e586c}
-.team-revision small,.team-revision p{color:#818b9c}
-.revision-actions a,.revision-actions button{color:#7760a6}
-.team-app .page-switcher-trigger,.wb-dialog .page-switcher-trigger{border-color:#dce0eb;background:#fafbfe;color:#596174}
-.team-app .page-switcher-option,.wb-dialog .page-switcher-option{color:#616a7b}
-.team-app .page-switcher-option.current,.wb-dialog .page-switcher-option.current{color:#6850ba}
-.app .panel-title,.app .inspect h4{color:#3d4454}
-.app .board-item small,.app .board-item em,.app .aside-foot,.app .right-note,.app .canvas-foot{color:#7d8594}
-.app .board-icon{color:#939bad}
-.app .board-item.active,.app .tree summary.active{color:#5d46bf;background:#ece8fc}
-.app .tree summary{color:#697284}
-.app .metrics small,.app .paint-heading,.app .empty p{color:#818a9c}
-.app .empty h3,.app .inspect pre{color:#657085}
-.app .canvas-bar>span{color:#7d8696}
-@media(max-width:760px){.wb-tree-team-name{font-size:12px}.wb-tree-projects a{font-size:11px!important}}
-@media(max-width:480px){.wb-tree-team-name{font-size:11px}.wb-tree-projects a{font-size:10px!important}.wb-file-title{font-size:12px}.wb-file-info>p{font-size:10px}.wb-sidebar-bottom>a{font-size:10px}}
+:root {
+  --sp-accent: #6554d9;
+  --sp-accent-hover: #5543c5;
+  --sp-text: #262936;
+  --sp-secondary: #646b7b;
+  --sp-muted: #7b8292;
+  --sp-border: #dfe3ec;
+  --sp-bg: #f5f6fa;
+  --sp-selected: #ece9ff;
+}
+.team-app {
+  color: var(--sp-text);
+  --team-accent: var(--sp-accent);
+  --team-border: var(--sp-border);
+  --team-muted: var(--sp-muted);
+  background: var(--sp-bg);
+}
+.wb-app {
+  background: #f6f7fb;
+  color: var(--sp-text);
+}
+.team-app .primary,
+.wb-dialog .primary,
+.app header .primary {
+  background: var(--sp-accent);
+  border-color: var(--sp-accent);
+  color: #fff;
+  box-shadow: 0 2px 5px #41339a12;
+}
+.team-app .primary:hover,
+.wb-dialog .primary:hover,
+.app header .primary:hover {
+  background: var(--sp-accent-hover);
+  border-color: var(--sp-accent-hover);
+  color: #fff;
+}
+.wb-app .wb-heading-actions > button.primary {
+  background: var(--sp-accent);
+  border-color: var(--sp-accent);
+  color: #fff;
+}
+.wb-app .wb-heading-actions > button.primary:hover {
+  background: var(--sp-accent-hover);
+  border-color: var(--sp-accent-hover);
+}
+.wb-brand-icon,
+.brand > span {
+  color: var(--sp-accent);
+}
+.wb-sidebar {
+  border-right-color: var(--sp-border);
+}
+.wb-main-nav > a {
+  color: #626979;
+  font-size: 13px;
+  font-weight: 450;
+}
+.wb-main-nav > a:hover {
+  background: #f1f2f7;
+}
+.wb-main-nav > a.active,
+.wb-project-nav > a.active {
+  background: var(--sp-selected);
+  color: #5743c3;
+  font-weight: 550;
+}
+.wb-team-tree {
+  padding-top: 23px;
+}
+.wb-tree-team {
+  margin-top: 0;
+  margin-bottom: 16px;
+}
+.wb-tree-team-row:hover {
+  background: #f5f6fa;
+}
+.wb-tree-team-name {
+  color: #434957;
+  font-size: 13px;
+  font-weight: 600;
+}
+.wb-tree-team.current > .wb-tree-team-row > .wb-tree-team-name {
+  color: #5140ad;
+}
+.wb-tree-toggle,
+.wb-tree-menu > summary {
+  color: #858da0;
+}
+.wb-tree-menu > summary:hover,
+.wb-tree-menu[open] > summary {
+  background: #edeaf9;
+  color: #5743c3;
+}
+.wb-team-tree .wb-tree-projects {
+  border-left-color: #e1e4ee;
+}
+.wb-tree-projects a {
+  color: #606879;
+  font-size: 12px !important;
+}
+.wb-tree-projects a.active {
+  background: var(--sp-selected);
+  color: #5540c2;
+  font-weight: 550;
+  box-shadow: none;
+}
+.wb-tree-projects a:hover {
+  background: #f2f2f8;
+  color: #4c5262;
+}
+.wb-tree-projects a.active:hover {
+  background: #e5e0fb;
+  color: #5540c2;
+}
+.wb-tree-projects .wb-tree-add {
+  color: #858b9b;
+  font-size: 11px !important;
+}
+.wb-tree-projects .wb-tree-add:hover {
+  color: #6554bc;
+  background: #f0eef8;
+}
+.wb-tree-empty,
+.wb-tree-no-teams {
+  color: #7d8596;
+  font-size: 11px;
+}
+.wb-tree-menu > div,
+.wb-file-menu > div {
+  border-color: #dce0e9;
+  box-shadow: 0 7px 25px #24283e18;
+}
+.wb-tree-menu a,
+.wb-tree-menu button,
+.wb-file-menu a,
+.wb-file-menu button {
+  color: #555d70;
+  font-size: 12px !important;
+}
+.wb-tree-menu a:hover,
+.wb-tree-menu button:hover,
+.wb-file-menu a:hover,
+.wb-file-menu button:hover {
+  background: #f0edf9;
+  color: #5743ba;
+}
+.wb-tree-menu-divider {
+  height: 1px;
+  background: #e9eaf0;
+  margin: 4px 5px;
+}
+.wb-sidebar-bottom > a,
+.wb-profile {
+  color: #6c7383;
+  font-size: 12px;
+}
+.wb-profile {
+  border-top-color: var(--sp-border);
+}
+.wb-profile .wb-small-avatar {
+  background: #eeeafb;
+  color: #6854b7;
+  font-weight: 600;
+}
+.wb-icon-button {
+  color: #7b8495;
+}
+.wb-app .wb-toolbar {
+  border-bottom-color: var(--sp-border);
+}
+.wb-breadcrumb {
+  font-size: 12px;
+  color: #8c93a3;
+}
+.wb-breadcrumb > span {
+  color: #7b8191;
+}
+.wb-breadcrumb > b {
+  color: #424959;
+  font-weight: 500;
+}
+.wb-search {
+  background: #f7f8fb;
+  border-color: #e1e4ec;
+  color: #858da0;
+}
+.wb-search > input {
+  font-size: 12px;
+  color: #414858;
+}
+.wb-search input::placeholder {
+  color: #8b93a2;
+}
+.wb-page-heading h1,
+.wb-content > .team-heading h1 {
+  color: #242735;
+  font-weight: 650;
+}
+.wb-page-heading p,
+.wb-content .team-heading p {
+  color: #777f90;
+  font-size: 12px;
+}
+.wb-section-heading h2 {
+  color: #485061;
+  font-size: 13px;
+  font-weight: 550;
+}
+.wb-section-heading > span {
+  color: #8a92a2;
+  font-size: 11px;
+}
+.wb-heading-actions > .wb-icon-button {
+  border-color: #dce1eb !important;
+  color: #737d90;
+}
+.wb-view-switch {
+  border-color: #dde1eb;
+}
+.wb-view-switch > button {
+  color: #929bab;
+}
+.wb-view-switch > button[aria-pressed='true'] {
+  background: #ece8fb;
+  color: #6a50ba;
+}
+.wb-file-card {
+  border-color: #dce1eb;
+  box-shadow: 0 2px 3px #2f334403;
+}
+.wb-file-card:hover {
+  border-color: #b1a3db;
+  box-shadow: 0 5px 18px #5545910d;
+}
+.wb-file-cover {
+  background: #eeedf7;
+}
+.wb-file-card:nth-child(3n + 2) .wb-file-cover {
+  background: #edf0f7;
+}
+.wb-file-card:nth-child(3n + 3) .wb-file-cover {
+  background: #eeeff4;
+}
+.wb-file-symbol {
+  background: #ffffffd9;
+  border-color: #fff;
+  color: #8d7bb6;
+  box-shadow: 0 4px 14px #5a4a780b;
+}
+.wb-file-symbol > span {
+  color: #75668e;
+  font-weight: 550;
+}
+.wb-file-extension {
+  font-size: 10px;
+  color: #8d859f;
+}
+.wb-file-title {
+  color: #343b4a;
+  font-size: 13px;
+  font-weight: 550;
+}
+.wb-file-info > p {
+  color: #747c8e;
+  font-size: 11px;
+}
+.wb-file-info p > span {
+  color: #aeb5c3;
+}
+.wb-file-menu > summary {
+  color: #7f8799;
+}
+.wb-file-menu > summary:hover,
+.wb-file-menu[open] > summary {
+  background: #eeebf7;
+  color: #6b51b5;
+}
+.wb-processing {
+  background: #ffffffdf;
+  color: #7b6b95;
+}
+.wb-project-empty h2 {
+  color: #414859;
+  font-weight: 550;
+}
+.wb-project-empty p {
+  color: #737d8f;
+  font-size: 13px;
+}
+.wb-project-empty > small {
+  color: #8991a1;
+  font-size: 11px;
+}
+.wb-upload-illustration > div {
+  border-color: #d5cdeb;
+  background: #e9e3f6;
+}
+.wb-upload-illustration > div:nth-child(2) {
+  background: #f4f0fb;
+}
+.wb-upload-illustration > span {
+  border-color: #d5cbe6;
+  color: #9b84bf;
+  box-shadow: 0 8px 20px #7e6c9a0b;
+}
+.wb-soft-empty,
+.wb-soft-empty p {
+  color: #818a9c;
+}
+.wb-soft-empty h3 {
+  color: #596374;
+  font-size: 15px;
+}
+.wb-soft-empty button {
+  color: #6954a6;
+}
+.wb-onboarding h1 {
+  color: #333c4d;
+}
+.wb-onboarding p {
+  color: #768194;
+  font-size: 13px;
+}
+.wb-loading {
+  color: #737f91;
+}
+.wb-notice {
+  color: #66518f;
+  background: #f0ebfa;
+  border-color: #ded3ef;
+}
+.wb-dialog {
+  color: #485163;
+  border-color: #d9dfeb;
+  box-shadow: 0 20px 80px #1e233d2b;
+}
+.wb-dialog-head {
+  border-bottom-color: #e4e7ef;
+}
+.wb-dialog-head > h2 {
+  color: #333b4c;
+  font-weight: 600;
+}
+.wb-create-form > p,
+.wb-dialog-description,
+.wb-upload-hint {
+  color: #7c8494;
+  font-size: 12px;
+}
+.wb-create-form label,
+.wb-upload-fields label {
+  color: #626b7d;
+  font-size: 12px;
+}
+.wb-create-form input,
+.wb-upload-fields input {
+  background: #fff;
+  border-color: #d9dfeb;
+  color: #41495a;
+}
+.wb-create-form input::placeholder,
+.wb-upload-fields input::placeholder {
+  color: #929bad;
+}
+.wb-upload-fields small {
+  color: #9199a8;
+}
+.wb-file-drop {
+  border-color: #c6bbdf !important;
+  background: #f8f6fc !important;
+  color: #9983ba;
+}
+.wb-file-drop > b {
+  color: #626479;
+  font-weight: 500;
+}
+.wb-file-drop > span {
+  color: #8a8fa1;
+  font-size: 11px;
+}
+.wb-upload-progress,
+.wb-history-heading > span {
+  color: #71798e;
+}
+.wb-upload-progress progress {
+  accent-color: var(--sp-accent);
+}
+.wb-transfer-pill {
+  color: #675490;
+  border-color: #cfc4e2;
+  box-shadow: 0 4px 25px #4f3d7418;
+}
+.team-app .team-auth > p,
+.team-app .auth-caption {
+  color: #737c8e;
+}
+.team-auth label {
+  color: #596375;
+}
+.team-auth input {
+  color: #374152;
+  border-color: #d9dfeb;
+  background: #fff;
+}
+.team-app .team-link,
+.wb-dialog a.team-link {
+  color: #6952bb;
+}
+.auth-tabs > a {
+  color: #828b9c;
+}
+.auth-tabs > a.active {
+  color: #6048bf;
+  border-color: #7355d1;
+}
+.team-app .eyebrow {
+  color: #83739c;
+}
+.wb-content .team-panel {
+  border-color: #dfe3ec;
+}
+.wb-content .team-panel h3 {
+  color: #4f566a;
+  font-size: 13px;
+  font-weight: 550;
+}
+.wb-content .team-panel h3 > span {
+  color: #8b92a1;
+  font-size: 11px;
+}
+.wb-content .team-panel .hint,
+.team-app .team-empty {
+  color: #7d8698;
+  font-size: 11px;
+}
+.wb-content .member-identity b {
+  color: #434c5d;
+  font-size: 13px;
+}
+.member-identity > span,
+.member-identity b small {
+  color: #8790a0;
+}
+.invitation-row b {
+  color: #4e586a;
+}
+.invitation-row small {
+  color: #828c9e;
+}
+.member-avatar {
+  background: #eeebf7;
+  color: #8572b1;
+}
+.team-status {
+  color: #7a6a94;
+  background: #f0ecf7;
+}
+.team-status.ready {
+  color: #43826b;
+  background: #eaf4ed;
+}
+.team-status.failed {
+  color: #a15e6b;
+  background: #fbecef;
+}
+.team-revision b {
+  color: #4e586c;
+}
+.team-revision small,
+.team-revision p {
+  color: #818b9c;
+}
+.revision-actions a,
+.revision-actions button {
+  color: #7760a6;
+}
+.team-app .page-switcher-trigger,
+.wb-dialog .page-switcher-trigger {
+  border-color: #dce0eb;
+  background: #fafbfe;
+  color: #596174;
+}
+.team-app .page-switcher-option,
+.wb-dialog .page-switcher-option {
+  color: #616a7b;
+}
+.team-app .page-switcher-option.current,
+.wb-dialog .page-switcher-option.current {
+  color: #6850ba;
+}
+.app .panel-title,
+.app .inspect h4 {
+  color: #3d4454;
+}
+.app .board-item small,
+.app .board-item em,
+.app .aside-foot,
+.app .right-note,
+.app .canvas-foot {
+  color: #7d8594;
+}
+.app .board-icon {
+  color: #939bad;
+}
+.app .board-item.active,
+.app .tree summary.active {
+  color: #5d46bf;
+  background: #ece8fc;
+}
+.app .tree summary {
+  color: #697284;
+}
+.app .metrics small,
+.app .paint-heading,
+.app .empty p {
+  color: #818a9c;
+}
+.app .empty h3,
+.app .inspect pre {
+  color: #657085;
+}
+.app .canvas-bar > span {
+  color: #7d8696;
+}
+@media (max-width: 760px) {
+  .wb-tree-team-name {
+    font-size: 12px;
+  }
+  .wb-tree-projects a {
+    font-size: 11px !important;
+  }
+}
+@media (max-width: 480px) {
+  .wb-tree-team-name {
+    font-size: 11px;
+  }
+  .wb-tree-projects a {
+    font-size: 10px !important;
+  }
+  .wb-file-title {
+    font-size: 12px;
+  }
+  .wb-file-info > p {
+    font-size: 10px;
+  }
+  .wb-sidebar-bottom > a {
+    font-size: 10px;
+  }
+}

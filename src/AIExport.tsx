@@ -1,15 +1,176 @@
-import {useEffect,useRef,useState} from 'react';
-import {Download,X,Package} from 'lucide-react';
-import type {DocumentSource,Layer} from './sketch';
-import {createAIPackage,defaultExportOptions,layerCount,resourceRefs,safeName,type ExportOptions} from './ai-export';
+import { useEffect, useRef, useState } from 'react';
+import { Download, X, Package } from 'lucide-react';
+import type { DocumentSource, Layer } from './sketch';
+import {
+  createAIPackage,
+  defaultExportOptions,
+  layerCount,
+  resourceRefs,
+  safeName,
+  type ExportOptions,
+} from './ai-export';
 import './ai-export.css';
-const labels:{key:keyof ExportOptions;name:string;hint:string}[]=[{key:'preview',name:'预览图',hint:'可独立打开的 SVG，保留文字和内嵌图片'},{key:'structure',name:'结构与样式数据',hint:'图层、文案、尺寸、样式和字体 · JSON'},{key:'assets',name:'图片与图标资源',hint:'原始图片、矢量 SVG 和资源索引'},{key:'instructions',name:'AI 实现说明',hint:'文件清单、实现要求与还原注意事项'},{key:'html',name:'HTML 参考页面',hint:'浏览器直接打开的静态视觉参考'}];
-function saved():ExportOptions{try{const value=JSON.parse(localStorage.getItem('geekdesign.ai-export')||'null');return Object.fromEntries(Object.entries(defaultExportOptions).map(([k,v])=>[k,typeof value?.[k]==='boolean'?value[k]:v])) as ExportOptions;}catch{return defaultExportOptions;}}
-export function AIExport({doc,board,selected,pageName,warnings,onClose}:{doc:DocumentSource;board:Layer;selected:Layer|null;pageName:string;warnings:string[];onClose:()=>void}){
- const canSelect=!!selected&&selected.do_objectID!==board.do_objectID;
- const [scope,setScope]=useState(canSelect?'selection':'board'),[options,setOptions]=useState(saved),[busy,setBusy]=useState(false),[status,setStatus]=useState(''),[error,setError]=useState('');const dialog=useRef<HTMLDialogElement>(null);
- const target=scope==='selection'&&canSelect?selected!:board;
- useEffect(()=>{dialog.current?.showModal();},[]);
- async function download(){setBusy(true);setError('');try{try{localStorage.setItem('geekdesign.ai-export',JSON.stringify(options));}catch{};const blob=await createAIPackage(doc,target,options,{board:board.name,page:pageName,warnings},setStatus);const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=safeName(target.name)+'-AI.zip';a.click();setTimeout(()=>URL.revokeObjectURL(url),60000);setStatus('交付包已生成，下载已开始');}catch(e){setError((e as Error).message);setStatus('');}finally{setBusy(false);}}
- return <dialog ref={dialog} className="ai-export" onCancel={e=>{e.preventDefault();if(!busy)onClose();}} aria-labelledby="ai-export-title"><div className="ai-export-heading"><h2 id="ai-export-title"><Package size={19}/>导出给 AI</h2><button aria-label="关闭导出" disabled={busy} onClick={onClose}><X size={17}/></button></div><div className="ai-export-body"><fieldset disabled={busy}><legend>导出范围</legend><div className="ai-export-scopes"><label><input type="radio" name="export-scope" checked={scope==='board'} onChange={()=>setScope('board')}/>当前画板</label><label title={!canSelect?'请先在画布或图层列表中选中内部图层':undefined}><input type="radio" name="export-scope" checked={scope==='selection'} disabled={!canSelect} onChange={()=>setScope('selection')}/>选中图层 / 容器</label></div><div className="ai-export-summary"><strong>{target.name}</strong><span>{target.frame.width} × {target.frame.height} · {layerCount(target)} 个图层 · {resourceRefs(target).length} 张图片</span></div><legend>导出内容</legend>{labels.map(item=><label className="ai-export-option" key={item.key}><input type="checkbox" checked={options[item.key]} onChange={e=>setOptions(o=>({...o,[item.key]:e.target.checked}))}/><span><b>{item.name}</b><small>{item.hint}</small></span></label>)}</fieldset>{error&&<p role="alert" className="ai-export-error">{error}</p>}{status&&<p role="status" className="ai-export-status">{status}</p>}</div><div className="ai-export-footer"><span>文件在浏览器中打包</span><button className="primary" disabled={busy||!Object.values(options).some(Boolean)} onClick={()=>void download()}><Download size={15}/>{busy?'正在打包…':'导出 ZIP'}</button></div></dialog>;
+const labels: { key: keyof ExportOptions; name: string; hint: string }[] = [
+  { key: 'preview', name: '预览图', hint: '可独立打开的 SVG，保留文字和内嵌图片' },
+  { key: 'structure', name: '结构与样式数据', hint: '图层、文案、尺寸、样式和字体 · JSON' },
+  { key: 'assets', name: '图片与图标资源', hint: '原始图片、矢量 SVG 和资源索引' },
+  { key: 'instructions', name: 'AI 实现说明', hint: '文件清单、实现要求与还原注意事项' },
+  { key: 'html', name: 'HTML 参考页面', hint: '浏览器直接打开的静态视觉参考' },
+];
+function saved(): ExportOptions {
+  try {
+    const value = JSON.parse(localStorage.getItem('geekdesign.ai-export') || 'null');
+    return Object.fromEntries(
+      Object.entries(defaultExportOptions).map(([k, v]) => [
+        k,
+        typeof value?.[k] === 'boolean' ? value[k] : v,
+      ]),
+    ) as ExportOptions;
+  } catch {
+    return defaultExportOptions;
+  }
+}
+export function AIExport({
+  doc,
+  board,
+  selected,
+  pageName,
+  warnings,
+  onClose,
+}: {
+  doc: DocumentSource;
+  board: Layer;
+  selected: Layer | null;
+  pageName: string;
+  warnings: string[];
+  onClose: () => void;
+}) {
+  const canSelect = !!selected && selected.do_objectID !== board.do_objectID;
+  const [scope, setScope] = useState(canSelect ? 'selection' : 'board'),
+    [options, setOptions] = useState(saved),
+    [busy, setBusy] = useState(false),
+    [status, setStatus] = useState(''),
+    [error, setError] = useState('');
+  const dialog = useRef<HTMLDialogElement>(null);
+  const target = scope === 'selection' && canSelect ? selected! : board;
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  async function download() {
+    setBusy(true);
+    setError('');
+    try {
+      try {
+        localStorage.setItem('geekdesign.ai-export', JSON.stringify(options));
+      } catch {}
+      const blob = await createAIPackage(
+        doc,
+        target,
+        options,
+        { board: board.name, page: pageName, warnings },
+        setStatus,
+      );
+      const url = URL.createObjectURL(blob),
+        a = document.createElement('a');
+      a.href = url;
+      a.download = safeName(target.name) + '-AI.zip';
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      setStatus('交付包已生成，下载已开始');
+    } catch (e) {
+      setError((e as Error).message);
+      setStatus('');
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <dialog
+      ref={dialog}
+      className="ai-export"
+      onCancel={(e) => {
+        e.preventDefault();
+        if (!busy) onClose();
+      }}
+      aria-labelledby="ai-export-title"
+    >
+      <div className="ai-export-heading">
+        <h2 id="ai-export-title">
+          <Package size={19} />
+          导出给 AI
+        </h2>
+        <button aria-label="关闭导出" disabled={busy} onClick={onClose}>
+          <X size={17} />
+        </button>
+      </div>
+      <div className="ai-export-body">
+        <fieldset disabled={busy}>
+          <legend>导出范围</legend>
+          <div className="ai-export-scopes">
+            <label>
+              <input
+                type="radio"
+                name="export-scope"
+                checked={scope === 'board'}
+                onChange={() => setScope('board')}
+              />
+              当前画板
+            </label>
+            <label title={!canSelect ? '请先在画布或图层列表中选中内部图层' : undefined}>
+              <input
+                type="radio"
+                name="export-scope"
+                checked={scope === 'selection'}
+                disabled={!canSelect}
+                onChange={() => setScope('selection')}
+              />
+              选中图层 / 容器
+            </label>
+          </div>
+          <div className="ai-export-summary">
+            <strong>{target.name}</strong>
+            <span>
+              {target.frame.width} × {target.frame.height} · {layerCount(target)} 个图层 ·{' '}
+              {resourceRefs(target).length} 张图片
+            </span>
+          </div>
+          <legend>导出内容</legend>
+          {labels.map((item) => (
+            <label className="ai-export-option" key={item.key}>
+              <input
+                type="checkbox"
+                checked={options[item.key]}
+                onChange={(e) => setOptions((o) => ({ ...o, [item.key]: e.target.checked }))}
+              />
+              <span>
+                <b>{item.name}</b>
+                <small>{item.hint}</small>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+        {error && (
+          <p role="alert" className="ai-export-error">
+            {error}
+          </p>
+        )}
+        {status && (
+          <p role="status" className="ai-export-status">
+            {status}
+          </p>
+        )}
+      </div>
+      <div className="ai-export-footer">
+        <span>文件在浏览器中打包</span>
+        <button
+          className="primary"
+          disabled={busy || !Object.values(options).some(Boolean)}
+          onClick={() => void download()}
+        >
+          <Download size={15} />
+          {busy ? '正在打包…' : '导出 ZIP'}
+        </button>
+      </div>
+    </dialog>
+  );
 }

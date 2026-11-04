@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.server-build/
+.test-output/
+data/
+release/
+package-lock.json

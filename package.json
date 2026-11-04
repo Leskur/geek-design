@@ -13,7 +13,9 @@
     "build:server": "node scripts/build-server.mjs",
     "start": "node .server-build/index.mjs",
     "smoke:docker": "node scripts/smoke-docker.mjs",
-    "check": "tsc -b && tsc -p server/tsconfig.json"
+    "check": "tsc -b && tsc -p server/tsconfig.json",
+    "format": "prettier --write src server shared tests scripts \"*.{json,ts}\"",
+    "format:check": "prettier --check src server shared tests scripts \"*.{json,ts}\""
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.5",
@@ -38,6 +40,7 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "esbuild": "^0.28.2",
+    "prettier": "3.9.10",
     "tsx": "^4.23.15",
     "typescript": "~5.9.3",
     "vite": "^7.0.0"
