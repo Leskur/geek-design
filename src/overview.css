@@ -408,6 +408,21 @@
   background: #f4f1fa;
   color: #7055d8;
 }
+.viewer-header-actions .viewer-github {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  padding: 7px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #686371;
+  text-decoration: none;
+}
+.viewer-header-actions .viewer-github:hover {
+  background: #f4f1fa;
+  color: #3f3a48;
+}
 @media (max-width: 1100px) {
   .viewer-header .viewer-brand {
     width: 210px;
@@ -458,6 +473,26 @@
   text-decoration: none;
 }
 
+.local-landing {
+  position: relative;
+}
+.local-github {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #686371;
+  text-decoration: none;
+}
+.local-github:hover {
+  background: #f4f1fa;
+  color: #3f3a48;
+}
 .local-landing > .brand {
   margin-bottom: 24px;
   font-size: 19px;
@@ -601,11 +636,13 @@
   .viewer-toolbar {
     flex: 1 1 0;
   }
-  .viewer-header .viewer-header-actions .header-export {
+  .viewer-header .viewer-header-actions .header-export,
+  .viewer-header .viewer-header-actions .viewer-github {
     font-size: 0;
     gap: 0;
   }
-  .viewer-header .viewer-header-actions .header-export svg {
+  .viewer-header .viewer-header-actions .header-export svg,
+  .viewer-header .viewer-header-actions .viewer-github svg {
     width: 16px;
   }
 }
