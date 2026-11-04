@@ -63,6 +63,8 @@ npm run build
 
 界面改动请检查不同面板宽度、选中 / 拖动 / 缩放、预览与下载等相关交互，并在 PR 附上不含真实业务信息的截图。项目目前没有要求安装额外浏览器自动化工具才能贡献。
 
+涉及 Docker 部署时，另按 [Docker 部署说明](docs/docker.md) 构建测试容器，执行 `npm run smoke:docker -- http://127.0.0.1:5174`。该验证会创建测试账号与稿件，只能用于新建的测试实例；普通源码开发和 `npm test` 不依赖 Docker。
+
 ## Pull Request
 
 1. 基于当前 `main` 建立分支。

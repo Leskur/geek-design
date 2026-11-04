@@ -12,6 +12,7 @@
     "server": "node scripts/run-server.mjs",
     "build:server": "node scripts/build-server.mjs",
     "start": "node .server-build/index.mjs",
+    "smoke:docker": "node scripts/smoke-docker.mjs",
     "check": "tsc -b && tsc -p server/tsconfig.json"
   },
   "dependencies": {

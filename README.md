@@ -58,6 +58,16 @@ npm run dev
 
 ## 自行部署
 
+团队服务可使用 [Docker Compose 部署](docs/docker.md)，宿主机无需安装 Node.js。
+
+```sh
+docker compose -p geekdesign up -d --build --wait
+```
+
+默认只在本机的 5174 端口提供服务，业务数据独立保存在命名卷中。当前从源码构建镜像，尚未发布公共镜像仓库。配置、升级和备份见上述文档。
+
+源码运行方式：
+
 ```sh
 npm run build
 npm start
@@ -65,7 +75,7 @@ npm start
 
 默认访问 [http://127.0.0.1:5174](http://127.0.0.1:5174)，仅监听本机。局域网地址、HTTPS、上传限制和数据迁移见 [部署指南](docs/local-deployment.md)。
 
-账号、原始文件、上传状态、字体和预览默认保存在 `data/`。备份前停止服务并复制整个数据目录。环境变量沿用 `SKETCHPEEK_*` 前缀；`.env` 文件目前不会自动加载。
+源码模式的账号、原始文件、上传状态、字体和预览默认保存在 `data/`。备份前停止服务并复制整个数据目录。环境变量沿用 `SKETCHPEEK_*` 前缀；源码服务不自动读取 `.env`，Docker Compose 会读取。
 
 ## 常用操作
 
@@ -98,6 +108,7 @@ npm start
 - [页面导航与性能分级](docs/viewer-navigation.md)
 - [账号、团队、权限与字体库](docs/accounts-and-teams.md)
 - [开发与局域网部署](docs/local-deployment.md)
+- [Docker Compose 部署](docs/docker.md)
 - [文档索引与实现记录](docs/README.md)
 
 ## 反馈与贡献

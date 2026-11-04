@@ -1,0 +1,19 @@
+services:
+  geekdesign:
+    image: geekdesign:local
+    build:
+      context: .
+    init: true
+    restart: unless-stopped
+    ports:
+      - "${GEEKDESIGN_BIND:-127.0.0.1}:${GEEKDESIGN_PORT:-5174}:5174"
+    environment:
+      SKETCHPEEK_PUBLIC_ORIGIN: "${SKETCHPEEK_PUBLIC_ORIGIN:-}"
+      SKETCHPEEK_MAX_FILE_SIZE: "${SKETCHPEEK_MAX_FILE_SIZE:-1073741824}"
+      SKETCHPEEK_MAX_JSON_SIZE: "${SKETCHPEEK_MAX_JSON_SIZE:-536870912}"
+    volumes:
+      - geekdesign-data:/app/data
+    stop_grace_period: 30s
+
+volumes:
+  geekdesign-data:
