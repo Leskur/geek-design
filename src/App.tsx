@@ -465,6 +465,43 @@ export function App() {
             <b>{busy ? '正在解析文件…' : '将 .sketch 文件拖到这里'}</b>
             <span>或点击选择本地文件 · 无需上传</span>
           </button>
+          {localOnly && (
+            <>
+              <div className="local-demo-actions">
+                <button
+                  type="button"
+                  className="local-demo-open"
+                  disabled={busy}
+                  onClick={() => {
+                    void (async () => {
+                      try {
+                        const response = await fetch(withBase('/examples/geekdesign-demo.sketch'));
+                        if (!response.ok) throw new Error('示例文件不可用');
+                        const blob = await response.blob();
+                        await open(
+                          new File([blob], 'geekdesign-demo.sketch', {
+                            type: 'application/octet-stream',
+                          }),
+                        );
+                      } catch (e) {
+                        setError((e as Error).message || '打开示例失败');
+                      }
+                    })();
+                  }}
+                >
+                  打开示例文件
+                </button>
+                <a
+                  className="local-demo-download"
+                  href={withBase('/examples/geekdesign-demo.sketch')}
+                  download="geekdesign-demo.sketch"
+                >
+                  下载示例
+                </a>
+              </div>
+              <p className="local-demo-note">示例为自制演示稿，不含真实业务内容</p>
+            </>
+          )}
           {!localOnly && (
             <a className="local-return" href={withBase('/teams')}>
               返回工作台

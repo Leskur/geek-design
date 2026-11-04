@@ -479,6 +479,41 @@
 .local-return:hover {
   color: #7055d8;
 }
+.local-demo-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 4px;
+}
+.local-demo-open {
+  border: 1px solid #d5cceb;
+  background: #f7f4fd;
+  color: #5f4aa8;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+}
+.local-demo-open:hover:not(:disabled) {
+  background: #efe9fb;
+}
+.local-demo-open:disabled {
+  opacity: 0.55;
+}
+.local-demo-download {
+  font-size: 13px;
+  color: #6d6480;
+  text-decoration: none;
+}
+.local-demo-download:hover {
+  color: #7055d8;
+}
+.local-demo-note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: #9692a1;
+}
 .local-landing {
   padding: 30px 16px;
 }
