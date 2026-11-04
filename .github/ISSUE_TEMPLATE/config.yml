@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 安全反馈说明
+    url: https://github.com/Leskur/geek-design/blob/main/SECURITY.md
+    about: 提交安全问题前，请确认公开内容已脱敏。
