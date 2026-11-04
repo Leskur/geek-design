@@ -8,6 +8,38 @@ export type Route = {
   auth?: 'login' | 'register';
   inviteToken?: string;
 };
+
+function env(name: keyof ImportMetaEnv | 'BASE_URL') {
+  try {
+    return import.meta.env?.[name];
+  } catch {
+    return undefined;
+  }
+}
+
+export const localOnly = env('VITE_LOCAL_ONLY') === '1';
+
+export function stripBase(pathname: string) {
+  const raw = env('BASE_URL') || '/';
+  const base = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  if (!base) return pathname;
+  if (pathname === base || pathname === base + '/') return '/';
+  if (pathname.startsWith(base + '/')) {
+    const rest = pathname.slice(base.length);
+    return rest.startsWith('/') ? rest : `/${rest}`;
+  }
+  return pathname;
+}
+
+export function withBase(path: string) {
+  if (/^https?:\/\//.test(path)) return path;
+  const normalized = path.startsWith('/') ? path : `/${path}`;
+  const raw = env('BASE_URL') || '/';
+  if (raw === '/') return normalized;
+  const base = raw.endsWith('/') ? raw.slice(0, -1) : raw;
+  return `${base}${normalized}`;
+}
+
 const part = (id: string) => encodeURIComponent(id);
 export const projectPath = (projectId: string) => `/projects/${part(projectId)}`;
 export const documentPath = (projectId: string, documentId: string) =>
@@ -15,8 +47,10 @@ export const documentPath = (projectId: string, documentId: string) =>
 export const revisionPath = (projectId: string, documentId: string, revisionId: string) =>
   `${documentPath(projectId, documentId)}/revisions/${part(revisionId)}`;
 export function routeFor(pathname: string, search = ''): Route {
+  const path = stripBase(pathname);
   const q = new URLSearchParams(search);
-  if (pathname === '/') {
+  if (path === '/') {
+    if (localOnly) return { kind: 'local' };
     if (q.get('revision')) return { kind: 'revision', revisionId: q.get('revision')! };
     if (q.has('team'))
       return {
@@ -26,7 +60,7 @@ export function routeFor(pathname: string, search = ''): Route {
       };
     return { kind: 'team' };
   }
-  const parts = pathname.replace(/\/$/, '').split('/').slice(1);
+  const parts = path.replace(/\/$/, '').split('/').slice(1);
   try {
     for (let i = 0; i < parts.length; i++) {
       parts[i] = decodeURIComponent(parts[i]);

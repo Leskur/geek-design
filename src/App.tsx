@@ -14,7 +14,7 @@ import { RemoteDocument } from './RemoteDocument';
 import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
-import { routeFor, matchesId } from './routes';
+import { routeFor, matchesId, localOnly, withBase } from './routes';
 import { PageList } from './PageList';
 import { Inspector } from './Inspector';
 
@@ -175,7 +175,7 @@ export function App() {
       setError('请选择 .sketch 文件');
       return;
     }
-    history.replaceState(null, '', '/local');
+    history.replaceState(null, '', withBase(localOnly ? '/' : '/local'));
     await loadSource(new SketchDocument(file));
   }
   useEffect(() => {
@@ -326,13 +326,23 @@ export function App() {
     }
   }
   const route = routeFor(location.pathname, location.search);
+  if (localOnly && (route.kind === 'team' || route.kind === 'revision'))
+    return (
+      <main className="welcome missing-page">
+        <h1>此站点仅支持本地查看</h1>
+        <p>团队与在线稿件功能请使用完整部署。</p>
+        <a className="button-link" href={withBase('/')}>
+          打开本地文件
+        </a>
+      </main>
+    );
   if (route.kind === 'team') return <TeamHub />;
   if (route.kind === 'missing')
     return (
       <main className="welcome missing-page">
         <h1>页面不存在</h1>
-        <a className="button-link" href="/teams">
-          返回工作台
+        <a className="button-link" href={withBase(localOnly ? '/' : '/teams')}>
+          {localOnly ? '打开本地文件' : '返回工作台'}
         </a>
       </main>
     );
@@ -358,7 +368,11 @@ export function App() {
     >
       {doc && (
         <header className="viewer-header">
-          <a className="brand brand-link viewer-brand" href="/teams" aria-label="GeekDesign 工作台">
+          <a
+            className="brand brand-link viewer-brand"
+            href={withBase(localOnly ? '/' : '/teams')}
+            aria-label={localOnly ? 'GeekDesign 本地查看' : 'GeekDesign 工作台'}
+          >
             <Logo size={30} /> Geek<span>Design</span>
           </a>
           <div className="viewer-document-nav">
@@ -436,7 +450,11 @@ export function App() {
       />
       {!doc ? (
         <main className="welcome local-landing">
-          <a className="brand brand-link" href="/teams" aria-label="GeekDesign 工作台">
+          <a
+            className="brand brand-link"
+            href={withBase(localOnly ? '/' : '/teams')}
+            aria-label={localOnly ? 'GeekDesign 本地查看' : 'GeekDesign 工作台'}
+          >
             <Logo size={32} />
             Geek<span>Design</span>
           </a>
@@ -447,9 +465,11 @@ export function App() {
             <b>{busy ? '正在解析文件…' : '将 .sketch 文件拖到这里'}</b>
             <span>或点击选择本地文件 · 无需上传</span>
           </button>
-          <a className="local-return" href="/teams">
-            返回工作台
-          </a>
+          {!localOnly && (
+            <a className="local-return" href={withBase('/teams')}>
+              返回工作台
+            </a>
+          )}
         </main>
       ) : (
         <div className="workspace viewer-workspace">
