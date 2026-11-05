@@ -1,3 +1,4 @@
+const CACHE_ENABLED = false;
 const CACHE_NAME = 'geek-design-images-v1';
 
 function requestFor(docKey: string, ref: string, kind: 'full' | 'mini') {
@@ -16,6 +17,7 @@ async function openCache() {
 }
 
 export async function readAsset(docKey: string, ref: string, kind: 'full' | 'mini') {
+  if (!CACHE_ENABLED) return null;
   const cache = await openCache();
   if (!cache) return null;
   try {
@@ -27,6 +29,7 @@ export async function readAsset(docKey: string, ref: string, kind: 'full' | 'min
 }
 
 export async function writeAsset(docKey: string, ref: string, kind: 'full' | 'mini', blob: Blob) {
+  if (!CACHE_ENABLED) return;
   const cache = await openCache();
   if (!cache) return;
   try {

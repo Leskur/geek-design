@@ -92,9 +92,8 @@ export class ImageLod {
       this.ensureMini(ref);
       return this.mini.get(ref) || null;
     }
-    this.ensureMini(ref);
     this.ensureFull(ref);
-    return this.full.get(ref) || this.mini.get(ref) || null;
+    return this.full.get(ref) || null;
   }
   private ensureMini(ref: string) {
     if (this.mini.has(ref) || this.miniTask.has(ref)) return;

@@ -211,13 +211,15 @@ export function PageOverview({
     ctx.setTransform(dpr * cam.scale, 0, 0, dpr * cam.scale, dpr * cam.x, dpr * cam.y);
     const visible = boards.filter((b) => boardVisible(b, cam, w, h, 240));
     const budget = { start: performance.now(), built: 0, more: false };
-    if (settled.current && !dragging) {
-      for (const b of visible) {
-        const live = boardSharp(b, cam.scale);
-        if (usablePicture(b, live, cam, dpr, w, h)) continue;
-        boardPicture(b, live, cam, dpr, w, h, budget);
-        if (budget.more) break;
-      }
+    for (const b of visible) {
+      const live = boardSharp(b, cam.scale);
+      if (usablePicture(b, live, cam, dpr, w, h)) continue;
+      // Zoom keeps the previous bitmap until the gesture settles. A pan stays at the
+      // same scale, so the newly revealed slice can be drawn while the pointer moves.
+      const prev = pictures.current.get(b.do_objectID);
+      if (!settled.current && prev && Math.abs(prev.scale - cam.scale) >= 0.001) continue;
+      boardPicture(b, live, cam, dpr, w, h, budget);
+      if (budget.more) break;
     }
     for (const b of visible) {
       const f = b.frame,
@@ -356,7 +358,7 @@ export function PageOverview({
     const prev = pictures.current.get(id);
     const ready = usablePicture(board, sharp, cam, dpr, viewW, viewH);
     if (ready) return ready;
-    if (!settled.current || dragging) return prev?.canvas;
+    if (!settled.current && prev && Math.abs(prev.scale - scale) >= 0.001) return prev.canvas;
     if (budget.built > 0 && performance.now() - budget.start > BUILD_BUDGET_MS) {
       budget.more = true;
       return prev?.canvas;
@@ -410,7 +412,7 @@ export function PageOverview({
       doc,
       (ref) => {
         used.add(ref);
-        return images.current.image(ref, !sharp);
+        return images.current.image(ref, false);
       },
       { minPoint },
     );
