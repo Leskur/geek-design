@@ -1,6 +1,11 @@
 import { color, hex, point, type Layer } from './sketch';
 import { textRuns } from '../shared/rendering/scene';
 
+export type ResolvedFace = { family: string; weight: number; style: string; name?: string };
+export function fontFaceLabel(recorded: string, face?: ResolvedFace) {
+  return face?.name || recorded;
+}
+
 export const number = (value: number) => String(Number(value.toFixed(2)));
 export function cssColor(c: any, opacity = 1) {
   const a = (c?.alpha ?? 1) * opacity;
@@ -43,11 +48,19 @@ export function cornerRadii(l: Layer): number[] | null {
 export function shadowCSS(s: any, inset = false) {
   return `${inset ? 'inset ' : ''}${number(s.offsetX || 0)}px ${number(s.offsetY || 0)}px ${number(s.blurRadius || 0)}px ${number(s.spread || 0)}px ${cssColor(s.color)}`;
 }
-export function textProperties(a: any): Record<string, string> {
+export function textProperties(
+  a: any,
+  match?: (name: string) => ResolvedFace | undefined,
+): Record<string, string> {
   const f = a.MSAttributedStringFontAttribute?.attributes || {},
     p = a.paragraphStyle || {},
     styles: Record<string, string> = {};
-  if (f.name) styles['font-family'] = JSON.stringify(f.name);
+  const face = f.name ? match?.(f.name) : undefined;
+  if (f.name) styles['font-family'] = JSON.stringify(face ? face.family : f.name);
+  if (face) {
+    styles['font-weight'] = String(face.weight);
+    if (face.style === 'italic') styles['font-style'] = 'italic';
+  }
   if (f.size != null) styles['font-size'] = `${number(f.size)}px`;
   if (a.MSAttributedStringColorAttribute)
     styles.color = cssColor(a.MSAttributedStringColorAttribute);
@@ -56,19 +69,6 @@ export function textProperties(a: any): Record<string, string> {
     styles['line-height'] = `${number(p.maximumLineHeight || p.minimumLineHeight)}px`;
   if (p.alignment != null)
     styles['text-align'] = ['left', 'right', 'center', 'justify', 'start'][p.alignment] || 'start';
-  if (f.name)
-    styles['font-weight'] = /black|heavy/i.test(f.name)
-      ? '900'
-      : /semibold|demibold/i.test(f.name)
-        ? '600'
-        : /bold/i.test(f.name)
-          ? '700'
-          : /medium/i.test(f.name)
-            ? '500'
-            : /light|thin/i.test(f.name)
-              ? '300'
-              : '400';
-  if (/italic|oblique/i.test(f.name)) styles['font-style'] = 'italic';
   if (a.underlineStyle || a.strikethroughStyle)
     styles['text-decoration'] = [
       a.underlineStyle ? 'underline' : '',
@@ -78,7 +78,7 @@ export function textProperties(a: any): Record<string, string> {
       .join(' ');
   return styles;
 }
-export function cssForLayer(l: Layer) {
+export function cssForLayer(l: Layer, match?: (name: string) => ResolvedFace | undefined) {
   const s = l.style || {},
     styles: Record<string, string> = {
       width: `${number(l.frame.width)}px`,
@@ -123,7 +123,8 @@ export function cssForLayer(l: Layer) {
     l.isFlippedVertical ? 'scaleY(-1)' : '',
   ].filter(Boolean);
   if (transforms.length) styles.transform = transforms.join(' ');
-  const runs = l._class === 'text' ? textRuns(l).map((r) => textProperties(r.attributes)) : [];
+  const runs =
+    l._class === 'text' ? textRuns(l).map((r) => textProperties(r.attributes, match)) : [];
   let mixed = false;
   if (runs.length) {
     for (const [key, value] of Object.entries(runs[0])) {
@@ -143,10 +144,10 @@ export function displayColor(c: any) {
 }
 export { color };
 
-export function cssSections(l: Layer) {
+export function cssSections(l: Layer, match?: (name: string) => ResolvedFace | undefined) {
   const layout = new Set(['width', 'height']);
   const parts = { layout: [] as string[], style: [] as string[] };
-  for (const line of cssForLayer(l).split('\n')) {
+  for (const line of cssForLayer(l, match).split('\n')) {
     if (line.startsWith('/*')) continue;
     const key = line.split(':')[0];
     parts[layout.has(key) ? 'layout' : 'style'].push(line);

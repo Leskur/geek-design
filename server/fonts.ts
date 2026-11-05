@@ -6,6 +6,10 @@ import { create } from 'fontkit';
 import type { Store, User } from './db';
 import { teamAccess, revisionAccess, fail } from './auth';
 export const MAX_FONT_SIZE = 20 * 1024 ** 2;
+export function fontContentDisposition(filename: string) {
+  const ascii = filename.replace(/[^\x20-\x7e]|["\\]/g, '_') || 'font';
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(filename)}`;
+}
 export function fontRoutes(app: FastifyInstance, store: Store, user: (req: any) => User) {
   const list = (teamId: string) =>
     store
@@ -151,6 +155,7 @@ export function fontRoutes(app: FastifyInstance, store: Store, user: (req: any) 
     return reply
       .type('application/octet-stream')
       .header('Cache-Control', 'private, no-store')
+      .header('Content-Disposition', fontContentDisposition(f.filename))
       .send(fs.createReadStream(store.storage.path('fonts', f.hash)));
   });
   app.delete('/api/teams/:id/fonts/:fontId', async (req: any) => {

@@ -3,10 +3,19 @@ import { FontPanel } from './FontPanel';
 import { UnifiedTree } from './UnifiedTree';
 import { PageOverview } from './PageOverview';
 import { SceneCache } from './SceneCache';
-import { ThumbnailCache } from './ThumbnailCache';
 import type { Camera } from './interaction';
 import { Logo } from './Logo';
-import { Plus, Frame, Download, Link, FileImage, SpellCheck2 } from 'lucide-react';
+import {
+  ChevronRight,
+  Plus,
+  Frame,
+  Download,
+  Link,
+  FileImage,
+  SpellCheck2,
+  Search,
+  LoaderCircle,
+} from 'lucide-react';
 import React, {
   lazy,
   Suspense,
@@ -17,6 +26,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
+import { flushSync } from 'react-dom';
 import { SketchDocument, type Layer, type DocumentSource } from './sketch';
 import { Canvas } from './Canvas';
 import { RemoteDocument } from './RemoteDocument';
@@ -28,6 +38,16 @@ import { detailEnabled } from './detail-entry';
 import { PageList } from './PageList';
 import { Inspector } from './Inspector';
 import type { Scene } from '../shared/rendering/scene';
+import {
+  beginPanelResize,
+  LEFT_PANEL_KEY,
+  LEFT_PANEL_MAX,
+  LEFT_PANEL_MIN,
+  readPanelWidth,
+  RIGHT_PANEL_KEY,
+  RIGHT_PANEL_MAX,
+  RIGHT_PANEL_MIN,
+} from './panel-resize';
 
 import { fontNames } from '../shared/fonts';
 import { hasFont } from './fonts';
@@ -58,24 +78,34 @@ export function App() {
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [search, setSearch] = useState(''),
+    [searchOpen, setSearchOpen] = useState(false),
+    [pageExpanded, setPageExpanded] = useState(true),
+    [layersExpanded, setLayersExpanded] = useState(true),
     [mode, setMode] = useState<'overview' | 'detail'>('overview'),
     [toast, setToast] = useState(''),
-    [scene, setScene] = useState<Scene | null>(null);
+    [scene, setScene] = useState<Scene | null>(null),
+    [leftWidth, setLeftWidth] = useState(() => readPanelWidth(LEFT_PANEL_KEY, 250)),
+    [rightWidth, setRightWidth] = useState(() => readPanelWidth(RIGHT_PANEL_KEY, 300)),
+    [canvasLeft, setCanvasLeft] = useState(() => readPanelWidth(LEFT_PANEL_KEY, 250)),
+    [canvasRight, setCanvasRight] = useState(() => readPanelWidth(RIGHT_PANEL_KEY, 300));
   const input = useRef<HTMLInputElement>(null);
+  const layerSearch = useRef<HTMLInputElement>(null);
   const loadId = useRef(0),
     pageId = useRef(0),
     current = useRef<DocumentSource | null>(null);
   const boards = page?.layers || [];
   const cache = useMemo(() => (doc ? new SceneCache(doc) : null), [doc]);
-  const thumbnails = useMemo(
-    () => (doc && cache ? new ThumbnailCache(doc, cache) : null),
-    [doc, cache],
-  );
-  useEffect(() => () => thumbnails?.dispose(), [thumbnails]);
+  useEffect(() => {
+    setPageExpanded(true);
+    setLayersExpanded(true);
+  }, [doc]);
+  useEffect(() => {
+    if (searchOpen) layerSearch.current?.focus();
+  }, [searchOpen]);
   useEffect(() => {
     if (!detailEnabled && mode === 'detail') setMode('overview');
   }, [mode]);
-  // Defer scene expand so the first paint can show a thumbnail like team overview.
+  // Defer scene expand so the first paint stays light.
   useEffect(() => {
     if (!board || !cache) {
       setScene(null);
@@ -193,6 +223,7 @@ export function App() {
       );
       setSelected(null);
       setSearch('');
+      setSearchOpen(false);
       cameras.current.clear();
       setFocus(null);
       setDetailFocus(null);
@@ -267,6 +298,7 @@ export function App() {
       setShowExport(false);
       setShowFonts(false);
       setError('');
+      setBusy(true);
       try {
         const p = await doc!.page(id);
         if (disposed || token !== pageId.current) return;
@@ -280,11 +312,14 @@ export function App() {
         setBoard(saved ? saved.board : b);
         setSelected(saved ? saved.selected : null);
         setSearch('');
+        setSearchOpen(false);
         setFocus(null);
         setDetailFocus(null);
         setMode(detailEnabled && params.get('artboard') && b ? 'detail' : 'overview');
       } catch (e) {
         if (!disposed) setError((e as Error).message);
+      } finally {
+        if (token === pageId.current) setBusy(false);
       }
     }
     const listener = () => {
@@ -309,6 +344,7 @@ export function App() {
       setBoard(p.layers?.[0] || null);
       setSelected(null);
       setSearch('');
+      setSearchOpen(false);
       setMode('overview');
       setFocus(null);
       setDetailFocus(null);
@@ -580,37 +616,134 @@ export function App() {
           )}
         </main>
       ) : (
-        <div className="workspace viewer-workspace">
+        <div
+          className="workspace viewer-workspace"
+          style={
+            {
+              '--viewer-left-width': `${leftWidth}px`,
+              '--viewer-right-width': `${rightWidth}px`,
+              '--canvas-left-inset': `${canvasLeft}px`,
+              '--canvas-right-inset': `${canvasRight}px`,
+            } as React.CSSProperties
+          }
+        >
           <aside className="left">
-            <h2 className="navigation-section-title">页面</h2>
-            <PageList
-              pages={doc.pages}
-              value={page?.do_objectID || ''}
-              disabled={busy}
-              onChange={changePage}
-              onReselect={returnOverview}
-            />
-            <h2 className="navigation-section-title layers-heading">图层</h2>
-            <input
-              className="search"
-              aria-label="搜索图层"
-              placeholder="搜索图层…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-            {cache && (
-              <UnifiedTree
-                boards={boards}
-                cache={cache}
-                activeBoardId={board?.do_objectID}
-                selected={selected}
-                search={search}
-                onBoard={navigateBoard}
-                onLayer={navigateLayer}
+            <button
+              type="button"
+              className="navigation-section-title page-section-toggle"
+              aria-expanded={pageExpanded}
+              aria-label={pageExpanded ? '收起页面' : '展开页面'}
+              onClick={() => setPageExpanded((open) => !open)}
+            >
+              <ChevronRight
+                size={12}
+                style={{ transform: pageExpanded ? 'rotate(90deg)' : undefined }}
+              />
+              <span>页面</span>
+            </button>
+            {pageExpanded && (
+              <PageList
+                pages={doc.pages}
+                value={page?.do_objectID || ''}
+                disabled={busy}
+                onChange={changePage}
+                onReselect={returnOverview}
               />
             )}
+            <div className="layers-head">
+              <button
+                type="button"
+                className="navigation-section-title page-section-toggle layers-heading"
+                aria-expanded={layersExpanded}
+                aria-label={layersExpanded ? '收起图层' : '展开图层'}
+                onClick={() => setLayersExpanded((open) => !open)}
+              >
+                <ChevronRight
+                  size={12}
+                  style={{ transform: layersExpanded ? 'rotate(90deg)' : undefined }}
+                />
+                <span>图层</span>
+              </button>
+              <button
+                type="button"
+                className="layer-search-toggle"
+                aria-pressed={searchOpen}
+                aria-label={searchOpen ? '关闭搜索' : '搜索图层'}
+                onClick={() => {
+                  if (searchOpen) {
+                    setSearch('');
+                    setSearchOpen(false);
+                    return;
+                  }
+                  setLayersExpanded(true);
+                  setSearchOpen(true);
+                }}
+              >
+                <Search size={14} strokeWidth={1.8} />
+              </button>
+            </div>
+            {layersExpanded && (
+              <>
+                {searchOpen && (
+                  <input
+                    ref={layerSearch}
+                    className="search"
+                    aria-label="搜索图层"
+                    placeholder="搜索图层…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Escape') return;
+                      setSearch('');
+                      setSearchOpen(false);
+                    }}
+                  />
+                )}
+                {cache && (
+                  <UnifiedTree
+                    boards={boards}
+                    cache={cache}
+                    activeBoardId={board?.do_objectID}
+                    selected={selected}
+                    search={search}
+                    onBoard={navigateBoard}
+                    onLayer={navigateLayer}
+                  />
+                )}
+              </>
+            )}
+            <button
+              type="button"
+              className="viewer-panel-resize viewer-panel-resize-end"
+              aria-label="调整导航栏宽度"
+              title="拖动调整宽度"
+              onPointerDown={(e) =>
+                beginPanelResize(e, {
+                  startWidth: leftWidth,
+                  otherWidth: selected ? RIGHT_PANEL_MIN : 0,
+                  min: LEFT_PANEL_MIN,
+                  max: LEFT_PANEL_MAX,
+                  direction: 1,
+                  onBegin: () => {
+                    flushSync(() => {
+                      setCanvasLeft(LEFT_PANEL_MIN);
+                      setCanvasRight(selected ? RIGHT_PANEL_MIN : 0);
+                    });
+                  },
+                  onChange: setLeftWidth,
+                  onCommit: (width) => {
+                    flushSync(() => {
+                      setLeftWidth(width);
+                      setCanvasLeft(width);
+                      setCanvasRight(selected ? rightWidth : 0);
+                    });
+                  },
+                  storageKey: LEFT_PANEL_KEY,
+                })
+              }
+            />
           </aside>
-          {mode === 'overview' && page && cache && thumbnails ? (
+          {mode === 'overview' && page && cache ? (
             <PageOverview
               toolbarHost={toolbarHost}
               zoomHost={zoomHost}
@@ -619,7 +752,6 @@ export function App() {
               pageName={page.name}
               doc={doc}
               cache={cache}
-              thumbnails={thumbnails}
               selectedId={selected ? board?.do_objectID : undefined}
               selected={selected}
               onLayer={(b, l) => {
@@ -632,7 +764,7 @@ export function App() {
               cameras={cameras.current}
               focus={focus}
             />
-          ) : board && thumbnails ? (
+          ) : board ? (
             <Canvas
               key={`detail:${page?.do_objectID}:${board.do_objectID}`}
               cameras={cameras.current}
@@ -642,7 +774,6 @@ export function App() {
               doc={doc}
               scene={scene}
               board={board}
-              thumbnails={thumbnails}
               pageName={page?.name || ''}
               selected={selected}
               onSelect={choose}
@@ -654,6 +785,13 @@ export function App() {
             <main className="center overview-empty">选择画板以查看设计</main>
           )}
 
+          {busy && (
+            <div className="canvas-loading" role="status" aria-live="polite" aria-busy="true">
+              <LoaderCircle size={28} className="opening-spinner" aria-hidden="true" />
+              <p>正在加载页面…</p>
+            </div>
+          )}
+
           <Inspector
             selected={selected}
             root={scene?.root || null}
@@ -663,6 +801,30 @@ export function App() {
               setShowFonts(true);
               pickFont(name);
             }}
+            onResizePointerDown={(e) =>
+              beginPanelResize(e, {
+                startWidth: rightWidth,
+                otherWidth: LEFT_PANEL_MIN,
+                min: RIGHT_PANEL_MIN,
+                max: RIGHT_PANEL_MAX,
+                direction: -1,
+                onBegin: () => {
+                  flushSync(() => {
+                    setCanvasLeft(LEFT_PANEL_MIN);
+                    setCanvasRight(RIGHT_PANEL_MIN);
+                  });
+                },
+                onChange: setRightWidth,
+                onCommit: (width) => {
+                  flushSync(() => {
+                    setRightWidth(width);
+                    setCanvasRight(width);
+                    setCanvasLeft(leftWidth);
+                  });
+                },
+                storageKey: RIGHT_PANEL_KEY,
+              })
+            }
           />
         </div>
       )}

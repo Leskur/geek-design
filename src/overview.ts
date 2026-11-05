@@ -106,3 +106,20 @@ export function pageRenderQuality(board: Layer, scale: number) {
   const screenSize = Math.max(board.frame.width, board.frame.height) * scale;
   return { small: scale < 0.15 || screenSize <= 96, live: scale >= 0.5 && screenSize > 160 };
 }
+
+/** Truncate canvas text so it fits within maxWidth, appending an ellipsis when needed. */
+export function ellipsisText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  if (!(maxWidth > 0)) return '';
+  if (ctx.measureText(text).width <= maxWidth) return text;
+  const dots = '…',
+    dotsWidth = ctx.measureText(dots).width;
+  if (dotsWidth >= maxWidth) return dots;
+  let low = 0,
+    high = text.length;
+  while (low < high) {
+    const mid = Math.ceil((low + high) / 2);
+    if (ctx.measureText(text.slice(0, mid)).width + dotsWidth <= maxWidth) low = mid;
+    else high = mid - 1;
+  }
+  return low <= 0 ? dots : text.slice(0, low) + dots;
+}

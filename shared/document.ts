@@ -17,11 +17,9 @@ export interface DocumentSource {
   /** Stable id for Cache Storage. Same file or revision keeps the same image bytes. */
   assetKey?: string;
   fontLibrary?: { teamId: string; canUpload: boolean };
+  matchedFont?(name: string): { family: string; weight: number; style: string; name: string } | undefined;
   fontLoadError?(name: string): string | undefined;
   retryFonts?(): Promise<void>;
-  thumbnail?(boardId: string, small?: boolean): Promise<string>;
-  retryThumbnails?(): Promise<void>;
-  canRegenerateThumbnails?: boolean;
   open(): Promise<void>;
   loadSymbols(): Promise<void>;
   page(id: string): Promise<Layer>;

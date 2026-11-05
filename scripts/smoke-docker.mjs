@@ -145,17 +145,9 @@ try {
   await waitFor('/revisions/' + revision, (r) => r.status === 'ready');
   const manifest = await json('/revisions/' + revision + '/manifest');
   assert.equal(manifest.pages.length, 1);
-  await waitFor('/revisions/' + revision + '/thumbnails', (r) => r.status === 'ready');
-  response = await request(
-    `/revisions/${revision}/thumbnails/${manifest.thumbnailVersion}/page/board?size=small`,
-  );
-  assert.equal(response.status, 200);
-  const preview = await sharp(Buffer.from(await response.arrayBuffer())).metadata();
-  assert.equal(preview.format, 'webp');
-  assert.ok(preview.width > 0);
 
   console.log(
-    'Static assets, native modules, registration, Sketch upload, parsing and thumbnail generation: PASS',
+    'Static assets, native modules, registration, Sketch upload and parsing: PASS',
   );
 } catch (error) {
   console.error('Docker validation failed:', error.message);

@@ -1,5 +1,5 @@
 import { fontNames } from '../shared/fonts';
-import { loadBrowserFont, matchingTeamFonts, type TeamFont } from './team-fonts';
+import { exactTeamFont, loadBrowserFont, matchingTeamFonts, type TeamFont } from './team-fonts';
 import type { DocumentSource, Layer, PageInfo } from '../shared/document';
 import { api } from './api';
 import { rememberDocument } from './workbench';
@@ -11,12 +11,20 @@ export class RemoteDocument implements DocumentSource {
   pages: PageInfo[] = [];
   symbols = new Map<string, Layer>();
   styles = new Map<string, any>();
-  canRegenerateThumbnails = false;
-  private boardPages = new Map<string, string>();
-  private thumbnailURLs = new Map<string, string>();
   fontLibrary?: { teamId: string; canUpload: boolean };
   private failedFonts = new Map<string, string>();
   private fontLibraryError = '';
+  matchedFont(name: string) {
+    const font = exactTeamFont(this.teamFonts, name);
+    return (
+      font && {
+        family: font.family,
+        weight: font.weight,
+        style: font.style,
+        name: font.full_name || font.postscript_name,
+      }
+    );
+  }
   fontLoadError(name: string) {
     return (
       this.fontLibraryError ||
@@ -82,7 +90,6 @@ export class RemoteDocument implements DocumentSource {
       revisionPath(this.manifest.projectId, this.manifest.documentId, this.revisionId) +
         location.search.replace(/([?&])revision=[^&]*&?/, '$1').replace(/[?&]$/, ''),
     );
-    this.canRegenerateThumbnails = !!this.manifest.canManagePreviews;
     this.fontLibrary = this.manifest.fontLibrary;
     window.addEventListener('focus', this.refreshFonts);
     this.file = this.manifest.file;
@@ -117,7 +124,6 @@ export class RemoteDocument implements DocumentSource {
       `/revisions/${encodeURIComponent(this.revisionId)}/pages/${encodeURIComponent(id)}`,
       { signal: this.abort.signal },
     );
-    for (const board of page.layers || []) this.boardPages.set(board.do_objectID, id);
     await this.ensureFonts(page);
     this.cache.set(id, page);
     return page;
@@ -143,40 +149,6 @@ export class RemoteDocument implements DocumentSource {
           }
         }),
       );
-  }
-  async retryThumbnails() {
-    await api(`/revisions/${encodeURIComponent(this.revisionId)}/thumbnails/retry`, {
-      method: 'POST',
-      body: '{}',
-    });
-  }
-  async thumbnail(boardId: string, small = false) {
-    const pageId = this.boardPages.get(boardId);
-    if (!pageId) throw new Error('找不到画板所在页面');
-    const key = `thumbnail:${pageId}:${boardId}:${small}`;
-    if (this.thumbnailURLs.has(key)) return this.thumbnailURLs.get(key)!;
-    const url = `/api/revisions/${encodeURIComponent(this.revisionId)}/thumbnails/${encodeURIComponent(this.manifest.thumbnailVersion || 'thumb-svg-4')}/${encodeURIComponent(pageId)}/${encodeURIComponent(boardId)}${small ? '?size=small' : ''}`;
-    for (let i = 0; i < 600; i++) {
-      const response = await fetch(url, { credentials: 'same-origin', signal: this.abort.signal });
-      if (response.status === 202) {
-        await new Promise((resolve) => setTimeout(resolve, 750));
-        continue;
-      }
-      if (!response.ok) {
-        let error = '预览加载失败';
-        try {
-          error = (await response.json()).error || error;
-        } catch {}
-        throw new Error(error);
-      }
-      if (!response.headers.get('content-type')?.includes(small ? 'image/webp' : 'image/svg+xml'))
-        throw new Error('预览格式不正确');
-      await response.arrayBuffer();
-      if (this.abort.signal.aborted) throw new Error('文档已关闭');
-      this.thumbnailURLs.set(key, url);
-      return url;
-    }
-    throw new Error('预览仍在生成，请稍后重试');
   }
   async image(ref: string): Promise<string> {
     if (this.urls.has(ref)) return this.urls.get(ref)!;
@@ -218,7 +190,6 @@ export class RemoteDocument implements DocumentSource {
     this.abort.abort();
     for (const face of this.fontFaces) document.fonts.delete(face);
     this.fontFaces = [];
-    this.thumbnailURLs.clear();
     for (const url of this.urls.values()) URL.revokeObjectURL(url);
     this.urls.clear();
     this.cache.clear();

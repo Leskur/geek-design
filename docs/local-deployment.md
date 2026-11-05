@@ -58,12 +58,6 @@ SKETCHPEEK_MAX_JSON_SIZE=536870912 npm start
 团队地址使用 `/projects/:projectId/documents/:documentId/revisions/:revisionId` 定位固定稿件；`?page=…&artboard=…` 定位画板。本地查看入口 `/local`。旧的 `/?team=1` 和 `/?revision=…` 链接仍支持，授权后转换为对应路径。
 
 
-## 服务端缩略图
+## 画板预览
 
-缩略图由独立 Node.js 子进程生成静态 SVG，不需要安装 Chromium 或浏览器系统依赖。复用设计稿渲染组件，图片从已校验的本地资源读取并嵌入，文字保留 XHTML 排版；另外使用 Sharp 生成低采样 WebP。
-
-当前版本为 `thumb-svg-4`，产物位于 `data/artifacts/<key>/thumbnails/thumb-svg-4/`，任务状态存储在 SQLite 的 `thumbnail_jobs`。同一文件复用预览，每个请求仍验证项目权限。逐张原子发布，重启补齐缺失部分，版本升级后自动重新生成；备份需一并保留整个数据目录。
-
-WebP 远景预览最大为 192 × 768，质量 82；文字采用简化 SVG 排版。页面根据缩放和屏幕尺寸选择低采样、较清晰缩略图或操作画板的完整图层。服务端预览不加载团队字体库，完整场景由浏览器加载匹配字体后绘制。
-
-总览不再显示「重试预览」按钮。任务进度可通过 `/api/revisions/:id/thumbnails` 查询；具有项目上传权限的成员仍可调用 `POST /api/revisions/:id/thumbnails/retry` 重新排队，失败不会改变原稿的可查看状态。
+页面与画板由浏览器按视口实时绘制，服务端不再生成缩略图或文档封面。备份仍需保留整个 `data/` 目录（账号、稿件、字体与解析产物）。

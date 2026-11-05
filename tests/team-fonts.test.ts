@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from '../server/app';
-import { matchingTeamFonts } from '../src/team-fonts';
+import { exactTeamFont, matchingTeamFonts } from '../src/team-fonts';
 
 async function sampleFont() {
   for (const filename of [
@@ -119,6 +119,10 @@ test('team font library validates uploads, deduplicates and isolates team access
     const download = await app.inject({ url: font.url, headers: { cookie: member.cookie } });
     assert.equal(download.statusCode, 200);
     assert.deepEqual(download.rawPayload, bytes);
+    assert.match(
+      String(download.headers['content-disposition']),
+      /attachment; filename="sample\.ttf"; filename\*=UTF-8''sample\.ttf/,
+    );
     assert.equal(
       (await app.inject({ url: font.url, headers: { cookie: outsider.cookie } })).statusCode,
       404,
@@ -173,6 +177,9 @@ test('font matching prefers an exact PostScript face and falls back to family al
     ['r', 'b'],
   );
   assert.deepEqual(matchingTeamFonts(fonts, ['Missing']), []);
+  assert.equal(exactTeamFont(fonts, 'DIN-Bold'), undefined);
+  assert.equal(exactTeamFont(fonts, 'Demo-Bold')?.id, 'b');
+  assert.equal(exactTeamFont(fonts, 'Demo'), undefined);
 });
 
 test('loaded PostScript bold faces are recognized without normal-weight canvas probing', () => {

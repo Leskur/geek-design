@@ -29,11 +29,10 @@ shared/rendering/scene.ts       展开组件、覆盖值和画板场景
 shared/rendering/geometry.ts    路径、变换与布尔几何
         ↓
 shared/rendering/renderer.tsx   React SVG 图层渲染
-        ├─ 浏览器画布与本地预览
-        └─ 服务端缩略图进程
+        └─ 浏览器画布实时绘制
 ```
 
-共享模块不导入 `src/` 或 `server/`。浏览器专用能力留在 `src/`，例如 `src/fonts.ts` 的本机字体检测、Canvas 图片转换以及文件下载；服务端通过文档接口提供预览图片，并使用简化文字渲染生成缩略图。
+共享模块不导入 `src/` 或 `server/`。浏览器专用能力留在 `src/`，例如 `src/fonts.ts` 的本机字体检测、Canvas 图片转换以及文件下载；画板预览由查看器按视口实时绘制，服务端只提供文档、页面与资源接口。
 
 现有 `Layer` 和解析辅助函数仍基于 Sketch 数据；`DocumentSource` 目前抽象的是数据来源，并不表示已经具有通用格式模型。接入第二种文件格式时，应先定义两种格式实际需要的统一图层结构，再分别转换，避免把格式判断散落到检查面板和渲染器中。
 

@@ -12,6 +12,8 @@ import {
 } from '../src/interaction';
 import {
   cssForLayer,
+  textProperties,
+  fontFaceLabel,
   cssColor,
   cornerRadii,
   cssSections,
@@ -190,7 +192,33 @@ test('mixed text does not misrepresent the whole layer with the first font size'
   assert.doesNotMatch(css, /font-size:/);
   assert.match(css, /混合文字样式/);
   assert.match(css, /font-family: "Arial"/);
+  assert.doesNotMatch(css, /font-weight:/);
   assert.doesNotMatch(css, /background-color:/);
+});
+test('a matched font file supplies the family and weight, an unknown name stays whole', () => {
+  const attributes = {
+    MSAttributedStringFontAttribute: { attributes: { name: 'DIN-Bold', size: 16 } },
+  };
+  const library = (name: string) =>
+    name === 'DIN-Bold' ? { family: 'DIN', weight: 700, style: 'normal' } : undefined;
+  const matched = textProperties(attributes, library);
+  assert.equal(matched['font-family'], '"DIN"');
+  assert.equal(matched['font-weight'], '700');
+  assert.equal(
+    fontFaceLabel('DIN-Bold', { family: 'DIN', weight: 700, style: 'normal', name: 'DIN-Bold' }),
+    'DIN-Bold',
+  );
+  assert.equal(matched['font-style'], undefined);
+  const unknown = textProperties(attributes);
+  assert.equal(unknown['font-family'], '"DIN-Bold"');
+  assert.equal(unknown['font-weight'], undefined);
+  assert.equal(unknown['font-style'], undefined);
+  const italic = textProperties(attributes, () => ({
+    family: 'DIN',
+    weight: 700,
+    style: 'italic',
+  }));
+  assert.equal(italic['font-style'], 'italic');
 });
 test('individual corner values are copied in CSS corner order', () => {
   const l = layer('r', {

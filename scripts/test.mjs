@@ -18,7 +18,6 @@ await build({
   outExtension: { '.js': '.mjs' },
 });
 await copyFile('.server-build/worker.mjs', '.test-output/worker.mjs');
-await copyFile('.server-build/thumbnail-worker.mjs', '.test-output/thumbnail-worker.mjs');
 const result = spawnSync(
   process.execPath,
   [

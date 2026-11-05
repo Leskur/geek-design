@@ -123,18 +123,15 @@ test('sidebar lists teams without repeating project creation and empty-project p
       ]}
       projects={[]}
       activeTeamId="a"
-      overviewPage
       busy={false}
       onCreateTeam={() => {}}
-      onCreateProject={() => {}}
-      onDelete={() => {}}
     />,
   );
   assert.match(html, /团队列表/);
   assert.match(html, /新增团队/);
   assert.doesNotMatch(html, /wb-tree-heading/);
   assert.match(html, /href="\/teams\/a" aria-current="page"/);
-  assert.doesNotMatch(html, /新建项目|还没有项目|等待分配项目|aria-expanded|wb-tree-projects/);
+  assert.doesNotMatch(html, /新建项目|还没有项目|等待分配项目|aria-expanded|wb-tree-projects|团队操作|gd-tree-more/);
 });
 
 test('empty project list provides creation in place only for team managers', () => {
@@ -151,7 +148,7 @@ test('empty project list provides creation in place only for team managers', () 
   );
 });
 
-test('sidebar auto-expands the active project without creation or empty prompts', () => {
+test('sidebar lists nested projects without expand toggles or empty prompts', () => {
   const html = renderToStaticMarkup(
     <TeamTree
       userId="u"
@@ -159,18 +156,14 @@ test('sidebar auto-expands the active project without creation or empty prompts'
       projects={[{ id: 'p', name: 'Project', team_id: 'a' }]}
       activeTeamId="a"
       activeProjectId="p"
-      overviewPage={false}
       busy={false}
       onCreateTeam={() => {}}
-      onCreateProject={() => {}}
-      onDelete={() => {}}
     />,
   );
-  assert.match(html, /aria-expanded="true"/);
   assert.match(html, /href="\/projects\/p" aria-current="page"/);
   assert.doesNotMatch(html, /href="\/teams\/a" aria-current="page"/);
   assert.doesNotMatch(html, /wb-tree-team current/);
-  assert.doesNotMatch(html, /新建项目|还没有项目|等待分配项目/);
+  assert.doesNotMatch(html, /aria-expanded|management-team-toggle|新建项目|还没有项目|等待分配项目/);
 });
 
 test('container inspector prioritizes own layout and CSS before export and ignores child text panels', () => {

@@ -50,11 +50,6 @@
 .gd-project-row:focus-within > .gd-tree-more {
   opacity: 1;
 }
-.wb-tree-team-row > .gd-tree-more {
-  height: 26px;
-  width: 26px;
-  flex-shrink: 0;
-}
 .wb-team-tree .wb-tree-heading {
   margin: 22px 8px 9px;
   color: #686a79;

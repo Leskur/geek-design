@@ -1,25 +1,26 @@
-import type { Rect } from './interaction';
+import type { Camera, Rect } from './interaction';
 
-// Overlay panels do not resize the canvas. Read their actual bounds only when
-// explicitly fitting/focusing content, never to move an existing camera.
+/** Visible fit/focus area inside the canvas. */
 export function viewportArea(viewport: HTMLElement): Rect {
-  const bounds = viewport.getBoundingClientRect(),
-    workspace = viewport.closest('.viewer-workspace');
-  let left = 0,
-    right = bounds.width;
-  if (workspace)
-    for (const side of ['left', 'right']) {
-      const panel = workspace.querySelector<HTMLElement>(`:scope > .${side}`);
-      if (!panel || !panel.getClientRects().length) continue;
-      const box = panel.getBoundingClientRect();
-      if (box.bottom <= bounds.top || box.top >= bounds.bottom) continue;
-      if (side === 'left') left = Math.max(left, box.right - bounds.left);
-      else right = Math.min(right, box.left - bounds.left);
-    }
+  const bounds = viewport.getBoundingClientRect();
   return {
-    x: Math.max(0, left),
+    x: 0,
     y: 0,
-    width: Math.max(1, right - left),
+    width: Math.max(1, bounds.width),
     height: Math.max(1, bounds.height),
   };
+}
+
+/** Keep world content fixed on screen when the canvas origin moves after a panel commit. */
+export function stabilizeCameraOnResize(
+  camera: Camera,
+  previous: { left: number; top: number } | null,
+  next: { left: number; top: number },
+): { camera: Camera; origin: { left: number; top: number } } {
+  const origin = { left: next.left, top: next.top };
+  if (!previous) return { camera, origin };
+  const dx = next.left - previous.left,
+    dy = next.top - previous.top;
+  if (!dx && !dy) return { camera, origin };
+  return { camera: { ...camera, x: camera.x - dx, y: camera.y - dy }, origin };
 }

@@ -17,7 +17,6 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import { DesignCover } from '../DesignCover';
 import { ManagementSearch } from '../ManagementSearch';
 import type { MenuPosition } from '../ContextMenu';
 import { documentPath, projectPath, revisionPath } from '../routes';
@@ -171,12 +170,18 @@ export function DesignList({
                 }}
               >
                 <a className="wb-file-cover" href={href} aria-label={`打开 ${d.name}`}>
-                  <DesignCover
-                    key={`${d.id}:${d.current_revision || ''}`}
-                    documentId={d.id}
-                    revisionId={d.current_revision}
-                    status={d.status}
-                  />
+                  <div className="project-design-cover">
+                    <div className="project-cover-placeholder">
+                      <FileImage size={30} strokeWidth={1.3} />
+                      <span>
+                        {d.status === 'failed'
+                          ? '处理失败'
+                          : !d.current_revision
+                            ? '等待文件就绪'
+                            : '设计稿'}
+                      </span>
+                    </div>
+                  </div>
                   {!ready && (
                     <span className="wb-processing">
                       {d.status === 'failed' ? (

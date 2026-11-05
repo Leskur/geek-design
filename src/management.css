@@ -1057,8 +1057,8 @@
 .wb-app .management-team-list .wb-tree-team-name {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 9px 3px;
+  gap: 8px;
+  padding: 9px 8px;
   font-weight: 500;
   font-size: 13px;
   min-width: 0;
@@ -1072,21 +1072,16 @@
   display: grid;
   place-items: center;
   flex-shrink: 0;
-  width: 25px;
-  height: 25px;
-  border: 1px solid #e6e5ee;
-  border-radius: 7px;
-  background: #f5f5fa;
-  color: #8c88a4;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #fff;
   font-size: 11px;
+  font-weight: 400;
+  line-height: 1;
 }
 .wb-app .management-team-list .current > .wb-tree-team-row {
   background: #eeebfb;
-}
-.wb-app .management-team-list .current .management-team-mark {
-  background: #e5def8;
-  border-color: #ded6f3;
-  color: #7861ba;
 }
 
 .management-team-list .wb-tree-team {
@@ -1372,39 +1367,27 @@
   }
 }
 
-.wb-app .management-team-toggle {
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  width: 18px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: #a19aae;
-  border-radius: 5px;
+.wb-app .management-team-list .wb-tree-team-row {
+  display: flex;
+  align-items: center;
+  min-width: 0;
 }
-.wb-app .management-team-toggle:hover {
-  background: #e8e4f1;
-  color: #7b6a9d;
-}
-.wb-app .management-team-toggle svg {
-  transition: transform 0.12s;
+.wb-app .management-team-list .wb-tree-team-name {
+  flex: 1;
+  min-width: 0;
 }
 .wb-app .management-team-list .management-subprojects {
-  margin: 3px 0 8px 31px;
-  padding: 0 0 0 8px;
-  border-left: 1px solid #ece9f2;
-}
-.management-subprojects[hidden] {
-  display: none;
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
 }
 .management-subprojects a {
   display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  padding: 9px 11px;
+  width: 100%;
+  padding: 9px 12px 9px 38px;
   margin: 2px 0;
   border-radius: 6px;
   text-decoration: none;
@@ -1418,48 +1401,6 @@
 .management-subprojects a[aria-current='page'] {
   background: #eeebfb;
   color: #7760b7;
-}
-@media (prefers-reduced-motion: reduce) {
-  .wb-app .management-team-toggle svg {
-    transition: none;
-  }
-}
-
-.wb-app .management-team-list .wb-tree-team-row {
-  display: grid;
-  grid-template-columns: 18px minmax(0, 1fr) 26px;
-  gap: 2px;
-}
-.management-team-toggle-slot {
-  width: 18px;
-  height: 28px;
-}
-.wb-app .management-team-list .management-subprojects {
-  margin: 3px 0 8px;
-  padding: 0;
-  border: 0;
-}
-.wb-app .management-team-list .management-subprojects a {
-  width: 100%;
-  padding-left: 63px;
-  padding-right: 12px;
-}
-
-.wb-app .management-team-list .management-team-mark {
-  width: 10px;
-  height: 10px;
-  border: 0;
-  border-radius: 3px;
-}
-.wb-app .management-team-list .management-subprojects a {
-  padding-left: 48px;
-}
-
-.wb-app .management-team-list .wb-tree-team-name {
-  gap: 6px;
-}
-.wb-app .management-team-list .management-subprojects a {
-  padding-left: 44px;
 }
 
 .wb-app .project-page-heading {

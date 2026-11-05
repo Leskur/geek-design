@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { Type, Upload, Trash2, LoaderCircle, Check, X } from 'lucide-react';
+import { Type, Upload, Trash2, LoaderCircle, Check, X, Download, Eye, EyeOff } from 'lucide-react';
 import { api } from './api';
 import { ManagementSearch } from './ManagementSearch';
 import { Dialog } from './Dialog';
@@ -15,10 +15,12 @@ export function TeamFonts({ team }: { team: any }) {
     [progress, setProgress] = useState(''),
     [remove, setRemove] = useState<TeamFont | null>(null),
     [preview, setPreview] = useState(''),
-    [previewLoading, setPreviewLoading] = useState('');
+    [previewLoading, setPreviewLoading] = useState(''),
+    [downloading, setDownloading] = useState('');
   const input = useRef<HTMLInputElement>(null),
     alive = useRef(true),
     working = useRef(false),
+    saving = useRef(''),
     controller = useRef(new AbortController()),
     faces = useRef<FontFace[]>([]),
     previewing = useRef(false);
@@ -122,6 +124,42 @@ export function TeamFonts({ team }: { team: any }) {
       if (alive.current) setPreviewLoading('');
     }
   }
+  async function downloadFont(font: TeamFont) {
+    if (saving.current) return;
+    saving.current = font.id;
+    setDownloading(font.id);
+    setError('');
+    try {
+      const response = await fetch(font.url, {
+        credentials: 'same-origin',
+        signal: controller.current.signal,
+      });
+      if (!response.ok) {
+        let message = `「${font.full_name}」下载失败`;
+        try {
+          const body = await response.json();
+          if (body?.error) message = body.error;
+        } catch {
+          /* The error body is optional. */
+        }
+        throw Error(message);
+      }
+      const blob = await response.blob(),
+        url = URL.createObjectURL(blob),
+        a = document.createElement('a');
+      a.href = url;
+      a.download = font.filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      if ((e as Error).name !== 'AbortError' && alive.current) setError((e as Error).message);
+    } finally {
+      saving.current = '';
+      if (alive.current) setDownloading('');
+    }
+  }
   async function deleteFont() {
     if (!remove || working.current) return;
     working.current = true;
@@ -219,8 +257,39 @@ export function TeamFonts({ team }: { team: any }) {
                       · {(font.size / 1024 ** 2).toFixed(2)} MB
                     </span>
                   </div>
-                  <button disabled={!!previewLoading} onClick={() => void showPreview(font)}>
-                    {previewLoading === font.id ? '加载中…' : preview === font.id ? '收起' : '预览'}
+                  <button
+                    className="wb-icon-button"
+                    disabled={!!previewLoading}
+                    aria-label={
+                      previewLoading === font.id
+                        ? `正在加载 ${font.full_name}`
+                        : preview === font.id
+                          ? `收起 ${font.full_name}`
+                          : `预览 ${font.full_name}`
+                    }
+                    title={previewLoading === font.id ? '加载中…' : preview === font.id ? '收起' : '预览'}
+                    onClick={() => void showPreview(font)}
+                  >
+                    {previewLoading === font.id ? (
+                      <LoaderCircle size={15} className="wb-spin" />
+                    ) : preview === font.id ? (
+                      <EyeOff size={15} />
+                    ) : (
+                      <Eye size={15} />
+                    )}
+                  </button>
+                  <button
+                    className="wb-icon-button"
+                    disabled={!!downloading}
+                    aria-label={`下载字体 ${font.full_name}`}
+                    title={downloading === font.id ? '下载中…' : '下载'}
+                    onClick={() => void downloadFont(font)}
+                  >
+                    {downloading === font.id ? (
+                      <LoaderCircle size={15} className="wb-spin" />
+                    ) : (
+                      <Download size={15} />
+                    )}
                   </button>
                   {manage && (
                     <button

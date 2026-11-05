@@ -78,7 +78,10 @@ function BoardNode({
   }, [open, b, cache]);
   return (
     <section className="unified-board">
-      <div ref={ref} className={`unified-board-row${active ? ' active' : ''}`}>
+      <div
+        ref={ref}
+        className={`unified-board-row${active && selected?.do_objectID === b.do_objectID ? ' active' : ''}`}
+      >
         <button
           className="layer-tree-toggle"
           aria-label={`${open ? '收起画板' : '展开画板'} ${b.name}`}

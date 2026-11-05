@@ -1,13 +1,12 @@
 import { MousePointer2 } from 'lucide-react';
 import { ZoomMenu } from './ZoomMenu';
-import { viewportArea } from './viewport-area';
+import { stabilizeCameraOnResize, viewportArea } from './viewport-area';
 import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
 import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { Layer, DocumentSource } from './sketch';
 import { color } from './sketch';
 import type { Scene } from '../shared/rendering/scene';
 import { Children, LiteRenderContext } from '../shared/rendering/renderer';
-import type { ThumbnailCache } from './ThumbnailCache';
 import { drawArtboard, type BitmapSource } from './canvas-scene';
 import {
   countLayers,
@@ -24,6 +23,7 @@ import {
   type Distance,
   type IndexedLayer,
 } from './interaction';
+import { ellipsisText } from './overview';
 
 function strokePolygon(
   ctx: CanvasRenderingContext2D,
@@ -204,7 +204,6 @@ export function Canvas({
   zoomHost,
   cameras,
   cameraKey,
-  thumbnails: _thumbnails,
 }: {
   doc: DocumentSource;
   scene: Scene | null;
@@ -219,7 +218,6 @@ export function Canvas({
   zoomHost?: HTMLElement | null;
   cameras?: Map<string, Camera>;
   cameraKey?: string;
-  thumbnails: ThumbnailCache;
 }) {
   const root = scene?.root || null,
     frame = board.frame,
@@ -253,7 +251,9 @@ export function Canvas({
       distances: [] as Distance[],
       space: false,
       dragging: false,
-    });
+    }),
+    viewportOrigin = useRef<{ left: number; top: number } | null>(null),
+    paintedSize = useRef({ w: 0, h: 0 });
   function resizeSurface() {
     const v = viewport.current,
       canvas = surface.current;
@@ -315,7 +315,7 @@ export function Canvas({
     ctx.font = '10px Inter, "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(board.name, cam.x, cam.y - 8);
+    ctx.fillText(ellipsisText(ctx, board.name, frame.width * cam.scale), cam.x, cam.y - 8);
   }
   function detailPicture(rootLayer: Layer, scale: number, dpr: number) {
     const prev = boardPicture.current;
@@ -352,6 +352,13 @@ export function Canvas({
       paintFrame.current = 0;
       paint.current();
     });
+  }
+  function paintNow() {
+    if (paintFrame.current) {
+      cancelAnimationFrame(paintFrame.current);
+      paintFrame.current = 0;
+    }
+    paint.current();
   }
   paint.current = paintSurface;
   function commitCamera(next: Camera, syncReact: boolean) {
@@ -411,6 +418,7 @@ export function Canvas({
     bitmaps.current.clear();
     boardPicture.current = null;
     pictureDirty.current = false;
+    viewportOrigin.current = null;
     if (!cameras?.has(key)) fit();
     schedulePaint();
   }, [board.do_objectID, key, cameras]);
@@ -420,7 +428,29 @@ export function Canvas({
   useEffect(() => {
     const v = viewport.current;
     if (!v) return;
-    const ro = new ResizeObserver(() => schedulePaint());
+    const ro = new ResizeObserver(() => {
+      const w = v.clientWidth,
+        h = v.clientHeight;
+      // Panel drags keep the canvas box frozen; ignore spurious RO callbacks.
+      if (w === paintedSize.current.w && h === paintedSize.current.h) return;
+      paintedSize.current = { w, h };
+      const rect = v.getBoundingClientRect();
+      const stable = stabilizeCameraOnResize(cameraRef.current, viewportOrigin.current, rect);
+      viewportOrigin.current = stable.origin;
+      if (stable.camera !== cameraRef.current) {
+        cameraRef.current = stable.camera;
+        cameras?.set(key, stable.camera);
+        pendingCamera.current = stable.camera;
+        if (!cameraFrame.current)
+          cameraFrame.current = requestAnimationFrame(() => {
+            cameraFrame.current = 0;
+            const queued = pendingCamera.current;
+            pendingCamera.current = null;
+            if (queued) setCameraState(queued);
+          });
+      }
+      paintNow();
+    });
     ro.observe(v);
     return () => ro.disconnect();
   }, []);

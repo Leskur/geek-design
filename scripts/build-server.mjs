@@ -1,11 +1,6 @@
 import { build } from 'esbuild';
 await build({
-  entryPoints: [
-    'server/index.ts',
-    'server/app.ts',
-    'server/worker.ts',
-    'server/thumbnail-worker.tsx',
-  ],
+  entryPoints: ['server/index.ts', 'server/app.ts', 'server/worker.ts'],
   bundle: true,
   platform: 'node',
   target: 'node24',

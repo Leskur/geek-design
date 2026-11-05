@@ -32,7 +32,7 @@ npm run dev
 | 目录 / 文件 | 作用 |
 | --- | --- |
 | `src/App.tsx` | 文件、页面、选择状态和查看器顶栏 |
-| `src/PageOverview.tsx`、`src/PageBoard.tsx`、`src/Canvas.tsx` | 页面与单画板交互、渲染 |
+| `src/PageOverview.tsx`、`src/Canvas.tsx` | 页面与单画板交互、渲染 |
 | `shared/rendering/`、`src/properties.ts` | 组件展开、绘制和 CSS 属性 |
 | `src/Inspector.tsx`、`src/SelectionExport.tsx`、`src/selection-export.tsx` | 开发检查、切图与导出 |
 | `server/` | 账号、权限、上传、字体、解析与预览任务 |

@@ -1,6 +1,9 @@
 node_modules/
 dist/
 *.sketch
+/fu-h5/
+/release/
+/distribution/
 *.log
 
 .npm-cache/

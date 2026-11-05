@@ -514,16 +514,12 @@ export function TeamHub() {
           projects={projects}
           activeTeamId={team?.id}
           activeProjectId={project?.id}
-          overviewPage={route.section === 'overview'}
           busy={active}
           onCreateTeam={() => {
             setError('');
             setNewTeam('');
             setCreateKind('team');
           }}
-          onCreateProject={openCreateProject}
-          onDelete={requestDelete}
-          onRename={(kind, item) => requestEdit(kind, item)}
         />
         <button
           className="wb-icon-button management-drawer-close"

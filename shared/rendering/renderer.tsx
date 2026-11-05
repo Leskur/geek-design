@@ -286,7 +286,6 @@ export function fontStyle(a: any): CSSProperties {
         .join(' ') || undefined,
   };
 }
-export const ThumbnailTextContext = createContext(false);
 /** Low-detail preview: compact text and skip expensive filters (shadows). */
 export const LiteRenderContext = createContext(false);
 function Text({ l }: { l: Layer }) {
@@ -295,9 +294,7 @@ function Text({ l }: { l: Layer }) {
     p = first.paragraphStyle || {},
     size = first.MSAttributedStringFontAttribute?.attributes?.size || 14,
     vertical = l.style?.textStyle?.verticalAlignment || 0;
-  const thumbnailText = useContext(ThumbnailTextContext),
-    liteRender = useContext(LiteRenderContext),
-    compact = thumbnailText || liteRender;
+  const compact = useContext(LiteRenderContext);
   const autoWidth = l.textBehaviour === 0;
   if (compact) {
     const style = fontStyle(first),
@@ -381,9 +378,7 @@ function Text({ l }: { l: Layer }) {
 
 export function Node({ l, doc, choose, interactive = true }: Props) {
   const key = useId().replace(/:/g, '');
-  const liteRender = useContext(LiteRenderContext),
-    thumbnailText = useContext(ThumbnailTextContext),
-    lite = liteRender || thumbnailText;
+  const lite = useContext(LiteRenderContext);
   if (l.isVisible === false || l._hiddenSymbol || l._class === 'slice') return null;
   const { width: w, height: h } = l.frame,
     s = l.style || {};

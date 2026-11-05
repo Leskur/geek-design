@@ -1,4 +1,3 @@
-import { coverRoutes } from './covers';
 import { fontRoutes } from './fonts';
 import { editingRoutes } from './editing';
 import Fastify from 'fastify';
@@ -24,7 +23,6 @@ import {
 import { Jobs, artifactKey } from './jobs';
 import { teamRoutes } from './teams';
 import { publicIds } from './public-ids';
-import { ThumbnailJobs, THUMBNAIL_VERSION } from './thumbnail-jobs';
 import { deletionRoutes } from './deletion';
 
 const text = (v: any, min = 1, max = 120) => {
@@ -53,8 +51,7 @@ export async function createApp(options: {
 }) {
   const storage = new LocalStorage(options.dataDir),
     store = new Store(storage),
-    jobs = new Jobs(store),
-    thumbnails = new ThumbnailJobs(store);
+    jobs = new Jobs(store);
   const maxSize = options.maxFileSize ?? 1024 ** 3;
   const app = Fastify({
     logger: options.logger
@@ -162,7 +159,6 @@ export async function createApp(options: {
   deletionRoutes(app, store, user);
   editingRoutes(app, store, user);
   fontRoutes(app, store, user);
-  coverRoutes(app, store, thumbnails, user);
   app.get('/api/projects/:id/documents', async (req: any) => {
     membership(store, user(req), req.params.id);
     return store.all(
@@ -229,87 +225,12 @@ export async function createApp(options: {
         teamId: store.publicId(project.team_id),
         canUpload: teamRole === 'owner' || teamRole === 'admin',
       },
-      thumbnailVersion: THUMBNAIL_VERSION,
-      canManagePreviews:
-        membership(
-          store,
-          user(req),
-          store.one('SELECT project_id FROM documents WHERE id=?', r.document_id).project_id,
-        ) !== 'viewer',
       viewerId: user(req).id,
       revisionId: r.id,
       documentId: r.document_id,
       projectId: store.one('SELECT project_id FROM documents WHERE id=?', r.document_id).project_id,
       file: { name: r.filename, size: r.size },
     };
-  });
-  async function thumbnailIndex(key: string) {
-    try {
-      return JSON.parse(
-        await fsp.readFile(
-          storage.path('artifacts', key, 'thumbnails', THUMBNAIL_VERSION, 'index.json'),
-          'utf8',
-        ),
-      );
-    } catch {
-      return { version: THUMBNAIL_VERSION, items: {} };
-    }
-  }
-  app.get('/api/revisions/:id/thumbnails', async (req: any) => {
-    const { r } = await ready(req);
-    const state = thumbnails.enqueue(r.artifact_key),
-      index = await thumbnailIndex(r.artifact_key);
-    return {
-      version: THUMBNAIL_VERSION,
-      status: state.status,
-      completed: state.completed,
-      total: state.total,
-      error: state.error,
-      items: index.items,
-    };
-  });
-  app.post('/api/revisions/:id/thumbnails/retry', async (req: any) => {
-    const { r } = await ready(req);
-    documentAccess(store, user(req), r.document_id, true);
-    return thumbnails.enqueue(r.artifact_key, true);
-  });
-  app.get('/api/revisions/:id/thumbnails/:version/:pageId/:boardId', async (req: any, reply) => {
-    const { r, manifest } = await ready(req);
-    if (
-      req.params.version !== THUMBNAIL_VERSION ||
-      typeof manifest.pageFiles[req.params.pageId] !== 'string'
-    )
-      fail(404, '预览不存在');
-    const state = thumbnails.enqueue(r.artifact_key),
-      index = await thumbnailIndex(r.artifact_key),
-      file = index.items?.[req.params.pageId]?.[req.params.boardId];
-    if (typeof file === 'string' && /^[a-f0-9]{64}\.svg$/.test(file)) {
-      const small = (req.query as any)?.size === 'small',
-        target = storage.path(
-          'artifacts',
-          r.artifact_key,
-          'thumbnails',
-          THUMBNAIL_VERSION,
-          small ? file.replace(/\.svg$/, '.webp') : file,
-        );
-      if (fs.existsSync(target))
-        return reply
-          .type(small ? 'image/webp' : 'image/svg+xml')
-          .header(
-            'Content-Security-Policy',
-            "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox",
-          )
-          .header('Cache-Control', 'private, max-age=3600')
-          .send(fs.createReadStream(target));
-      if (state.status === 'ready') thumbnails.enqueue(r.artifact_key, true);
-    }
-    if (state.status === 'failed')
-      return reply.code(503).send({ error: state.error || '预览生成失败，请重试' });
-    if (state.status === 'ready' && !file) fail(404, '画板预览不存在');
-    return reply
-      .code(202)
-      .header('Retry-After', '1')
-      .send({ status: 'processing', completed: state.completed, total: state.total });
   });
   app.get('/api/revisions/:id/symbols', async (req: any) => {
     const { dir } = await ready(req);
@@ -587,11 +508,10 @@ export async function createApp(options: {
   }
   if (options.startJobs !== false) {
     jobs.start();
-    thumbnails.start();
   }
   app.addHook('onClose', async () => {
-    await Promise.all([jobs.stop(), thumbnails.stop()]);
+    await jobs.stop();
     store.close();
   });
-  return { app, store, jobs, storage, thumbnails };
+  return { app, store, jobs, storage };
 }

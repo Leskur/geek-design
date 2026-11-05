@@ -1,6 +1,6 @@
 import { safeName } from './ai-export';
 import { SelectionExportDisclosure } from './SelectionExport';
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Copy, Image, MousePointer2, Download, Type, Layers, AlertCircle } from 'lucide-react';
 import type { Layer, DocumentSource } from './sketch';
 import { hasFont } from './fonts';
@@ -14,6 +14,7 @@ import {
   cssForLayer,
   number,
   textProperties,
+  fontFaceLabel,
 } from './properties';
 
 type Copy = (value: string) => void;
@@ -45,12 +46,14 @@ export function Inspector({
   doc,
   onCopy,
   onLoadFont,
+  onResizePointerDown,
 }: {
   selected: Layer | null;
   root: Layer | null;
   doc: DocumentSource;
   onCopy: Copy;
   onLoadFont: (name: string) => void;
+  onResizePointerDown?: (e: React.PointerEvent<HTMLButtonElement>) => void;
 }) {
   const [activeRun, setActiveRun] = useState(0);
   const [colorMode, setColorMode] = useState('HEX'),
@@ -66,8 +69,9 @@ export function Inspector({
     fills = (s.fills || []).filter((p: any) => p.isEnabled),
     runs = l ? textRuns(l) : [];
   const isContainer = !!l && ['group', 'symbolInstance', 'artboard'].includes(l._class);
-  const css = l ? cssForLayer(l) : '';
-  const sections = l ? cssSections(l) : [];
+  const match = (name: string) => doc.matchedFont?.(name);
+  const css = l ? cssForLayer(l, match) : '';
+  const sections = l ? cssSections(l, match) : [];
   const colors = useMemo(
     () => (l && ['group', 'symbolInstance', 'artboard'].includes(l._class) ? layerColors(l) : []),
     [l],
@@ -77,7 +81,7 @@ export function Inspector({
     entry && container && entry !== container ? spacingWithin(entry, container) : null;
   const textStyles = runs.map((r) => ({
     text: r.text,
-    styles: textProperties(r.attributes),
+    styles: textProperties(r.attributes, match),
     attributes: r.attributes,
   }));
   const mixed =
@@ -85,6 +89,9 @@ export function Inspector({
     textStyles.some((r) => JSON.stringify(r.styles) !== JSON.stringify(textStyles[0].styles));
 
   const run = textStyles[Math.min(activeRun, Math.max(0, textStyles.length - 1))];
+  const recordedFont = run?.attributes.MSAttributedStringFontAttribute?.attributes?.name as
+    | string
+    | undefined;
   const runCode = run
     ? Object.entries(run.styles)
         .map(([key, value]) => `${key}: ${value};`)
@@ -252,6 +259,15 @@ export function Inspector({
   ) : null;
   return (
     <aside hidden={!l} className="right gd-inspector" aria-label="图层检查面板">
+      {onResizePointerDown && (
+        <button
+          type="button"
+          className="viewer-panel-resize viewer-panel-resize-start"
+          aria-label="调整检查面板宽度"
+          title="拖动调整宽度"
+          onPointerDown={onResizePointerDown}
+        />
+      )}
       {l ? (
         <>
           <div className="inspector-selection">
@@ -367,7 +383,12 @@ export function Inspector({
                               } as Record<string, string>
                             )[key] || key
                           }
-                          value={value}
+                          value={
+                            key === 'font-family' && recordedFont
+                              ? fontFaceLabel(recordedFont, match(recordedFont))
+                              : value
+                          }
+                          copyValue={key === 'font-family' ? value : undefined}
                           onCopy={onCopy}
                         />
                       ))}

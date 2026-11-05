@@ -11,6 +11,13 @@ export type TeamFont = {
   created: number;
   url: string;
 };
+export function exactTeamFont(fonts: TeamFont[], name: string): TeamFont | undefined {
+  const key = name.toLowerCase();
+  return (
+    fonts.find((f) => f.postscript_name.toLowerCase() === key) ||
+    fonts.find((f) => f.full_name.toLowerCase() === key)
+  );
+}
 export function matchingTeamFonts(fonts: TeamFont[], names: string[]): TeamFont[] {
   const found = new Set<string>();
   for (const name of names) {

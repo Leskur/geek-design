@@ -1,14 +1,13 @@
 import { MousePointer2 } from 'lucide-react';
 import { ZoomMenu } from './ZoomMenu';
 import { ContextMenu, type MenuPosition } from './ContextMenu';
-import { viewportArea } from './viewport-area';
+import { stabilizeCameraOnResize, viewportArea } from './viewport-area';
 import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maximize, ArrowUpRight } from 'lucide-react';
 import { detailEnabled } from './detail-entry';
 import { color, type Layer, type DocumentSource } from './sketch';
 import type { SceneCache } from './SceneCache';
-import type { ThumbnailCache } from './ThumbnailCache';
 import { drawArtboard } from './canvas-scene';
 import { ImageLod } from './image-lod';
 import {
@@ -19,7 +18,7 @@ import {
   type Camera,
   type IndexedLayer,
 } from './interaction';
-import { boardVisible, matchesBoardName, pageBounds, zoomPage } from './overview';
+import { boardVisible, ellipsisText, matchesBoardName, pageBounds, zoomPage } from './overview';
 
 /** Below this on-screen size, paint the fixed mini instead of the layer tree. */
 const LIVE_SCREEN = 280;
@@ -87,7 +86,6 @@ export function PageOverview({
   pageName,
   doc,
   cache,
-  thumbnails: _thumbnails,
   selectedId,
   selected,
   onLayer,
@@ -104,7 +102,6 @@ export function PageOverview({
   pageName: string;
   doc: DocumentSource;
   cache: SceneCache;
-  thumbnails: ThumbnailCache;
   selectedId?: string;
   selected: Layer | null;
   onLayer: (board: Layer, layer: Layer) => void;
@@ -154,6 +151,8 @@ export function PageOverview({
     hover = useRef<{ boardId: string; layerId: string | null; entry: IndexedLayer | null } | null>(
       null,
     ),
+    viewportOrigin = useRef<{ left: number; top: number } | null>(null),
+    paintedSize = useRef({ w: 0, h: 0 }),
     repaint = useRef(() => {}),
     images = useRef(
       new ImageLod(doc, (ref) => {
@@ -204,8 +203,8 @@ export function PageOverview({
     if (!ctx) return;
     const dpr = resizeSurface(),
       cam = paintCamera(),
-      w = size.w || viewport.current?.clientWidth || 0,
-      h = size.h || viewport.current?.clientHeight || 0;
+      w = viewport.current?.clientWidth || size.w || 0,
+      h = viewport.current?.clientHeight || size.h || 0;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(dpr * cam.scale, 0, 0, dpr * cam.scale, dpr * cam.x, dpr * cam.y);
@@ -276,18 +275,18 @@ export function PageOverview({
     for (const b of visible) {
       const f = b.frame,
         match = matchesBoardName(b, search),
-        selected = selectedId === b.do_objectID,
+        boardSelected = selected?.do_objectID === b.do_objectID,
         hovered = hover.current?.boardId === b.do_objectID,
         screenW = f.width * cam.scale,
         screenH = f.height * cam.scale;
-      if (screenW <= 45 && !selected && !hovered && !(search && match)) continue;
+      if (screenW <= 45 && !boardSelected && !hovered && !(search && match)) continue;
       if (search && !match) continue;
       const x = f.x * cam.scale + cam.x,
         y = f.y * cam.scale + cam.y - 6;
-      ctx.fillStyle = selected ? '#5b45c2' : hovered ? '#7055d8' : '#8f919f';
+      ctx.fillStyle = boardSelected ? '#5b45c2' : hovered ? '#7055d8' : '#8f919f';
       ctx.textAlign = 'left';
-      ctx.fillText(b.name, x, y);
-      if (detailEnabled && selected) {
+      ctx.fillText(ellipsisText(ctx, b.name, screenW), x, y);
+      if (detailEnabled && boardSelected) {
         ctx.fillStyle = '#7656e8';
         ctx.fillRect(x, f.y * cam.scale + cam.y + screenH + 6, 72, 22);
         ctx.fillStyle = '#fff';
@@ -438,6 +437,13 @@ export function PageOverview({
       paint.current();
     });
   }
+  function paintNow() {
+    if (paintFrame.current) {
+      cancelAnimationFrame(paintFrame.current);
+      paintFrame.current = 0;
+    }
+    paint.current();
+  }
   paint.current = paintSurface;
   repaint.current = schedulePaint;
   function boardRoot(board: Layer) {
@@ -525,11 +531,26 @@ export function PageOverview({
     pendingCamera.current = null;
     current.current = next;
     hover.current = null;
+    viewportOrigin.current = null;
     cameras.set(pageId, next);
     setCamera(next);
     const resize = () => {
-      setSize({ w: el.clientWidth, h: el.clientHeight });
-      schedulePaint();
+      const w = el.clientWidth,
+        h = el.clientHeight;
+      // Panel drags keep the canvas box frozen; ignore spurious RO callbacks.
+      if (w === paintedSize.current.w && h === paintedSize.current.h) return;
+      paintedSize.current = { w, h };
+      const rect = el.getBoundingClientRect();
+      const stable = stabilizeCameraOnResize(paintCamera(), viewportOrigin.current, rect);
+      viewportOrigin.current = stable.origin;
+      if (stable.camera !== paintCamera()) {
+        pendingCamera.current = null;
+        current.current = stable.camera;
+        cameras.set(pageId, stable.camera);
+        setCamera(stable.camera);
+      }
+      setSize({ w, h });
+      paintNow();
     };
     resize();
     const observer = new ResizeObserver(resize);

@@ -68,10 +68,6 @@
   display: block;
   touch-action: none;
 }
-.overview-viewport:focus-visible {
-  outline: 2px solid #b6a4e6;
-  outline-offset: -2px;
-}
 .overview-viewport.is-hand,
 .overview-viewport.is-hand * {
   cursor: grab !important;
@@ -300,11 +296,49 @@
   line-height: 16px;
   flex-shrink: 0;
 }
-.navigation-section-title.layers-heading {
-  border-top: 1px solid #eeedf3;
-  margin-top: 16px;
-  padding-top: 16px;
-  padding-bottom: 0;
+.layers-head {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  padding-right: 10px;
+  box-shadow: inset 0 1px 0 #eeedf3;
+}
+.layers-head > .page-section-toggle {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+}
+button.navigation-section-title.layers-heading,
+button.navigation-section-title.layers-heading:hover,
+button.navigation-section-title.layers-heading:focus-visible {
+  margin-top: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+button.layer-search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #6e6a78;
+  box-shadow: none;
+}
+button.layer-search-toggle:hover,
+button.layer-search-toggle:focus-visible,
+button.layer-search-toggle[aria-pressed='true'] {
+  background: #f4f1fa;
+  border: 0;
+  box-shadow: none;
+  color: #3f3e4a;
+  outline: none;
 }
 .workspace > .left > .search {
   margin-top: 10px;
@@ -696,22 +730,30 @@
   }
 }
 
-/* A stable full-width canvas beneath floating navigation and inspection panels. */
+/*
+  Absolute side panels over a middle canvas.
+  Canvas uses --canvas-*-inset so panel drags can move chrome without resizing the canvas
+  until the drag commits and the insets catch up.
+*/
 .viewer-workspace {
   --viewer-left-width: 250px;
   --viewer-right-width: 300px;
+  --canvas-left-inset: var(--viewer-left-width);
+  --canvas-right-inset: var(--viewer-right-width);
   position: relative;
   display: block;
   overflow: hidden;
   isolation: isolate;
+  background: #eceef3;
 }
 .viewer-workspace > .center {
   position: absolute;
-  inset: 0;
+  top: 0;
+  bottom: 0;
+  left: var(--canvas-left-inset);
+  right: var(--canvas-right-inset);
   min-width: 0;
   min-height: 0;
-  width: 100%;
-  height: 100%;
 }
 .viewer-workspace > .left,
 .viewer-workspace > .right {
@@ -720,7 +762,8 @@
   bottom: 0;
   z-index: 10;
   max-width: calc(100% - 48px);
-  box-shadow: 0 0 16px #25243b08;
+  box-shadow: none;
+  border: 0;
 }
 .viewer-workspace > .left {
   left: 0;
@@ -729,6 +772,52 @@
 .viewer-workspace > .right {
   right: 0;
   width: var(--viewer-right-width);
+}
+.viewer-workspace:has(> .right[hidden]) > .center,
+.viewer-workspace:not(:has(> .right)) > .center {
+  --canvas-right-inset: 0px;
+}
+.viewer-workspace.is-panel-resizing {
+  cursor: e-resize;
+  user-select: none;
+}
+.viewer-workspace.is-panel-resizing > .center {
+  pointer-events: none;
+}
+.viewer-panel-resize {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 7px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  appearance: none;
+  cursor: e-resize;
+  z-index: 3;
+  touch-action: none;
+}
+.viewer-panel-resize-end {
+  right: -3px;
+}
+.viewer-panel-resize-start {
+  left: -3px;
+}
+.viewer-panel-resize:hover,
+.viewer-panel-resize:active,
+.viewer-panel-resize:focus,
+.viewer-panel-resize:focus-visible {
+  outline: none;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.viewer-workspace > .left[hidden],
+.viewer-workspace > .right[hidden] {
+  display: none;
 }
 @media (max-width: 1100px) {
   .viewer-workspace {
@@ -741,13 +830,9 @@
     --viewer-left-width: 170px;
     --viewer-right-width: 260px;
   }
-  .viewer-workspace > .right {
+  .viewer-workspace > .right:not([hidden]) {
     display: flex;
   }
-}
-
-.viewer-workspace > .right[hidden] {
-  display: none;
 }
 
 .page-board-surface {

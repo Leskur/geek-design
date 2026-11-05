@@ -35,7 +35,7 @@ export function rememberTeam(userId: string, id: string) {
 export function migratePreferences(userId: string, legacyId?: string) {
   if (!legacyId) return;
   try {
-    for (const category of ['recent', 'team', 'team-tree']) {
+    for (const category of ['recent', 'team']) {
       const next = `sketchpeek:${category}:${userId}`,
         old = localStorage.getItem(`sketchpeek:${category}:${legacyId}`);
       if (localStorage.getItem(next) === null && old !== null) localStorage.setItem(next, old);
@@ -103,22 +103,5 @@ export function moveTeam(order: string[], from: string, to: string, after = fals
 export function rememberTeamOrder(userId: string, order: string[]) {
   try {
     localStorage.setItem(`sketchpeek:team-order:${userId}`, JSON.stringify(order));
-  } catch {}
-}
-
-export function teamExpansion(userId: string): Record<string, boolean> {
-  try {
-    const value = JSON.parse(localStorage.getItem(`sketchpeek:team-tree:${userId}`) || '{}');
-    if (!value || Array.isArray(value) || typeof value !== 'object') return {};
-    return Object.fromEntries(
-      Object.entries(value).filter(([, open]) => typeof open === 'boolean'),
-    ) as Record<string, boolean>;
-  } catch {
-    return {};
-  }
-}
-export function rememberTeamExpansion(userId: string, value: Record<string, boolean>) {
-  try {
-    localStorage.setItem(`sketchpeek:team-tree:${userId}`, JSON.stringify(value));
   } catch {}
 }
