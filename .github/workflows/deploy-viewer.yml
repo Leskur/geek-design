@@ -1,0 +1,32 @@
+name: Trigger viewer Pages
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'shared/**'
+      - 'index.html'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig*.json'
+      - 'vite.config.*'
+      - 'scripts/copy-viewer-404.mjs'
+      - '.github/workflows/deploy-viewer.yml'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Deploy GitHub Pages
+        env:
+          GH_TOKEN: ${{ secrets.VIEWER_DEPLOY_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "Missing secret VIEWER_DEPLOY_TOKEN (PAT with actions:write on Leskur/geek-design-viewer)."
+            exit 1
+          fi
+          gh workflow run "Deploy GitHub Pages" \
+            --repo Leskur/geek-design-viewer \
+            --ref main
