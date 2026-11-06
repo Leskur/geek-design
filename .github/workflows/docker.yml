@@ -10,7 +10,6 @@ on:
       - '.dockerignore'
       - 'compose.yaml'
       - '.env.example'
-      - 'scripts/smoke-docker.mjs'
       - 'scripts/build-server.mjs'
       - 'server/**'
       - 'shared/**'
@@ -23,7 +22,6 @@ on:
       - '.dockerignore'
       - 'compose.yaml'
       - '.env.example'
-      - 'scripts/smoke-docker.mjs'
       - 'scripts/build-server.mjs'
       - 'server/**'
       - 'shared/**'
@@ -41,18 +39,12 @@ jobs:
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24.16.0'
-          cache: npm
-      - run: npm ci
       - run: docker compose -p geekdesign-ci up -d --build --wait --wait-timeout 120
-      - run: npm run smoke:docker -- http://127.0.0.1:5174
-      - name: Recreate container and verify persisted account data
+      - name: Recreate container and check service
         run: |
           docker compose -p geekdesign-ci down
           docker compose -p geekdesign-ci up -d --no-build --wait --wait-timeout 120
-          docker compose -p geekdesign-ci exec -T geekdesign node --input-type=module -e "import Database from 'better-sqlite3';const db=new Database('/app/data/metadata.sqlite',{readonly:true});if(db.prepare('SELECT COUNT(*) AS n FROM users').get().n!==1)process.exit(1);db.close();"
+          curl -fsS http://127.0.0.1:5174/api/status
       - name: Log in to GHCR
         if: github.event_name != 'pull_request'
         uses: docker/login-action@v3

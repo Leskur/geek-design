@@ -4,43 +4,48 @@
 
 # GeekDesign
 
-**面向开发者的开源 Sketch 设计稿查看与交付工具。**
+在浏览器里打开 `.sketch` 文件：看页面、量图层、复制样式、下载切图。不必安装 Sketch，也不必把稿传到蓝湖、Pixso、MasterGo。
 
-无需安装 Sketch，在浏览器中查看页面、检查图层、复制样式、下载图片和导出切图。既可以在本机打开文件，也可以自行部署团队服务，共享设计稿和字体。
+只看本机文件，打开网页就能用。要和同事共享稿件和字体，再自己部署一份。
 
-[快速开始](#快速开始) · [功能说明](docs/developer-inspector.md) · [部署指南](docs/local-deployment.md) · [反馈问题](https://github.com/Leskur/geek-design/issues) · [参与贡献](CONTRIBUTING.md)
+[功能](#功能) · [怎么用](#怎么用) · [Issues](https://github.com/Leskur/geek-design/issues)
 
 ![GeekDesign 页面查看与开发检查面板](docs/screenshots/open-source-viewer.png)
 
 *截图使用项目自制演示数据，不含真实业务设计稿。*
 
-## 为什么做 GeekDesign
+## 功能
 
-开发拿到 Sketch 文件后，通常需要找页面、看尺寸与样式、复制文案、下载素材，再交给代码或 AI 工作流。GeekDesign 把这些操作放进浏览器，方便没有安装 Sketch 的开发者使用，也让团队可以在自己的环境中保存设计文件。
+- 按原稿布局查看画板，检查图层、字体和 CSS，复制文案，Alt 测距。
+- 下载原图；没有预设切图也能导出 PNG / SVG / JPG。
+- 把选中画板打成 AI 交付包。
+- 注册后自动获得个人空间；也可以建协作空间、邀请成员、上传字体。每个设计只有当前一份稿，覆盖上传即更新。
 
-## 能做什么
+更细的检查、切图和空间规则见 [文档](docs/README.md)。
 
-- **页面内直接检查**：按原始布局查看画板，选择内部图层，检查布局、字体与 CSS；需要聚焦时再打开单画板。
-- **为开发交付组织信息**：独立复制文案、混合文字按片段查看，CSS 分为布局和样式，支持 Alt 测距。
-- **图片与切图**：显示原图分辨率、下载原图；即使没有预设切图，也能预览、裁掉透明留白并导出 PNG / SVG / JPG。
-- **AI 交付包**：把选中画板或容器的预览、结构、素材、说明等打包成 ZIP，作为 AI 实现参考。
-- **团队协作**：账号、团队与项目权限、邀请链接、字体库、固定稿件链接和历史上传记录。
-- **大文件处理**：分片续传、内容校验与复用，独立进程解析，视口裁剪、分级预览与缓存。
+## 怎么用
 
-## 两种使用方式
+### 打开文件
 
-| | 本地文件 | 团队服务 |
-| --- | --- | --- |
-| 入口 | `/local`，无需登录 | 注册账号后进入工作台 |
-| 设计文件 | 在当前浏览器读取，不会自动上传 | 上传到你部署的服务器 |
-| 字体 | 本机字体或临时加载；刷新后需重新加载 | 自动匹配团队字体库，也支持临时加载 |
-| 适用场景 | 快速检查手上的文件 | 团队共享稿件、素材与字体 |
+https://leskur.github.io/geek-design-viewer/
 
-本地模式无需把设计文件交给第三方服务。团队模式的账号、文件、字体和解析产物保存在部署方的数据目录中。
+选择本机 `.sketch` 即可。文件只在浏览器里处理，不会上传。
 
-## 快速开始
+### 自建服务
 
-需要 **Node.js 24** 和 npm。当前主要在 Windows 环境验证。
+给需要空间、邀请、共享稿件和字体的人。装好 Docker 后：
+
+```sh
+docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
+```
+
+打开 http://127.0.0.1:5174 注册即可。局域网默认可访问，数据在卷 `geekdesign-data`。
+
+没有 Docker 时：`npm run build && npm start`，默认只监听本机，数据在 `data/`。升级、备份和端口见 [Docker 部署](docs/docker.md)、[源码部署](docs/local-deployment.md)。
+
+### 开发
+
+需要 Node.js 24。
 
 ```sh
 git clone https://github.com/Leskur/geek-design.git
@@ -49,76 +54,10 @@ npm ci
 npm run dev
 ```
 
-打开 [http://127.0.0.1:5173](http://127.0.0.1:5173)：
+http://127.0.0.1:5173 是前端，后端在 5174。本地看稿走 `/local`，空间走 `/register`。
 
-- 查看本机文件：直接访问 [本地文件入口](http://127.0.0.1:5173/local)，选择 `.sketch` 文件。
-- 体验团队模式：访问 [注册页](http://127.0.0.1:5173/register)，注册后创建团队与项目，再上传文件。
+贡献前请看 [CONTRIBUTING.md](CONTRIBUTING.md)；安全问题见 [SECURITY.md](SECURITY.md)。
 
-开发命令会同时启动前端 5173 和后端 5174。首次安装时，`better-sqlite3`、`sharp` 等原生依赖可能需要下载平台二进制文件；安装失败时请在 Issue 中附上 Node.js 版本和脱敏后的报错。
+## 许可证
 
-## 自行部署
-
-团队服务可直接拉取镜像运行，不必克隆仓库，宿主机无需安装 Node.js。
-
-```sh
-docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
-```
-
-默认拉取 `ghcr.io/leskur/geek-design:latest`，在 5174 端口提供服务，局域网可访问。业务数据保存在命名卷 `geekdesign-data`。配置、Compose、升级和备份见 [Docker 部署](docs/docker.md)。
-
-源码运行方式：
-
-```sh
-npm run build
-npm start
-```
-
-默认访问 [http://127.0.0.1:5174](http://127.0.0.1:5174)，仅监听本机。局域网地址、HTTPS、上传限制和数据迁移见 [部署指南](docs/local-deployment.md)。
-
-源码模式的账号、原始文件、上传状态、字体和预览默认保存在 `data/`。备份前停止服务并复制整个数据目录。环境变量沿用 `SKETCHPEEK_*` 前缀；源码服务不自动读取 `.env`，Docker Compose 会读取。
-
-## 常用操作
-
-| 操作 | 用途 |
-| --- | --- |
-| 单击元素 / 拖动画布 | 选择图层 / 平移视野 |
-| 空格 + 拖动 / 鼠标中键拖动 | 平移画布 |
-| Shift + 单击 | 选择父级 |
-| 按住 Alt 悬停其他元素 | 查看距离 |
-| Ctrl / Command + 滚轮或加减号 | 缩放 |
-| Ctrl / Command + 0 / 1 | 适合视图 / 100% |
-| 双击画板 | 缩放定位，保留页面上下文 |
-| 右键画板 → 打开单画板 | 进入独立聚焦视图 |
-
-详细操作见 [页面与单画板视图](docs/viewer-navigation.md)。
-
-## 当前边界
-
-项目仍在持续开发，请结合原稿核对关键细节：
-
-- **不是 Sketch 编辑器**：用于查看、检查和导出，不提供完整设计编辑能力。
-- **还原并非逐像素一致**：复杂效果、蒙版、组件布局和字体排版可能与 Sketch 原生显示不同；服务端远景预览使用简化文字排版，不加载团队字体。
-- **CSS 是属性参考**：不会自动推导完整页面的 Flex / Grid、响应式规则和业务组件。
-- **导出有范围限制**：不包含父级蒙版，越界内容或阴影可能被裁切；切图 SVG 的文字会转为图像嵌入。AI 包不打包字体，HTML 为静态视觉参考。
-- **优先面向本地与可信团队**：注册、账号治理、存储配额、审计等能力尚不完整。开放服务前请阅读 [安全说明](SECURITY.md) 和部署指南。
-
-## 文档
-
-- [开发检查、图片下载、切图与导出](docs/developer-inspector.md)
-- [页面导航与性能分级](docs/viewer-navigation.md)
-- [账号、空间、权限与字体库](docs/accounts-and-teams.md)
-- [开发与局域网部署](docs/local-deployment.md)
-- [Docker Compose 部署](docs/docker.md)
-- [文档索引与实现记录](docs/README.md)
-
-## 反馈与贡献
-
-欢迎提交 Bug、渲染差异、功能建议和 Pull Request。反馈入口：[GitHub Issues](https://github.com/Leskur/geek-design/issues)。提交前请阅读 [贡献指南](CONTRIBUTING.md)；安全问题请先查看 [安全反馈说明](SECURITY.md)。
-
-技术栈：React · TypeScript · Vite · SVG · Fastify · SQLite。
-
-## 许可证与素材
-
-项目代码和项目自有文档采用 [MIT License](LICENSE)，版权归 Leskur 及相应贡献者所有。第三方依赖遵循各自的许可证。
-
-仓库许可证不替代你上传的设计稿、字体、图片或其他第三方素材的授权。请确认有权使用和分享这些文件；提交 Issue 或 PR 时优先使用自制、脱敏且允许公开的最小示例。
+代码和项目自有文档为 [MIT License](LICENSE)。你上传的设计稿、字体和图片仍归原权利人，请确认有权使用。

@@ -107,13 +107,4 @@ Compose 升级为 `docker compose -p geekdesign pull` 后 `up -d --wait`。按�
 - 上传过大：同时检查应用上限、反向代理请求体限制和磁盘空间。
 - 构建依赖下载失败：确认 Docker 能访问基础镜像仓库、Debian 软件源、npm 及原生模块的下载来源。
 
-## 开发验证
-
-```sh
-npm ci
-npm run smoke:docker -- http://127.0.0.1:5174
-```
-
-烟雾验证会创建测试账号、空间、文件夹与设计记录，并检查静态文件、原生模块、上传和后台解析。只对新建的本机测试容器执行，不要对真实业务部署运行。
-
-`.github/workflows/docker.yml` 在相关 PR、`main` 推送、`v*` 标签或手动触发时构建 Linux 镜像并运行烟雾验证。非 PR 成功后会把镜像推到 GHCR。源码开发和日常测试不需要 Docker。首次推送后若拉取 401，到 GitHub Packages 把 `geek-design` 容器包设为公开。
+`.github/workflows/docker.yml` 在相关 PR、`main` 推送、`v*` 标签或手动触发时构建 Linux 镜像，确认服务能起来后推到 GHCR。源码开发和日常测试不需要 Docker。首次推送后若拉取 401，到 GitHub Packages 把 `geek-design` 容器包设为公开。
