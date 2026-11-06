@@ -45,6 +45,14 @@ docker rm -f geekdesign
 docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
 ```
 
+若日志出现「此数据目录已有服务运行」，是旧容器留下的锁，不是数据坏了。清掉锁再启动（不要删数据卷）：
+
+```sh
+docker rm -f geekdesign
+docker run --rm -v geekdesign-data:/app/data busybox rm -f /app/data/server.lock
+docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
+```
+
 卸载。只停服务、保留数据：
 
 ```sh
@@ -87,7 +95,7 @@ npm ci
 npm run build
 ```
 
-停掉旧进程再 `npm start`。卸载：停进程；要删数据就删 `data/`。
+停掉旧进程再 `npm start`。若仍提示数据目录已有服务运行，删掉 `data/server.lock`，不要删整个 `data/`。卸载：停进程；要删数据就删 `data/`。
 
 ### 开发
 
