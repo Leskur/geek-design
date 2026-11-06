@@ -30,6 +30,7 @@ function render(
       setFileMenu={() => {}}
       copyLink={async () => {}}
       canDeleteFile={() => manager}
+      canOverwriteFile={() => manager}
       canMoveFile={() => manager}
       requestEdit={() => {}}
       requestDelete={() => {}}
@@ -53,6 +54,30 @@ test('failed designs remain accessible through their folder and root designs use
   const root = render([{ ...design, folder_id: null }], true, null);
   assert.match(root, /href="\/spaces\/space\/designs\/design"/);
   assert.match(root, /覆盖上传/);
+});
+test("members can upload but cannot overwrite someone else's design", () => {
+  const html = renderToStaticMarkup(
+    <DesignList
+      spaceId="space"
+      folder={{ id: 'folder' }}
+      emptyFolder={false}
+      designsLoaded={true}
+      visibleFiles={[{ ...design, created_by: 'other' }]}
+      listView={false}
+      mayUpload={true}
+      active={false}
+      beginUpload={() => {}}
+      setFileMenu={() => {}}
+      copyLink={async () => {}}
+      canDeleteFile={(d) => d.created_by === 'me'}
+      canOverwriteFile={(d) => d.created_by === 'me'}
+      canMoveFile={() => true}
+      requestEdit={() => {}}
+      requestDelete={() => {}}
+    />,
+  );
+  assert.match(html, /复制链接/);
+  assert.doesNotMatch(html, /覆盖上传|重命名设计|移动到文件夹|删除设计/);
 });
 test('empty folders offer upload only to editors', () => {
   assert.match(render([]), /等待伙伴上传即可/);

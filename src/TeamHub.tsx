@@ -134,14 +134,7 @@ export function TeamHub() {
   }, []);
   useEffect(() => {
     function onClick(e: globalThis.MouseEvent) {
-      if (
-        e.defaultPrevented ||
-        e.button !== 0 ||
-        e.metaKey ||
-        e.ctrlKey ||
-        e.shiftKey ||
-        e.altKey
-      )
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey)
         return;
       const anchor = (e.target as Element | null)?.closest?.('a');
       if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
@@ -242,16 +235,8 @@ export function TeamHub() {
     setError,
     setNotice,
   });
-  const {
-    showUpload,
-    setShowUpload,
-    target,
-    setTarget,
-    phase,
-    active,
-    uploadLabel,
-    beginUpload,
-  } = upload;
+  const { showUpload, setShowUpload, target, setTarget, phase, active, uploadLabel, beginUpload } =
+    upload;
   useEffect(() => {
     if (me) {
       const view = workspaceView(me.id);
@@ -268,13 +253,21 @@ export function TeamHub() {
     rememberWorkspaceView(me.id, listView, order);
   }
   const mayUpload = !!me && !!space;
-  const canManageFolder = !!me && space?.role === 'owner';
+  function canManageOwned(item: { created_by?: string }) {
+    return space?.role === 'owner' || item.created_by === me?.id;
+  }
   function requestDelete(kind: 'space' | 'folder' | 'design', item: any) {
     setDeleteError('');
     setDeletion({ kind, item });
   }
   function canDeleteFile(d: any) {
-    return d.created_by === me?.id || space?.role === 'owner';
+    return canManageOwned(d);
+  }
+  function canRenameFolder(item: any) {
+    return canManageOwned(item);
+  }
+  function canDeleteFolder(item: any) {
+    return canManageOwned(item);
   }
   async function removeItem() {
     if (!deletion || deleting) return;
@@ -292,9 +285,7 @@ export function TeamHub() {
       if (deletion.kind === 'folder') {
         const parentId = deletion.item.parent_id;
         location.assign(
-          parentId
-            ? folderPath(parentId)
-            : spacePath(deletion.item.space_id || space?.id),
+          parentId ? folderPath(parentId) : spacePath(deletion.item.space_id || space?.id),
         );
         return;
       }
@@ -310,10 +301,7 @@ export function TeamHub() {
   }
   function moveOptions(d: any) {
     const sourceId = d.folder_id || null;
-    const spaceId =
-      d.space_id ||
-      folders.find((f) => f.id === sourceId)?.space_id ||
-      space?.id;
+    const spaceId = d.space_id || folders.find((f) => f.id === sourceId)?.space_id || space?.id;
     const opts: { id: string; name: string }[] = [];
     if (sourceId) opts.push({ id: '', name: '空间根' });
     for (const f of folders.filter((x) => x.space_id === spaceId && x.id !== sourceId))
@@ -327,7 +315,7 @@ export function TeamHub() {
   }
   function requestEdit(kind: 'space' | 'folder' | 'design', item: any, move = false) {
     setEditName(item.name);
-    setMoveFolderId(move ? moveOptions(item)[0]?.id ?? '' : '');
+    setMoveFolderId(move ? (moveOptions(item)[0]?.id ?? '') : '');
     setEditError('');
     setEditing({ kind, item, move });
   }
@@ -387,13 +375,10 @@ export function TeamHub() {
     const allFolders = folderLists.flat();
     setFolders(allFolders);
 
-    const requested = route.folderId
-      ? allFolders.find((f) => matchesId(route.folderId, f))
-      : null;
+    const requested = route.folderId ? allFolders.find((f) => matchesId(route.folderId, f)) : null;
     if (route.folderId && !requested) throw new Error('文件夹不存在或无权访问');
 
-    const id =
-      route.spaceId || requested?.space_id || preferredSpace(me.id, allSpaces);
+    const id = route.spaceId || requested?.space_id || preferredSpace(me.id, allSpaces);
     const selected = allSpaces.find((s) => matchesId(id, s));
     if (id && !selected) throw new Error('空间不存在或无权访问');
     setSpace(selected || null);
@@ -481,9 +466,7 @@ export function TeamHub() {
     while (current && !seen.has(current.id)) {
       seen.add(current.id);
       chain.unshift(current);
-      current = current.parent_id
-        ? folders.find((item) => item.id === current.parent_id)
-        : null;
+      current = current.parent_id ? folders.find((item) => item.id === current.parent_id) : null;
     }
     return chain;
   }
@@ -683,7 +666,7 @@ export function TeamHub() {
             </div>
           ) : space && !folder && route.section === 'resources' ? (
             <div className="wb-resources">
-              <TeamFonts key={space.id} team={space} />
+              <TeamFonts key={space.id} team={space} me={me} />
             </div>
           ) : space && !folder ? (
             <>
@@ -716,6 +699,8 @@ export function TeamHub() {
                 onCreateFolder={() => openCreateFolder(space.id)}
                 onRename={(kind, item) => requestEdit(kind, item)}
                 onDelete={requestDelete}
+                canRenameFolder={canRenameFolder}
+                canDeleteFolder={canDeleteFolder}
               />
               {!(spaceFolders.length && emptyFolder) && (
                 <DesignList
@@ -731,17 +716,14 @@ export function TeamHub() {
                   setFileMenu={setFileMenu}
                   copyLink={copyLink}
                   canDeleteFile={canDeleteFile}
+                  canOverwriteFile={canDeleteFile}
                   canMoveFile={(d) => !!moveOptions(d).length}
                   requestEdit={requestEdit}
                   requestDelete={requestDelete}
                 />
               )}
               {space.kind !== 'personal' && membersOpen && (
-                <Dialog
-                  wide
-                  title="成员"
-                  onClose={() => setMembersOpen(false)}
-                >
+                <Dialog wide title="成员" onClose={() => setMembersOpen(false)}>
                   <div className="wb-upload-body">
                     <TeamMembers key={space.id} team={space} me={me} />
                   </div>
@@ -810,6 +792,7 @@ export function TeamHub() {
               <div
                 className="wb-page-heading project-page-heading"
                 onContextMenu={(e) => {
+                  if (!canRenameFolder(folder) && !canDeleteFolder(folder)) return;
                   e.preventDefault();
                   e.stopPropagation();
                   setFolderMenu({ x: e.clientX, y: e.clientY });
@@ -825,17 +808,19 @@ export function TeamHub() {
                     </span>
                     <span>{folder?.name || '设计文件'}</span>
                   </h1>
-                  <button
-                    className="wb-icon-button"
-                    aria-label="文件夹操作"
-                    title="文件夹操作"
-                    onClick={(e) => {
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setFolderMenu({ x: rect.left, y: rect.bottom + 6 });
-                    }}
-                  >
-                    <Ellipsis size={18} />
-                  </button>
+                  {(canRenameFolder(folder) || canDeleteFolder(folder)) && (
+                    <button
+                      className="wb-icon-button"
+                      aria-label="文件夹操作"
+                      title="文件夹操作"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect();
+                        setFolderMenu({ x: rect.left, y: rect.bottom + 6 });
+                      }}
+                    >
+                      <Ellipsis size={18} />
+                    </button>
+                  )}
                 </div>
                 {pageControls}
               </div>
@@ -847,27 +832,30 @@ export function TeamHub() {
                 onCreateFolder={() => openCreateFolder(space.id, folder.id)}
                 onRename={(kind, item) => requestEdit(kind, item)}
                 onDelete={requestDelete}
+                canRenameFolder={canRenameFolder}
+                canDeleteFolder={canDeleteFolder}
               />
               {!(childFolders.length && emptyFolder) && (
-              <div>
-                <DesignList
-                  spaceId={space.id}
-                  folder={folder}
-                  emptyFolder={!!emptyFolder && !childFolders.length}
-                  designsLoaded={designsLoaded}
-                  visibleFiles={visibleFiles}
-                  listView={listView}
-                  mayUpload={mayUpload}
-                  active={active}
-                  beginUpload={beginUpload}
-                  setFileMenu={setFileMenu}
-                  copyLink={copyLink}
-                  canDeleteFile={canDeleteFile}
-                  canMoveFile={(d) => !!moveOptions(d).length}
-                  requestEdit={requestEdit}
-                  requestDelete={requestDelete}
-                />
-              </div>
+                <div>
+                  <DesignList
+                    spaceId={space.id}
+                    folder={folder}
+                    emptyFolder={!!emptyFolder && !childFolders.length}
+                    designsLoaded={designsLoaded}
+                    visibleFiles={visibleFiles}
+                    listView={listView}
+                    mayUpload={mayUpload}
+                    active={active}
+                    beginUpload={beginUpload}
+                    setFileMenu={setFileMenu}
+                    copyLink={copyLink}
+                    canDeleteFile={canDeleteFile}
+                    canOverwriteFile={canDeleteFile}
+                    canMoveFile={(d) => !!moveOptions(d).length}
+                    requestEdit={requestEdit}
+                    requestDelete={requestDelete}
+                  />
+                </div>
               )}
             </>
           )}
@@ -887,11 +875,13 @@ export function TeamHub() {
       )}
       {folderMenu && folder && (
         <ContextMenu position={folderMenu} onClose={() => setFolderMenu(null)}>
-          <button disabled={active} onClick={() => requestEdit('folder', folder)}>
-            <Pencil size={16} />
-            重命名文件夹
-          </button>
-          {canManageFolder && (
+          {canRenameFolder(folder) && (
+            <button disabled={active} onClick={() => requestEdit('folder', folder)}>
+              <Pencil size={16} />
+              重命名文件夹
+            </button>
+          )}
+          {canDeleteFolder(folder) && (
             <button
               className="danger"
               disabled={active}
@@ -1106,7 +1096,9 @@ export function TeamHub() {
                 placeholder={createKind === 'space' ? '例如：产品设计协作' : '例如：移动端设计'}
                 value={createKind === 'space' ? newSpace : newFolder}
                 onChange={(e) =>
-                  createKind === 'space' ? setNewSpace(e.target.value) : setNewFolder(e.target.value)
+                  createKind === 'space'
+                    ? setNewSpace(e.target.value)
+                    : setNewFolder(e.target.value)
                 }
               />
             </label>
@@ -1130,9 +1122,7 @@ export function TeamHub() {
         <UploadDialog
           upload={upload}
           spaceId={space.id}
-          targetName={
-            (folder ? designs : files).find((d) => d.id === target)?.name
-          }
+          targetName={(folder ? designs : files).find((d) => d.id === target)?.name}
           alert={alert}
         />
       )}

@@ -1,6 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import type { Store, User } from './db';
-import { canDeleteDesign, designAccess, fail, folderAccess, spaceAccess } from './auth';
+import {
+  canDeleteDesign,
+  canDeleteOwned,
+  designAccess,
+  fail,
+  folderAccess,
+  spaceAccess,
+} from './auth';
 import { collectDesignRefs, reclaimStorage } from './gc';
 
 export function deletionRoutes(app: FastifyInstance, store: Store, user: (req: any) => User) {
@@ -57,11 +64,22 @@ export function deletionRoutes(app: FastifyInstance, store: Store, user: (req: a
   app.delete('/api/folders/:id', async (req: any) => {
     const u = user(req),
       { folder, space } = folderAccess(store, u, req.params.id);
-    if (space.role !== 'owner') fail(403, '只有空间拥有者可以删除文件夹');
+    if (!canDeleteOwned(space, folder, u)) fail(403, '只能删除自己创建的文件夹');
     const folderIds = foldersLeafFirst(
       store.all('SELECT id, parent_id FROM folders WHERE space_id=?', space.id),
       folder.id,
     );
+    if (space.role !== 'owner') {
+      const foreign =
+        folderIds.some((id) => {
+          const row = store.one('SELECT created_by FROM folders WHERE id=?', id);
+          return row.created_by !== u.id;
+        }) ||
+        folderIds.some((id) =>
+          store.one('SELECT id FROM designs WHERE folder_id=? AND created_by!=? LIMIT 1', id, u.id),
+        );
+      if (foreign) fail(403, '文件夹内还有其他人的内容，无法删除');
+    }
     const designIds = folderIds.flatMap((id) =>
       store.all('SELECT id FROM designs WHERE folder_id=?', id).map((d) => d.id),
     );
@@ -84,9 +102,7 @@ export function deletionRoutes(app: FastifyInstance, store: Store, user: (req: a
     const folders = foldersLeafFirst(
       store.all('SELECT id, parent_id FROM folders WHERE space_id=?', s.id),
     );
-    const designIds = store
-      .all('SELECT id FROM designs WHERE space_id=?', s.id)
-      .map((d) => d.id);
+    const designIds = store.all('SELECT id FROM designs WHERE space_id=?', s.id).map((d) => d.id);
     assertIdle(designIds);
     const refs = await collectDesignRefs(store, store.storage, designIds);
     store.transaction(() => {

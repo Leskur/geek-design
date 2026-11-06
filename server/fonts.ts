@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import { create } from 'fontkit';
 import type { Store, User } from './db';
-import { spaceAccess, designAccess, fail } from './auth';
+import { spaceAccess, designAccess, canDeleteOwned, fail } from './auth';
 export const MAX_FONT_SIZE = 20 * 1024 ** 2;
 export function fontContentDisposition(filename: string) {
   const ascii = filename.replace(/[^\x20-\x7e]|["\\]/g, '_') || 'font';
@@ -14,7 +14,7 @@ export function fontRoutes(app: FastifyInstance, store: Store, user: (req: any) 
   const list = (spaceId: string) =>
     store
       .all(
-        'SELECT id,filename,family,full_name,postscript_name,weight,style,size,created FROM space_fonts WHERE space_id=? ORDER BY family COLLATE NOCASE,weight,style',
+        'SELECT id,filename,family,full_name,postscript_name,weight,style,size,created_by,created FROM space_fonts WHERE space_id=? ORDER BY family COLLATE NOCASE,weight,style',
         spaceId,
       )
       .map((f) => ({ ...f, url: `/api/spaces/${spaceId}/fonts/${f.id}` }));
@@ -31,7 +31,7 @@ export function fontRoutes(app: FastifyInstance, store: Store, user: (req: any) 
   });
   app.post('/api/spaces/:id/fonts', { bodyLimit: MAX_FONT_SIZE }, async (req: any, reply) => {
     const actor = user(req),
-      s = spaceAccess(store, actor, req.params.id, true),
+      s = spaceAccess(store, actor, req.params.id),
       bytes = req.body;
     if (!Buffer.isBuffer(bytes) || bytes.length < 12 || bytes.length > MAX_FONT_SIZE)
       fail(400, '请选择有效字体文件，单个文件不超过 20 MB');
@@ -104,7 +104,7 @@ export function fontRoutes(app: FastifyInstance, store: Store, user: (req: any) 
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e;
     }
     const saved = store.transaction(() => {
-      spaceAccess(store, actor, s.id, true);
+      spaceAccess(store, actor, s.id);
       const duplicate = store.one(
         'SELECT id FROM space_fonts WHERE space_id=? AND hash=?',
         s.id,
@@ -155,13 +155,16 @@ export function fontRoutes(app: FastifyInstance, store: Store, user: (req: any) 
       .send(fs.createReadStream(store.storage.path('fonts', f.hash)));
   });
   app.delete('/api/spaces/:id/fonts/:fontId', async (req: any) => {
-    spaceAccess(store, user(req), req.params.id, true);
-    const result = store.run(
-      'DELETE FROM space_fonts WHERE id=? AND space_id=?',
-      req.params.fontId,
-      req.params.id,
-    );
-    if (!result.changes) fail(404, '字体不存在');
+    const actor = user(req),
+      s = spaceAccess(store, actor, req.params.id),
+      f = store.one(
+        'SELECT * FROM space_fonts WHERE id=? AND space_id=?',
+        req.params.fontId,
+        req.params.id,
+      );
+    if (!f) fail(404, '字体不存在');
+    if (!canDeleteOwned(s, f, actor)) fail(403, '只能删除自己上传的字体');
+    store.run('DELETE FROM space_fonts WHERE id=? AND space_id=?', f.id, s.id);
     return { ok: true };
   });
 }

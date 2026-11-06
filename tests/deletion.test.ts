@@ -99,9 +99,23 @@ test('deletion enforces roles, removes descendants atomically and reclaims unuse
     design('third', owner.id);
     assert.equal((await call('/designs/third', member.cookie, 'DELETE')).statusCode, 403);
     assert.equal((await call('/folders/' + folder.id, member.cookie, 'DELETE')).statusCode, 403);
+    const ownFolder = (
+      await call('/folders', member.cookie, 'POST', { spaceId: space.id, name: 'Mine' })
+    ).json();
+    assert.equal((await call('/folders/' + ownFolder.id, member.cookie, 'DELETE')).statusCode, 200);
+    const occupied = (
+      await call('/folders', member.cookie, 'POST', { spaceId: space.id, name: 'Occupied' })
+    ).json();
+    design('foreign-in-member', owner.id, 'ready', false, occupied.id);
+    assert.equal((await call('/folders/' + occupied.id, member.cookie, 'DELETE')).statusCode, 403);
+    assert.ok(store.one('SELECT id FROM folders WHERE id=?', occupied.id));
+    store.run("DELETE FROM designs WHERE id='foreign-in-member'");
+    assert.equal((await call('/folders/' + occupied.id, member.cookie, 'DELETE')).statusCode, 200);
     assert.equal((await call('/spaces/' + space.id, member.cookie, 'DELETE')).statusCode, 403);
 
-    const personal = (await call('/spaces', owner.cookie)).json().find((s: any) => s.kind === 'personal');
+    const personal = (await call('/spaces', owner.cookie))
+      .json()
+      .find((s: any) => s.kind === 'personal');
     assert.equal((await call('/spaces/' + personal.id, owner.cookie, 'DELETE')).statusCode, 403);
 
     design('blocked', owner.id, 'processing', false);
@@ -156,10 +170,7 @@ test('deletion enforces roles, removes descendants atomically and reclaims unuse
     assert.ok(store.one("SELECT id FROM designs WHERE id='root-only' AND folder_id IS NULL"));
     assert.equal((await call('/spaces/' + space.id, owner.cookie, 'DELETE')).statusCode, 200);
     assert.equal(store.one("SELECT id FROM designs WHERE id='root-only'"), undefined);
-    assert.equal(
-      store.all('SELECT * FROM space_members WHERE space_id=?', space.id).length,
-      0,
-    );
+    assert.equal(store.all('SELECT * FROM space_members WHERE space_id=?', space.id).length, 0);
     assert.equal((await call('/spaces/' + space.id, owner.cookie, 'DELETE')).statusCode, 404);
   } finally {
     await app.close();

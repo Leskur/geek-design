@@ -13,7 +13,7 @@ test('a direct design URL renders the viewer loading shell on its very first ren
   try {
     Object.defineProperty(globalThis, 'location', {
       configurable: true,
-      value: new URL('http://test.local/folders/p/designs/d'),
+      value: new URL('http://test.local/spaces/s/designs/d'),
     });
     const html = renderToStaticMarkup(<App />);
     assert.match(html, /正在打开设计/);

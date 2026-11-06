@@ -1,8 +1,12 @@
 import { build } from 'esbuild';
+import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { copyFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
+const version = JSON.parse(
+  readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+).version;
 const testFiles = (await readdir('tests')).filter((name) => /\.test\.tsx?$/.test(name)).sort();
 if (!testFiles.length) throw new Error('No test files found');
 
@@ -14,6 +18,7 @@ await build({
   platform: 'node',
   format: 'esm',
   packages: 'external',
+  define: { __APP_VERSION__: JSON.stringify(version) },
   outdir: '.test-output',
   outExtension: { '.js': '.mjs' },
 });

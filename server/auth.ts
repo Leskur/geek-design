@@ -61,10 +61,13 @@ export function designAccess(store: Store, user: User, designId: string) {
     : null;
   return { design, folder, space };
 }
+export function canDeleteOwned(space: { role: string }, item: { created_by: string }, user: User) {
+  return space.role === 'owner' || item.created_by === user.id;
+}
 export function canDeleteDesign(
   space: { role: string },
   design: { created_by: string },
   user: User,
 ) {
-  return space.role === 'owner' || design.created_by === user.id;
+  return canDeleteOwned(space, design, user);
 }

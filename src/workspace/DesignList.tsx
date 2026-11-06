@@ -44,6 +44,7 @@ interface Props {
   setFileMenu: (menu: MenuPosition & { item: DesignSummary }) => void;
   copyLink: (designId: string) => Promise<void>;
   canDeleteFile: (design: DesignSummary) => boolean;
+  canOverwriteFile: (design: DesignSummary) => boolean;
   canMoveFile: (design: DesignSummary) => boolean;
   requestEdit: (kind: 'design', design: DesignSummary, move?: boolean) => void;
   requestDelete: (kind: 'design', design: DesignSummary) => void;
@@ -67,6 +68,7 @@ export function DesignList({
   setFileMenu,
   copyLink,
   canDeleteFile,
+  canOverwriteFile,
   canMoveFile,
   requestEdit,
   requestDelete,
@@ -215,7 +217,7 @@ export function DesignList({
                         <ArrowUpRight size={16} />
                         打开设计
                       </a>
-                      {mayUpload && (
+                      {canOverwriteFile(d) && (
                         <button aria-label="覆盖上传" onClick={() => beginUpload(d.id)}>
                           <Upload size={16} />
                           覆盖上传

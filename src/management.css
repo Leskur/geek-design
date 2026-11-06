@@ -1496,8 +1496,14 @@
   line-height: 16px;
   margin-top: 2px;
 }
-.management-font-row > button {
+.management-font-actions {
+  display: grid;
+  grid-template-columns: 30px 30px 30px;
+  gap: 12px;
   flex-shrink: 0;
+  align-items: center;
+}
+.management-font-actions > .wb-icon-button {
   font-size: 12px;
 }
 .management-font-preview {

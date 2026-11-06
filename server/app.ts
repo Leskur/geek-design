@@ -11,6 +11,7 @@ import { LocalStorage } from './storage';
 import { personalSpaceName, Store, type User } from './db';
 import {
   authenticate,
+  canDeleteOwned,
   checkPassword,
   designAccess,
   fail,
@@ -127,7 +128,13 @@ export async function createApp(options: {
         spaceId = store.id(),
         now = Date.now();
       store.run('INSERT INTO users VALUES(?,?,?)', id, name, hash);
-      store.run('INSERT INTO spaces VALUES(?,?,?,?)', spaceId, personalSpaceName(name), 'personal', now);
+      store.run(
+        'INSERT INTO spaces VALUES(?,?,?,?)',
+        spaceId,
+        personalSpaceName(name),
+        'personal',
+        now,
+      );
       store.run("INSERT INTO space_members VALUES(?,?,'owner')", spaceId, id);
       return id;
     });
@@ -190,7 +197,10 @@ export async function createApp(options: {
   async function ready(req: any) {
     const { design, folder, space } = designAccess(store, user(req), req.params.id);
     if (design.status !== 'ready' || !design.artifact_key) fail(409, '设计尚未处理完成');
-    const a = store.one("SELECT * FROM artifacts WHERE key=? AND status='ready'", design.artifact_key);
+    const a = store.one(
+      "SELECT * FROM artifacts WHERE key=? AND status='ready'",
+      design.artifact_key,
+    );
     if (!a) fail(409, '查看数据尚未就绪');
     const dir = storage.path('artifacts', design.artifact_key);
     const manifest = JSON.parse(await fsp.readFile(path.join(dir, 'manifest.json'), 'utf8'));
@@ -215,7 +225,7 @@ export async function createApp(options: {
       ...manifest,
       fontLibrary: {
         spaceId: space.id,
-        canUpload: space.role === 'owner',
+        canUpload: true,
       },
       viewerId: user(req).id,
       designId: design.id,
@@ -306,6 +316,7 @@ export async function createApp(options: {
     if (design) {
       if (design.space_id !== space.id) fail(400, '目标设计与空间不一致');
       if ((design.folder_id || null) !== folderId) fail(400, '目标设计与文件夹不一致');
+      if (!canDeleteOwned(space, design, u)) fail(403, '只能覆盖自己创建的设计');
     }
     const reuse =
       store.one(
@@ -334,8 +345,7 @@ export async function createApp(options: {
         );
         design = store.one('SELECT * FROM designs WHERE id=?', id);
       }
-      if (design.hash === hash && design.status === 'ready')
-        return { kind: 'duplicate', design };
+      if (design.hash === hash && design.status === 'ready') return { kind: 'duplicate', design };
       const key = reuse ? jobs.enqueue(hash) : null;
       if (reuse) {
         const a = store.one('SELECT * FROM artifacts WHERE key=?', key);
@@ -385,12 +395,13 @@ export async function createApp(options: {
         Date.now(),
         design.id,
       );
-      return { kind: 'upload', design: store.one('SELECT * FROM designs WHERE id=?', design.id), ticket: id };
+      return {
+        kind: 'upload',
+        design: store.one('SELECT * FROM designs WHERE id=?', design.id),
+        ticket: id,
+      };
     });
-    if (
-      (result.kind === 'reused' || result.kind === 'duplicate') &&
-      previous.objectHashes.length
-    ) {
+    if ((result.kind === 'reused' || result.kind === 'duplicate') && previous.objectHashes.length) {
       const next = store.one('SELECT hash,artifact_key FROM designs WHERE id=?', result.design.id);
       await reclaimStorage(store, storage, {
         objectHashes: previous.objectHashes.filter((h) => h !== next.hash),

@@ -64,13 +64,30 @@ test('rename and move preserve design identity, validate input and enforce space
       200,
     );
     assert.equal(store.one('SELECT name FROM spaces WHERE id=?', space.id).name, 'New Space');
-    const personal = (await call('/spaces', owner.cookie)).json().find((s: any) => s.kind === 'personal');
+    const personal = (await call('/spaces', owner.cookie))
+      .json()
+      .find((s: any) => s.kind === 'personal');
     assert.equal(
       (await call('/spaces/' + personal.id, owner.cookie, 'PATCH', { name: 'X' })).statusCode,
       403,
     );
     assert.equal(
       (await call('/folders/' + source.id, member.cookie, 'PATCH', { name: 'New Folder' }))
+        .statusCode,
+      403,
+    );
+    assert.equal(store.one('SELECT name FROM folders WHERE id=?', source.id).name, 'Source');
+    const memberFolder = (
+      await call('/folders', member.cookie, 'POST', { spaceId: space.id, name: 'Mine' })
+    ).json();
+    assert.equal(memberFolder.created_by, member.id);
+    assert.equal(
+      (await call('/folders/' + memberFolder.id, member.cookie, 'PATCH', { name: 'Renamed' }))
+        .statusCode,
+      200,
+    );
+    assert.equal(
+      (await call('/folders/' + memberFolder.id, owner.cookie, 'PATCH', { name: 'OwnerEdit' }))
         .statusCode,
       200,
     );
@@ -127,20 +144,17 @@ test('rename and move preserve design identity, validate input and enforce space
     const moved = (await call('/designs/design', owner.cookie)).json();
     assert.equal(moved.id, 'design');
     assert.equal(moved.folder_id, target.id);
-    assert.equal(
-      (await call('/folders/' + source.id + '/designs', owner.cookie)).json().length,
-      0,
-    );
-    assert.equal(
-      (await call('/folders/' + target.id + '/designs', owner.cookie)).json().length,
-      1,
-    );
+    assert.equal((await call('/folders/' + source.id + '/designs', owner.cookie)).json().length, 0);
+    assert.equal((await call('/folders/' + target.id + '/designs', owner.cookie)).json().length, 1);
     assert.equal(
       (await call('/designs/design/move', member.cookie, 'POST', { folderId: target.id }))
         .statusCode,
       200,
     );
-    assert.equal((await call('/designs/design/manifest', member.cookie)).json().folderId, target.id);
+    assert.equal(
+      (await call('/designs/design/manifest', member.cookie)).json().folderId,
+      target.id,
+    );
     assert.equal(
       (await call('/designs/design/move', member.cookie, 'POST', { folderId: null })).statusCode,
       200,

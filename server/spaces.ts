@@ -11,7 +11,7 @@ export function spaceRoutes(app: FastifyInstance, store: Store, user: (req: any)
   };
   app.get('/api/spaces', async (req) =>
     store.all(
-      'SELECT s.*,m.role,(SELECT COUNT(*) FROM space_members WHERE space_id=s.id) AS member_count FROM spaces s JOIN space_members m ON m.space_id=s.id WHERE m.user_id=? ORDER BY CASE s.kind WHEN \'personal\' THEN 0 ELSE 1 END, s.created DESC',
+      "SELECT s.*,m.role,(SELECT COUNT(*) FROM space_members WHERE space_id=s.id) AS member_count FROM spaces s JOIN space_members m ON m.space_id=s.id WHERE m.user_id=? ORDER BY CASE s.kind WHEN 'personal' THEN 0 ELSE 1 END, s.created DESC",
       user(req).id,
     ),
   );
@@ -142,10 +142,7 @@ export function spaceRoutes(app: FastifyInstance, store: Store, user: (req: any)
   });
   app.get('/api/spaces/:id/folders', async (req: any) => {
     spaceAccess(store, user(req), req.params.id);
-    return store.all(
-      'SELECT * FROM folders WHERE space_id=? ORDER BY created DESC',
-      req.params.id,
-    );
+    return store.all('SELECT * FROM folders WHERE space_id=? ORDER BY created DESC', req.params.id);
   });
   app.get('/api/spaces/:id/designs', async (req: any) => {
     spaceAccess(store, user(req), req.params.id);
@@ -167,13 +164,14 @@ export function spaceRoutes(app: FastifyInstance, store: Store, user: (req: any)
       parentId = folder.id;
     }
     store.run(
-      'INSERT INTO folders(id,space_id,name,created,parent_id) VALUES(?,?,?,?,?)',
+      'INSERT INTO folders(id,space_id,name,created,parent_id,created_by) VALUES(?,?,?,?,?,?)',
       id,
       s.id,
       value,
       Date.now(),
       parentId,
+      u.id,
     );
-    return { id, space_id: s.id, name: value, parent_id: parentId };
+    return { id, space_id: s.id, name: value, parent_id: parentId, created_by: u.id };
   });
 }

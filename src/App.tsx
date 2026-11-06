@@ -158,7 +158,7 @@ export function App() {
           { signal: controller.signal },
         );
         if (controller.signal.aborted) return;
-        doc.fontLibrary = { spaceId: space.id, canUpload: space.role === 'owner' };
+        doc.fontLibrary = { spaceId: space.id, canUpload: true };
         setFontEpoch((v) => v + 1);
       } catch {
         /* Keep the font details available if space metadata cannot be fetched. */
@@ -202,7 +202,7 @@ export function App() {
     pageId.current++;
     setBusy(true);
     setError('');
-      setStatus(next.source === 'team' ? '连接设计…' : '读取文件目录…');
+    setStatus(next.source === 'team' ? '连接设计…' : '读取文件目录…');
     try {
       await next.open();
       setStatus('读取组件和页面…');
@@ -423,7 +423,9 @@ export function App() {
       setPageTitle(doc?.source === 'local' ? displayName(doc.file.name) : '本地文件');
       return;
     }
-    setPageTitle(doc?.place?.name || (doc?.source === 'local' ? displayName(doc.file.name) : undefined));
+    setPageTitle(
+      doc?.place?.name || (doc?.source === 'local' ? displayName(doc.file.name) : undefined),
+    );
   }, [route.kind, route.designId, doc]);
   if (localOnly && (route.kind === 'space' || route.kind === 'design'))
     return (

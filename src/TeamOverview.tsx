@@ -12,6 +12,8 @@ type Props = {
   onCreateFolder: () => void;
   onRename?: (kind: 'space' | 'folder', item: any) => void;
   onDelete?: (kind: 'space' | 'folder', item: any) => void;
+  canRenameFolder?: (folder: any) => boolean;
+  canDeleteFolder?: (folder: any) => boolean;
 };
 function activityStamp(updated: number, created: number) {
   const when = updated || created;
@@ -26,10 +28,18 @@ export function TeamOverview({
   headingActions,
   onRename,
   onDelete,
+  canRenameFolder,
+  canDeleteFolder,
 }: Props) {
   const [menu, setMenu] = useState<(MenuPosition & { kind: 'space' | 'folder'; item: any }) | null>(
     null,
   );
+  function mayRename(item: any) {
+    return !!onRename && (!canRenameFolder || canRenameFolder(item));
+  }
+  function mayDelete(item: any) {
+    return !!onDelete && (canDeleteFolder ? canDeleteFolder(item) : team.role === 'owner');
+  }
   if (!folders.length) return null;
   return (
     <div className="team-overview management-overview">
@@ -39,13 +49,17 @@ export function TeamOverview({
       </div>
       <div className={`team-overview-projects${listView ? ' list' : ''}`}>
         {folders.map((p) => {
-          const latest = Math.max(0, ...files.filter((d) => d.folder_id === p.id).map((d) => d.updated || d.created || 0));
+          const latest = Math.max(
+            0,
+            ...files.filter((d) => d.folder_id === p.id).map((d) => d.updated || d.created || 0),
+          );
+          const manage = mayRename(p) || mayDelete(p);
           return (
             <article
               className="management-project-card"
               key={p.id}
               onContextMenu={(e) => {
-                if (!onRename && !onDelete) return;
+                if (!manage) return;
                 e.preventDefault();
                 setMenu({ kind: 'folder', item: p, x: e.clientX, y: e.clientY });
               }}
@@ -59,13 +73,11 @@ export function TeamOverview({
                   <p>{activityStamp(latest, p.created || 0)}</p>
                 </div>
               </a>
-              {onRename && (
+              {manage && (
                 <button
                   className="wb-icon-button"
                   aria-label={`${p.name}的文件夹操作`}
-                  onClick={(e) =>
-                    setMenu({ kind: 'folder', item: p, x: e.clientX, y: e.clientY })
-                  }
+                  onClick={(e) => setMenu({ kind: 'folder', item: p, x: e.clientX, y: e.clientY })}
                 >
                   <Ellipsis size={16} />
                 </button>
@@ -74,16 +86,16 @@ export function TeamOverview({
           );
         })}
       </div>
-      {menu && (
+      {menu && (mayRename(menu.item) || mayDelete(menu.item)) && (
         <ContextMenu position={menu} onClose={() => setMenu(null)}>
-          {onRename && (
-            <button onClick={() => onRename(menu.kind, menu.item)}>
+          {mayRename(menu.item) && (
+            <button onClick={() => onRename?.(menu.kind, menu.item)}>
               <Pencil size={16} />
               重命名{menu.kind === 'space' ? '空间' : '文件夹'}
             </button>
           )}
-          {onDelete && team.role === 'owner' && (
-            <button className="danger" onClick={() => onDelete(menu.kind, menu.item)}>
+          {mayDelete(menu.item) && (
+            <button className="danger" onClick={() => onDelete?.(menu.kind, menu.item)}>
               <Trash2 size={16} />
               删除{menu.kind === 'space' ? '空间' : '文件夹'}
             </button>

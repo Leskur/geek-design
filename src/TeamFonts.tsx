@@ -5,7 +5,7 @@ import { ManagementSearch } from './ManagementSearch';
 import { Dialog } from './Dialog';
 import { loadBrowserFont, type TeamFont } from './team-fonts';
 const limit = 20 * 1024 ** 2;
-export function TeamFonts({ team }: { team: any }) {
+export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
   const [fonts, setFonts] = useState<TeamFont[]>([]),
     [loaded, setLoaded] = useState(false),
     [query, setQuery] = useState(''),
@@ -14,17 +14,18 @@ export function TeamFonts({ team }: { team: any }) {
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(''),
     [remove, setRemove] = useState<TeamFont | null>(null),
-    [preview, setPreview] = useState(''),
-    [previewLoading, setPreviewLoading] = useState(''),
+    [previews, setPreviews] = useState<string[]>([]),
+    [previewLoading, setPreviewLoading] = useState<string[]>([]),
     [downloading, setDownloading] = useState('');
   const input = useRef<HTMLInputElement>(null),
     alive = useRef(true),
     working = useRef(false),
     saving = useRef(''),
     controller = useRef(new AbortController()),
-    faces = useRef<FontFace[]>([]),
-    previewing = useRef(false);
-  const manage = team.role === 'owner';
+    faces = useRef(new Map<string, FontFace[]>()),
+    loading = useRef(new Set<string>());
+  const canUpload = !!me;
+  const canRemove = (font: TeamFont) => team.role === 'owner' || font.created_by === me.id;
   async function refresh() {
     const list = await api<TeamFont[]>(`/spaces/${team.id}/fonts`, {
       signal: controller.current.signal,
@@ -50,7 +51,9 @@ export function TeamFonts({ team }: { team: any }) {
     return () => {
       alive.current = false;
       controller.current.abort();
-      for (const face of faces.current) document.fonts.delete(face);
+      for (const loaded of faces.current.values())
+        for (const face of loaded) document.fonts.delete(face);
+      faces.current.clear();
     };
   }, [team.id]);
   async function upload(e: ChangeEvent<HTMLInputElement>) {
@@ -106,14 +109,19 @@ export function TeamFonts({ team }: { team: any }) {
       }
     }
   }
+  function dropPreview(id: string) {
+    for (const face of faces.current.get(id) || []) document.fonts.delete(face);
+    faces.current.delete(id);
+    setPreviews((current) => current.filter((item) => item !== id));
+  }
   async function showPreview(font: TeamFont) {
-    if (previewing.current) return;
-    if (preview === font.id) {
-      setPreview('');
+    if (loading.current.has(font.id)) return;
+    if (previews.includes(font.id)) {
+      dropPreview(font.id);
       return;
     }
-    previewing.current = true;
-    setPreviewLoading(font.id);
+    loading.current.add(font.id);
+    setPreviewLoading((current) => (current.includes(font.id) ? current : [...current, font.id]));
     setError('');
     try {
       const next = await loadBrowserFont(
@@ -121,14 +129,17 @@ export function TeamFonts({ team }: { team: any }) {
         controller.current.signal,
         `team-font-preview-${font.id}`,
       );
-      for (const face of faces.current) document.fonts.delete(face);
-      faces.current = next;
-      setPreview(font.id);
+      if (!alive.current) {
+        for (const face of next) document.fonts.delete(face);
+        return;
+      }
+      faces.current.set(font.id, next);
+      setPreviews((current) => (current.includes(font.id) ? current : [...current, font.id]));
     } catch (e) {
       if (alive.current) setError((e as Error).message);
     } finally {
-      previewing.current = false;
-      if (alive.current) setPreviewLoading('');
+      loading.current.delete(font.id);
+      if (alive.current) setPreviewLoading((current) => current.filter((id) => id !== font.id));
     }
   }
   async function downloadFont(font: TeamFont) {
@@ -174,11 +185,7 @@ export function TeamFonts({ team }: { team: any }) {
     setError('');
     try {
       await api(`/spaces/${team.id}/fonts/${remove.id}`, { method: 'DELETE' });
-      if (preview === remove.id) {
-        setPreview('');
-        for (const face of faces.current) document.fonts.delete(face);
-        faces.current = [];
-      }
+      if (previews.includes(remove.id)) dropPreview(remove.id);
       await refresh();
       setRemove(null);
       setNotice('字体已删除');
@@ -234,14 +241,15 @@ export function TeamFonts({ team }: { team: any }) {
         {loaded && fonts.length > 0 && (
           <div className="management-font-toolbar">
             <ManagementSearch label="搜索字体" value={query} onChange={setQuery} />
-            {manage && (
+            {canUpload && (
               <button
                 className="primary"
                 disabled={busy}
                 title="TTF、OTF、WOFF、WOFF2，单个不超过 20 MB"
                 onClick={() => input.current?.click()}
               >
-                {busy ? <LoaderCircle size={15} className="wb-spin" /> : <Upload size={15} />}上传字体
+                {busy ? <LoaderCircle size={15} className="wb-spin" /> : <Upload size={15} />}
+                上传字体
               </button>
             )}
           </div>
@@ -283,55 +291,63 @@ export function TeamFonts({ team }: { team: any }) {
                       · {(font.size / 1024 ** 2).toFixed(2)} MB
                     </span>
                   </div>
-                  <button
-                    className="wb-icon-button"
-                    disabled={!!previewLoading}
-                    aria-label={
-                      previewLoading === font.id
-                        ? `正在加载 ${font.full_name}`
-                        : preview === font.id
-                          ? `收起 ${font.full_name}`
-                          : `预览 ${font.full_name}`
-                    }
-                    title={previewLoading === font.id ? '加载中…' : preview === font.id ? '收起' : '预览'}
-                    onClick={() => void showPreview(font)}
-                  >
-                    {previewLoading === font.id ? (
-                      <LoaderCircle size={15} className="wb-spin" />
-                    ) : preview === font.id ? (
-                      <EyeClosed size={15} />
-                    ) : (
-                      <Eye size={15} />
-                    )}
-                  </button>
-                  <button
-                    className="wb-icon-button"
-                    disabled={!!downloading}
-                    aria-label={`下载字体 ${font.full_name}`}
-                    title={downloading === font.id ? '下载中…' : '下载'}
-                    onClick={() => void downloadFont(font)}
-                  >
-                    {downloading === font.id ? (
-                      <LoaderCircle size={15} className="wb-spin" />
-                    ) : (
-                      <Download size={15} />
-                    )}
-                  </button>
-                  {manage && (
+                  <div className="management-font-actions">
                     <button
                       className="wb-icon-button"
-                      disabled={busy}
-                      aria-label={`删除字体 ${font.full_name}`}
-                      onClick={() => {
-                        setError('');
-                        setRemove(font);
-                      }}
+                      disabled={previewLoading.includes(font.id)}
+                      aria-label={
+                        previewLoading.includes(font.id)
+                          ? `正在加载 ${font.full_name}`
+                          : previews.includes(font.id)
+                            ? `收起 ${font.full_name}`
+                            : `预览 ${font.full_name}`
+                      }
+                      title={
+                        previewLoading.includes(font.id)
+                          ? '加载中…'
+                          : previews.includes(font.id)
+                            ? '收起'
+                            : '预览'
+                      }
+                      onClick={() => void showPreview(font)}
                     >
-                      <Trash2 size={15} />
+                      {previewLoading.includes(font.id) ? (
+                        <LoaderCircle size={15} className="wb-spin" />
+                      ) : previews.includes(font.id) ? (
+                        <EyeClosed size={15} />
+                      ) : (
+                        <Eye size={15} />
+                      )}
                     </button>
-                  )}
+                    <button
+                      className="wb-icon-button"
+                      disabled={!!downloading}
+                      aria-label={`下载字体 ${font.full_name}`}
+                      title={downloading === font.id ? '下载中…' : '下载'}
+                      onClick={() => void downloadFont(font)}
+                    >
+                      {downloading === font.id ? (
+                        <LoaderCircle size={15} className="wb-spin" />
+                      ) : (
+                        <Download size={15} />
+                      )}
+                    </button>
+                    {canRemove(font) && (
+                      <button
+                        className="wb-icon-button"
+                        disabled={busy}
+                        aria-label={`删除字体 ${font.full_name}`}
+                        onClick={() => {
+                          setError('');
+                          setRemove(font);
+                        }}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
+                  </div>
                 </div>
-                {preview === font.id && (
+                {previews.includes(font.id) && (
                   <div
                     className="management-font-preview"
                     style={{
@@ -356,7 +372,7 @@ export function TeamFonts({ team }: { team: any }) {
             {query ? (
               <button onClick={() => setQuery('')}>清除搜索</button>
             ) : (
-              manage && (
+              canUpload && (
                 <>
                   <button
                     title="TTF、OTF、WOFF、WOFF2，单个不超过 20 MB"

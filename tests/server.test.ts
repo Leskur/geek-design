@@ -161,10 +161,7 @@ test('space upload: register personal space, resume, overwrite, shared visibilit
     await create(rootUpload.ticket, rootBytes.length);
     await patch(rootUpload.ticket, rootBytes, 0);
     await wait(rootUpload.design.id);
-    assert.equal(
-      (await json('/designs/' + rootUpload.design.id + '/manifest')).folderId,
-      null,
-    );
+    assert.equal((await json('/designs/' + rootUpload.design.id + '/manifest')).folderId, null);
     assert.ok(
       (await json('/spaces/' + shared.id + '/designs')).some(
         (d: any) => d.id === rootUpload.design.id && d.folder_id == null,
@@ -270,14 +267,8 @@ test('space upload: register personal space, resume, overwrite, shared visibilit
     const login = await request('/login', { username: 'viewer', password: 'view12' });
     const viewerCookie = login.headers.get('set-cookie')!.split(';')[0];
     assert.equal(
-      (
-        await request(
-          '/designs/' + first.design.id + '/manifest',
-          undefined,
-          'GET',
-          viewerCookie,
-        )
-      ).status,
+      (await request('/designs/' + first.design.id + '/manifest', undefined, 'GET', viewerCookie))
+        .status,
       200,
     );
     const visibleFiles = await request(
@@ -321,6 +312,31 @@ test('space upload: register personal space, resume, overwrite, shared visibilit
     await create(memberDesign.ticket, memberBytes.length, viewerCookie);
     await patch(memberDesign.ticket, memberBytes, 0, viewerCookie);
     await wait(memberDesign.design.id, 'ready', viewerCookie);
+
+    const steal = await request(
+      '/uploads/preflight',
+      {
+        spaceId: shared.id,
+        folderId: folder.id,
+        designId: first.design.id,
+        filename: 'x.sketch',
+        sha256: createHash('sha256').update(memberBytes).digest('hex'),
+        size: memberBytes.length,
+      },
+      'POST',
+      viewerCookie,
+    );
+    assert.equal(steal.status, 403);
+    const ownOverwrite = await preflight(
+      memberBytes,
+      shared.id,
+      folder.id,
+      memberDesign.design.id,
+      createHash('sha256').update(memberBytes).digest('hex'),
+      viewerCookie,
+    );
+    assert.equal(ownOverwrite.kind, 'duplicate');
+    assert.equal(ownOverwrite.design.id, memberDesign.design.id);
 
     assert.equal(
       (await request('/designs/' + first.design.id, undefined, 'DELETE', viewerCookie)).status,

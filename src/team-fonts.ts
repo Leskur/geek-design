@@ -8,6 +8,7 @@ export type TeamFont = {
   weight: number;
   style: string;
   size: number;
+  created_by?: string;
   created: number;
   url: string;
 };

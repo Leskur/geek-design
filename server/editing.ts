@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Store, User } from './db';
-import { canDeleteDesign, designAccess, fail, folderAccess, spaceAccess } from './auth';
+import { canDeleteOwned, designAccess, fail, folderAccess, spaceAccess } from './auth';
 
 export function editingRoutes(app: FastifyInstance, store: Store, user: (req: any) => User) {
   const name = (value: unknown) => {
@@ -16,7 +16,9 @@ export function editingRoutes(app: FastifyInstance, store: Store, user: (req: an
     return { id: s.id, name: value };
   });
   app.patch('/api/folders/:id', async (req: any) => {
-    folderAccess(store, user(req), req.params.id);
+    const u = user(req),
+      { folder, space } = folderAccess(store, u, req.params.id);
+    if (!canDeleteOwned(space, folder, u)) fail(403, '只能重命名自己创建的文件夹');
     const value = name(req.body?.name);
     store.run('UPDATE folders SET name=? WHERE id=?', value, req.params.id);
     return { id: req.params.id, name: value };

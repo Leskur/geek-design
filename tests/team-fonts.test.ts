@@ -51,9 +51,14 @@ test('space font library validates uploads, deduplicates and isolates space acce
     assert.equal((await call(`/spaces/${space.id}/fonts`)).statusCode, 401);
     assert.equal((await call(`/spaces/${space.id}/fonts`, outsider.cookie)).statusCode, 404);
     assert.equal(
+      (await call(`/spaces/${space.id}/fonts`, outsider.cookie, 'POST', Buffer.alloc(20), binary))
+        .statusCode,
+      404,
+    );
+    assert.equal(
       (await call(`/spaces/${space.id}/fonts`, member.cookie, 'POST', Buffer.alloc(20), binary))
         .statusCode,
-      403,
+      400,
     );
     assert.equal(
       (await call(`/spaces/${space.id}/fonts`, owner.cookie, 'POST', Buffer.alloc(20), binary))
@@ -63,8 +68,7 @@ test('space font library validates uploads, deduplicates and isolates space acce
     const malformed = Buffer.alloc(32);
     malformed.writeUInt32BE(0x10000);
     assert.equal(
-      (await call(`/spaces/${space.id}/fonts`, owner.cookie, 'POST', malformed, binary))
-        .statusCode,
+      (await call(`/spaces/${space.id}/fonts`, owner.cookie, 'POST', malformed, binary)).statusCode,
       400,
     );
     assert.equal(
@@ -96,6 +100,7 @@ test('space font library validates uploads, deduplicates and isolates space acce
     const upload = await call(`/spaces/${space.id}/fonts`, owner.cookie, 'POST', bytes, binary);
     assert.equal(upload.statusCode, 201, upload.body);
     const font = upload.json().font;
+    assert.equal(font.created_by, owner.id);
     assert.ok(font.family);
     assert.ok(font.postscript_name);
     assert.ok(font.weight >= 1);
@@ -132,10 +137,9 @@ test('space font library validates uploads, deduplicates and isolates space acce
       (await call(`/spaces/${other.id}/fonts/${font.id}`, owner.cookie)).statusCode,
       404,
     );
-    assert.equal(
-      (await call(`/spaces/${space.id}/fonts/${font.id}`, member.cookie, 'DELETE')).statusCode,
-      403,
-    );
+    const denied = await call(`/spaces/${space.id}/fonts/${font.id}`, member.cookie, 'DELETE');
+    assert.equal(denied.statusCode, 403);
+    assert.equal(denied.json().error, '只能删除自己上传的字体');
     const folder = (
       await call('/folders', owner.cookie, 'POST', { spaceId: space.id, name: 'Folder' })
     ).json();
@@ -155,6 +159,39 @@ test('space font library validates uploads, deduplicates and isolates space acce
     assert.equal(
       (await app.inject({ url: font.url, headers: { cookie: owner.cookie } })).statusCode,
       404,
+    );
+    const memberUpload = await call(
+      `/spaces/${space.id}/fonts`,
+      member.cookie,
+      'POST',
+      bytes,
+      binary,
+    );
+    assert.equal(memberUpload.statusCode, 201, memberUpload.body);
+    const memberFont = memberUpload.json().font;
+    assert.equal(memberFont.created_by, member.id);
+    assert.equal(
+      (await call(`/spaces/${space.id}/fonts/${memberFont.id}`, member.cookie, 'DELETE'))
+        .statusCode,
+      200,
+    );
+    const ownedByMember = await call(
+      `/spaces/${space.id}/fonts`,
+      member.cookie,
+      'POST',
+      bytes,
+      binary,
+    );
+    assert.equal(ownedByMember.statusCode, 201, ownedByMember.body);
+    assert.equal(
+      (
+        await call(
+          `/spaces/${space.id}/fonts/${ownedByMember.json().font.id}`,
+          owner.cookie,
+          'DELETE',
+        )
+      ).statusCode,
+      200,
     );
     await call(`/spaces/${space.id}/fonts`, owner.cookie, 'POST', bytes, binary);
     assert.equal((await call(`/spaces/${space.id}`, owner.cookie, 'DELETE')).statusCode, 200);

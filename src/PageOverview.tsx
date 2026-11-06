@@ -14,11 +14,14 @@ import {
   fitCameraInArea,
   hitAtPoint,
   isEditingTarget,
+  measure,
   panFromAnchor,
   type Camera,
   type IndexedLayer,
+  type Rect,
 } from './interaction';
 import { boardVisible, ellipsisText, matchesBoardName, pageBounds, zoomPage } from './overview';
+import { paintRuler } from './canvas-overlay';
 
 /** Below this on-screen size, paint the fixed mini instead of the layer tree. */
 const LIVE_SCREEN = 280;
@@ -135,6 +138,7 @@ export function PageOverview({
     } | null>(null),
     moved = useRef(false),
     spaceKey = useRef(false),
+    altKey = useRef(false),
     current = useRef(camera),
     cameraFrame = useRef(0),
     pendingCamera = useRef<Camera | null>(null),
@@ -267,6 +271,9 @@ export function PageOverview({
         if (entry) strokeEntry(ctx, entry, f.x, f.y, cam.scale, '#7656e8', 1.5);
       }
       ctx.restore();
+    }
+    if (altKey.current && !space && !dragging) {
+      for (const d of overviewDistances()) paintRuler(ctx, d, cam.scale);
     }
     // Labels in screen space
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -416,9 +423,7 @@ export function PageOverview({
       { minPoint },
     );
     pictureRefs.current.set(id, used);
-    const base = crop
-      ? prev?.base || (prev && !prev.crop ? prev.canvas : undefined)
-      : undefined;
+    const base = crop ? prev?.base || (prev && !prev.crop ? prev.canvas : undefined) : undefined;
     const next: BoardPicture = { canvas: shot, scale, sharp, crop, base };
     pictures.current.set(id, next);
     return shot;
@@ -454,6 +459,26 @@ export function PageOverview({
     }
     return root;
   }
+  function pageRect(entry: IndexedLayer, board: Layer): Rect {
+    const b = entry.bounds;
+    return { x: b.x + board.frame.x, y: b.y + board.frame.y, width: b.width, height: b.height };
+  }
+  function overviewDistances() {
+    if (!selected || !selectedId) return [];
+    const selectedBoard = boards.find((b) => b.do_objectID === selectedId);
+    if (!selectedBoard) return [];
+    const selectedEntry = cache.index(boardRoot(selectedBoard)).get(selected.do_objectID);
+    if (!selectedEntry) return [];
+    const pointer = hover.current;
+    const hoverBoard = pointer
+      ? boards.find((b) => b.do_objectID === pointer.boardId)
+      : selectedBoard;
+    if (!hoverBoard) return [];
+    const hoverEntry =
+      pointer?.entry || cache.index(boardRoot(hoverBoard)).get(hoverBoard.do_objectID);
+    if (!hoverEntry || hoverEntry.layer.do_objectID === selectedEntry.layer.do_objectID) return [];
+    return measure(pageRect(selectedEntry, selectedBoard), pageRect(hoverEntry, hoverBoard));
+  }
   function strokeEntry(
     ctx: CanvasRenderingContext2D,
     entry: IndexedLayer,
@@ -476,7 +501,9 @@ export function PageOverview({
     ctx.stroke();
     ctx.setLineDash([]);
   }
-  function setHover(next: { boardId: string; layerId: string | null; entry: IndexedLayer | null } | null) {
+  function setHover(
+    next: { boardId: string; layerId: string | null; entry: IndexedLayer | null } | null,
+  ) {
     const prev = hover.current;
     if (prev?.boardId === next?.boardId && prev?.layerId === next?.layerId) return;
     hover.current = next;
@@ -585,6 +612,13 @@ export function PageOverview({
         spaceKey.current = true;
         setSpace(true);
       }
+      if (e.key === 'Alt') {
+        e.preventDefault();
+        if (!altKey.current) {
+          altKey.current = true;
+          schedulePaint();
+        }
+      }
       if (e.key === 'Escape') onSelect(null);
     };
     const up = (e: KeyboardEvent) => {
@@ -592,12 +626,18 @@ export function PageOverview({
         spaceKey.current = false;
         setSpace(false);
       }
+      if (e.key === 'Alt') {
+        altKey.current = false;
+        schedulePaint();
+      }
     };
     const reset = () => {
       spaceKey.current = false;
+      altKey.current = false;
       setSpace(false);
       setDragging(false);
       drag.current = null;
+      schedulePaint();
     };
     window.addEventListener('keydown', down);
     window.addEventListener('keyup', up);
@@ -745,7 +785,7 @@ export function PageOverview({
         className={`overview-viewport${space ? ' is-hand' : ''}${dragging ? ' dragging' : ''}`}
         ref={viewport}
         tabIndex={0}
-        aria-label="页面总览画布"
+        aria-label="页面总览画布，悬停预览，单击选中图层，按住 Alt 测量间距"
         data-camera-x={camera.x.toFixed(2)}
         data-camera-y={camera.y.toFixed(2)}
         data-camera-scale={camera.scale.toFixed(5)}
@@ -775,6 +815,10 @@ export function PageOverview({
         onPointerMove={(e) => {
           const d = drag.current;
           if (!d || d.id !== e.pointerId) {
+            if (e.altKey !== altKey.current) {
+              altKey.current = e.altKey;
+              schedulePaint();
+            }
             if (spaceKey.current || dragging) setHover(null);
             else {
               const hit = pick(e.clientX, e.clientY, e.shiftKey);

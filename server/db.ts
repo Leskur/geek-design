@@ -59,7 +59,8 @@ CREATE TABLE IF NOT EXISTS folders(
   space_id TEXT NOT NULL REFERENCES spaces(id),
   name TEXT NOT NULL,
   created INTEGER NOT NULL,
-  parent_id TEXT REFERENCES folders(id)
+  parent_id TEXT REFERENCES folders(id),
+  created_by TEXT REFERENCES users(id)
 );
 CREATE TABLE IF NOT EXISTS designs(
   id TEXT PRIMARY KEY,
@@ -122,6 +123,7 @@ CREATE INDEX IF NOT EXISTS pending_uploads ON uploads(status);
 `);
     this.migrateDesignsToSpaceRoot();
     this.migrateFolderParents();
+    this.migrateFolderCreatedBy();
     this.syncPersonalSpaceNames();
   }
   /** Existing databases predate nested folders. New rows use parent_id NULL as the space root. */
@@ -130,6 +132,20 @@ CREATE INDEX IF NOT EXISTS pending_uploads ON uploads(status);
     if (cols.length && !cols.some((c) => c.name === 'parent_id'))
       this.db.exec('ALTER TABLE folders ADD COLUMN parent_id TEXT REFERENCES folders(id)');
     this.db.exec('CREATE INDEX IF NOT EXISTS folder_parent ON folders(parent_id)');
+  }
+  /** Existing folders had no owner; attribute them to the space owner. */
+  private migrateFolderCreatedBy() {
+    const cols = this.all('PRAGMA table_info(folders)') as { name: string }[];
+    if (!cols.length) return;
+    if (!cols.some((c) => c.name === 'created_by'))
+      this.db.exec('ALTER TABLE folders ADD COLUMN created_by TEXT REFERENCES users(id)');
+    this.db.exec(`
+      UPDATE folders SET created_by = (
+        SELECT m.user_id FROM space_members m
+        WHERE m.space_id = folders.space_id AND m.role = 'owner'
+        LIMIT 1
+      ) WHERE created_by IS NULL
+    `);
   }
   /** Personal space titles follow the owner username and are not edited directly. */
   private syncPersonalSpaceNames() {
@@ -196,15 +212,9 @@ INSERT OR IGNORE INTO schema_migrations VALUES(7);
     for (;;) {
       const id = randomBytes(9).toString('base64url');
       if (
-        ![
-          'users',
-          'spaces',
-          'folders',
-          'designs',
-          'uploads',
-          'invitations',
-          'space_fonts',
-        ].some((table) => this.one(`SELECT 1 FROM ${table} WHERE id=?`, id))
+        !['users', 'spaces', 'folders', 'designs', 'uploads', 'invitations', 'space_fonts'].some(
+          (table) => this.one(`SELECT 1 FROM ${table} WHERE id=?`, id),
+        )
       )
         return id;
     }
