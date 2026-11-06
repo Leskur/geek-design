@@ -1,5 +1,5 @@
 import { useRef, type ReactNode } from 'react';
-import { ArrowUpRight, FileImage, FileUp, Pause, Play, Upload } from 'lucide-react';
+import { ArrowUpRight, FileImage, FilePlus, Pause, Play, Upload } from 'lucide-react';
 import { Dialog } from '../Dialog';
 import { designPath } from '../routes';
 import { size } from './format';
@@ -64,7 +64,7 @@ export function UploadDialog({ upload, spaceId, targetName, alert }: Props) {
             </>
           ) : (
             <>
-              <FileUp size={34} strokeWidth={1.5} />
+              <FilePlus size={34} strokeWidth={1.5} />
               <b>选择或拖入 Sketch 文件</b>
             </>
           )}

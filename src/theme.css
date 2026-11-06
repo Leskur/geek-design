@@ -149,7 +149,10 @@
   background: #e9eaf0;
   margin: 4px 5px;
 }
-.wb-sidebar-bottom > a,
+.wb-sidebar-bottom > a {
+  color: var(--sp-secondary);
+  font-size: 12px;
+}
 .wb-profile {
   color: #6c7383;
   font-size: 12px;

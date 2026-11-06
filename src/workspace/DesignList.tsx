@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import {
-  FileUp,
+  FilePlus,
   FileImage,
   LoaderCircle,
   Ellipsis,
@@ -111,7 +111,7 @@ export function DesignList({
       </p>
       {mayUpload && (
         <button className="primary" onClick={() => beginUpload()}>
-          <FileUp size={18} />
+          <FilePlus size={18} />
           上传 Sketch
         </button>
       )}

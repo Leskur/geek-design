@@ -374,7 +374,7 @@
 }
 .wb-app .wb-sidebar-bottom > a {
   font-size: 12px;
-  color: #7c8596;
+  color: var(--sp-secondary);
 }
 .management-heading-actions {
   display: flex;

@@ -1,3 +1,5 @@
+export const productLabel = `GeekDesign ${__APP_VERSION__}`;
+
 export function setPageTitle(name?: string) {
   document.title = name ? `${name} - GeekDesign` : 'GeekDesign';
 }

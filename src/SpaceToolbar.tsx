@@ -1,7 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import {
   ChevronDown,
-  FileUp,
+  FilePlus,
   Ellipsis,
   FolderPlus,
   Link2,
@@ -131,7 +131,7 @@ export function SpaceToolbar({
                 onUpload();
               }}
             >
-              <FileUp size={16} aria-hidden="true" />
+              <FilePlus size={16} aria-hidden="true" />
               上传设计
             </button>
           </div>
