@@ -2,7 +2,7 @@
 
 需要 Docker Engine / Docker Desktop 的 Linux 容器环境。当前验证目标为 Linux x64。镜像内置 Node.js 24.16.0 和运行依赖，宿主机不需要安装 Node.js，也不需要克隆仓库。
 
-发布镜像为 `ghcr.io/leskur/geek-design`。`main` 通过 Docker 工作流后会更新 `latest`；打 `v*` 标签时额外推送对应版本号。
+发布镜像为 `ghcr.io/leskur/geek-design`。打 `v*` 标签（例如 `v0.0.1`）并通过 Docker 工作流后，会推送 `latest` 和对应版本号。日常推 `main` 不会发布镜像。
 
 ## 启动
 
@@ -12,9 +12,27 @@ docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdes
 
 访问 `http://127.0.0.1:5174`。本地文件查看入口为 `/local`；空间功能先注册账号（自动获得个人空间），再创建协作空间和文件夹。局域网默认也可访问；只给本机用时把 `-p` 改成 `127.0.0.1:5174:5174`。
 
-首次启动会拉取 `ghcr.io/leskur/geek-design:latest`。镜像采用多阶段构建，运行阶段使用非 root 用户，包含基础字体和中文字体。设计稿中的其他字体仍需由浏览器或空间字体库提供。
+首次启动会拉取 `ghcr.io/leskur/geek-design:latest`。镜像采用多阶段构建，运行阶段使用非 root 用户，包含基础字体和中文字体。设计稿中的其他字体仍需由浏览器或空间字体库提供。数据在命名卷 `geekdesign-data`。
 
-改端口或来源地址时加上 `-e`，例如 `-e SKETCHPEEK_PUBLIC_ORIGIN=https://design.example.com`。数据在命名卷 `geekdesign-data`。
+## 改端口
+
+容器内固定监听 5174，改的是宿主机端口，也就是 `-p` 冒号左边；右边不要改。
+
+例如对外改成 8080：
+
+```sh
+docker run -d --name geekdesign --restart unless-stopped -p 8080:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
+```
+
+然后访问 `http://127.0.0.1:8080`。已经在跑的容器要先 `docker rm` 再按新端口启动，数据卷可以继续用。
+
+Compose 在 `.env` 里写：
+
+```ini
+GEEKDESIGN_PORT=8080
+```
+
+再执行 `docker compose -p geekdesign up -d --wait`。
 
 ## 使用 Compose
 
@@ -29,7 +47,7 @@ docker compose -p geekdesign up -d --wait
 
 ## 配置与局域网访问
 
-`docker run` 的 `-p 5174:5174` 默认绑定宿主机所有网卡，本机和局域网都可以访问。应用在容器内固定监听 5174；改宿主机端口写成 `-p 8080:5174`。
+`docker run` 的 `-p 5174:5174` 默认绑定宿主机所有网卡，本机和局域网都可以访问。改端口见上一节。
 
 Compose 可把 `.env.example` 复制成 `.env` 后修改：
 
@@ -107,4 +125,4 @@ Compose 升级为 `docker compose -p geekdesign pull` 后 `up -d --wait`。按�
 - 上传过大：同时检查应用上限、反向代理请求体限制和磁盘空间。
 - 构建依赖下载失败：确认 Docker 能访问基础镜像仓库、Debian 软件源、npm 及原生模块的下载来源。
 
-`.github/workflows/docker.yml` 在相关 PR、`main` 推送、`v*` 标签或手动触发时构建 Linux 镜像，确认服务能起来后推到 GHCR。源码开发和日常测试不需要 Docker。首次推送后若拉取 401，到 GitHub Packages 把 `geek-design` 容器包设为公开。
+`.github/workflows/docker.yml` 在相关 PR 或手动触发时构建并检查镜像；打 `v*` 标签成功后才推到 GHCR。源码开发和日常测试不需要 Docker。首次推送后若拉取 401，到 GitHub Packages 把 `geek-design` 容器包设为公开。
