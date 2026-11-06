@@ -6,6 +6,7 @@ import { useDesignUpload } from './workspace/useDesignUpload';
 import { UploadDialog } from './workspace/UploadDialog';
 import { DesignList } from './workspace/DesignList';
 import { api, post } from './api';
+import { copyText } from './clipboard';
 import './team.css';
 import './workbench.css';
 import './team-tree.css';
@@ -517,7 +518,7 @@ export function TeamHub() {
     if (!space) return;
     const link = `${location.origin}${spacePath(space.id)}`;
     try {
-      await navigator.clipboard.writeText(link);
+      await copyText(link);
       setNotice('链接已复制');
     } catch {
       setError(`复制失败，请手动复制：${link}`);
@@ -529,7 +530,7 @@ export function TeamHub() {
     if (!sid) return;
     const link = `${location.origin}${designPath(sid, designId)}`;
     try {
-      await navigator.clipboard.writeText(link);
+      await copyText(link);
       setNotice('链接已复制');
     } catch {
       setError(`复制失败，请手动复制：${link}`);

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, Copy, LoaderCircle } from 'lucide-react';
 import { post } from './api';
+import { copyText } from './clipboard';
 import { Dialog } from './Dialog';
 
 export function TeamInviteDialog({
@@ -40,7 +41,7 @@ export function TeamInviteDialog({
   }, [team.id]);
   async function copy() {
     try {
-      await navigator.clipboard.writeText(link);
+      await copyText(link);
       setCopied(true);
     } catch {
       setError('复制失败，请选择链接文本手动复制');

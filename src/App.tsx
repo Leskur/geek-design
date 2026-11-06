@@ -34,6 +34,7 @@ import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
 import { routeFor, localOnly, withBase, folderPath, spacePath } from './routes';
+import { copyText } from './clipboard';
 import { displayName, productLabel, setPageTitle } from './title';
 import { detailEnabled } from './detail-entry';
 import { PageList } from './PageList';
@@ -400,7 +401,7 @@ export function App() {
   }
   async function copy(text: string) {
     try {
-      await navigator.clipboard.writeText(text);
+      await copyText(text);
       setToast('已复制');
       setTimeout(() => setToast(''), 1500);
     } catch {
