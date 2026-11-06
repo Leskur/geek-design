@@ -1,7 +1,7 @@
 import { TeamFonts } from './TeamFonts';
 import { TeamInviteDialog } from './TeamInviteDialog';
 import { Logo } from './Logo';
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useDesignUpload } from './workspace/useDesignUpload';
 import { UploadDialog } from './workspace/UploadDialog';
 import { DesignList } from './workspace/DesignList';
@@ -18,6 +18,8 @@ import { TeamOverview } from './TeamOverview';
 import {
   Folder,
   Plus,
+  FolderPlus,
+  FileUp,
   ChevronRight,
   LayoutGrid,
   List,
@@ -46,6 +48,7 @@ import { InviteScreen } from './InviteScreen';
 import { TeamMembers } from './TeamMembers';
 import { Choice } from './Choice';
 import { routeFor, folderPath, designPath, spacePath, matchesId } from './routes';
+import { setPageTitle } from './title';
 import { visit } from './visit';
 import { SortMenu } from './SortMenu';
 
@@ -77,6 +80,7 @@ export function TeamHub() {
     };
   }, [sidebarOpen]);
   const [folderMenu, setFolderMenu] = useState<MenuPosition | null>(null);
+  const [pageMenu, setPageMenu] = useState<MenuPosition | null>(null);
   const [inviteSpace, setInviteSpace] = useState<any>(null),
     [membersOpen, setMembersOpen] = useState(false),
     [linkOpen, setLinkOpen] = useState(false);
@@ -174,6 +178,39 @@ export function TeamHub() {
     );
     rememberSpace(me.id, selected.id);
   }, [navigationEpoch, spaceLoaded]);
+  useEffect(() => {
+    if (!loaded) {
+      setPageTitle();
+      return;
+    }
+    if (route.auth === 'register') {
+      setPageTitle('注册');
+      return;
+    }
+    if (route.auth === 'login' || route.inviteToken || !me) {
+      setPageTitle(route.inviteToken ? '邀请' : '登录');
+      return;
+    }
+    if (route.section === 'resources') {
+      setPageTitle('资源');
+      return;
+    }
+    const currentFolder = route.folderId
+      ? folders.find((item) => matchesId(route.folderId, item))
+      : null;
+    setPageTitle(currentFolder?.name || space?.name);
+  }, [
+    loaded,
+    me,
+    route.auth,
+    route.inviteToken,
+    route.section,
+    route.folderId,
+    route.spaceId,
+    folders,
+    space?.name,
+    navigationEpoch,
+  ]);
   const upload = useDesignUpload({
     spaceId: space?.id,
     folderId: folder?.id,
@@ -479,19 +516,6 @@ export function TeamHub() {
   const workspaceReady = loaded && (!me || !!route.auth || !!route.inviteToken || spaceLoaded);
   const rootDesigns = files.filter((d) => !d.folder_id);
   const visibleFiles = sortDesigns(folder ? designs : rootDesigns, sort);
-  const viewActions = (
-    <>
-      {visibleFiles.length > 0 && <SortMenu value={sort} onChange={changeSort} />}
-      <div className="wb-view-switch" role="group" aria-label="展示方式">
-        <button aria-label="网格视图" aria-pressed={!listView} onClick={() => changeView(false)}>
-          <LayoutGrid size={16} />
-        </button>
-        <button aria-label="列表视图" aria-pressed={listView} onClick={() => changeView(true)}>
-          <List size={16} />
-        </button>
-      </div>
-    </>
-  );
   const icon = (Icon: any) => <Icon size={20} strokeWidth={2} aria-hidden="true" />;
   const alert = error && (
     <div className="team-error" role="alert">
@@ -531,6 +555,34 @@ export function TeamHub() {
   const emptyFolder = designsLoaded && !(folder ? designs.length : rootDesigns.length);
   const spaceFolders = folders.filter((f) => f.space_id === space?.id && !f.parent_id);
   const childFolders = folder ? folders.filter((f) => f.parent_id === folder.id) : [];
+  const listedFolders = folder ? childFolders : spaceFolders;
+  const pageControls =
+    listedFolders.length || visibleFiles.length ? (
+      <div className="wb-page-controls">
+        {visibleFiles.length > 0 && <SortMenu value={sort} onChange={changeSort} />}
+        <div className="wb-view-switch" role="group" aria-label="展示方式">
+          <button aria-label="网格视图" aria-pressed={!listView} onClick={() => changeView(false)}>
+            <LayoutGrid size={16} />
+          </button>
+          <button aria-label="列表视图" aria-pressed={listView} onClick={() => changeView(true)}>
+            <List size={16} />
+          </button>
+        </div>
+      </div>
+    ) : null;
+  function onPageContextMenu(event: MouseEvent) {
+    if (!space || route.section === 'resources') return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (
+      target.closest(
+        'a, button, input, textarea, select, summary, .wb-file-card, .management-project-card, .gd-context-menu, .wb-create-menu',
+      )
+    )
+      return;
+    event.preventDefault();
+    setPageMenu({ x: event.clientX, y: event.clientY });
+  }
   return (
     <div className={`team-app wb-app${sidebarOpen ? ' navigation-open' : ''}`}>
       <aside
@@ -593,7 +645,7 @@ export function TeamHub() {
           </button>
         </header>
 
-        <main className="wb-content">
+        <main className="wb-content" onContextMenu={onPageContextMenu}>
           {alert}
           {notice && (
             <div className="wb-toast" role="status">
@@ -629,13 +681,13 @@ export function TeamHub() {
                 onRename={() => requestEdit('space', space)}
                 onCopy={() => setLinkOpen(true)}
                 onDelete={() => requestDelete('space', space)}
+                controls={pageControls}
               />
               <TeamOverview
                 team={space}
                 folders={spaceFolders}
                 files={files}
                 listView={listView}
-                headingActions={viewActions}
                 onCreateFolder={() => openCreateFolder(space.id)}
                 onRename={(kind, item) => requestEdit(kind, item)}
                 onDelete={requestDelete}
@@ -648,7 +700,6 @@ export function TeamHub() {
                   designsLoaded={designsLoaded}
                   visibleFiles={visibleFiles}
                   listView={listView}
-                  headingActions={spaceFolders.length ? undefined : viewActions}
                   mayUpload={mayUpload}
                   active={active}
                   beginUpload={beginUpload}
@@ -731,7 +782,14 @@ export function TeamHub() {
                   onDelete={() => {}}
                 />
               </div>
-              <div className="wb-page-heading project-page-heading">
+              <div
+                className="wb-page-heading project-page-heading"
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setFolderMenu({ x: e.clientX, y: e.clientY });
+                }}
+              >
                 <div className="project-title-actions">
                   <h1>
                     <span className="wb-folder-mark" aria-hidden="true">
@@ -754,13 +812,13 @@ export function TeamHub() {
                     <Ellipsis size={18} />
                   </button>
                 </div>
+                {pageControls}
               </div>
               <TeamOverview
                 team={space}
                 folders={childFolders}
                 files={files}
                 listView={listView}
-                headingActions={viewActions}
                 onCreateFolder={() => openCreateFolder(space.id, folder.id)}
                 onRename={(kind, item) => requestEdit(kind, item)}
                 onDelete={requestDelete}
@@ -774,7 +832,6 @@ export function TeamHub() {
                   designsLoaded={designsLoaded}
                   visibleFiles={visibleFiles}
                   listView={listView}
-                  headingActions={childFolders.length ? undefined : viewActions}
                   mayUpload={mayUpload}
                   active={active}
                   beginUpload={beginUpload}
@@ -791,6 +848,18 @@ export function TeamHub() {
           )}
         </main>
       </div>
+      {pageMenu && space && (
+        <ContextMenu position={pageMenu} onClose={() => setPageMenu(null)}>
+          <button type="button" onClick={() => openCreateFolder(space.id, folder?.id || '')}>
+            <FolderPlus size={16} />
+            文件夹
+          </button>
+          <button type="button" disabled={!mayUpload} onClick={() => beginUpload()}>
+            <FileUp size={16} />
+            上传设计
+          </button>
+        </ContextMenu>
+      )}
       {folderMenu && folder && (
         <ContextMenu position={folderMenu} onClose={() => setFolderMenu(null)}>
           <button disabled={active} onClick={() => requestEdit('folder', folder)}>

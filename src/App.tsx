@@ -33,7 +33,8 @@ import { RemoteDocument } from './RemoteDocument';
 import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
-import { routeFor, localOnly, withBase } from './routes';
+import { routeFor, localOnly, withBase, folderPath, spacePath } from './routes';
+import { displayName, setPageTitle } from './title';
 import { detailEnabled } from './detail-entry';
 import { PageList } from './PageList';
 import { Inspector } from './Inspector';
@@ -407,6 +408,22 @@ export function App() {
     }
   }
   const route = routeFor(location.pathname, location.search);
+  useEffect(() => {
+    if (route.kind === 'space' && !localOnly) return;
+    if (localOnly && (route.kind === 'space' || route.kind === 'design')) {
+      setPageTitle('本地文件');
+      return;
+    }
+    if (route.kind === 'missing') {
+      setPageTitle('页面不存在');
+      return;
+    }
+    if (route.kind === 'local') {
+      setPageTitle(doc?.source === 'local' ? displayName(doc.file.name) : '本地文件');
+      return;
+    }
+    setPageTitle(doc?.place?.name || (doc?.source === 'local' ? displayName(doc.file.name) : undefined));
+  }, [route.kind, route.designId, doc]);
   if (localOnly && (route.kind === 'space' || route.kind === 'design'))
     return (
       <main className="welcome missing-page">
@@ -450,20 +467,38 @@ export function App() {
     >
       {doc && (
         <header className="viewer-header">
-          <a
-            className="brand brand-link viewer-brand"
-            href={withBase(localOnly ? '/' : '/spaces')}
-            aria-label={localOnly ? 'GeekDesign 本地查看' : 'GeekDesign 工作台'}
-          >
-            <Logo size={30} /> Geek<span>Design</span>
-          </a>
-          <div className="viewer-document-nav">
-            <ViewerNavigation
-              folderId={route.folderId}
-              spaceId={route.spaceId}
-              detail={mode === 'detail'}
-              onOverview={returnOverview}
-            />
+          <div className="viewer-header-leading">
+            <div className="viewer-document-nav">
+              <ViewerNavigation
+                folderId={doc.place?.folders.at(-1)?.id || route.folderId}
+                spaceId={doc.place?.space.id || route.spaceId}
+                detail={mode === 'detail'}
+                onOverview={returnOverview}
+              />
+            </div>
+            <nav className="viewer-path" aria-label="文件路径">
+              {doc.place ? (
+                <>
+                  <a href={withBase(spacePath(doc.place.space.id))}>{doc.place.space.name}</a>
+                  {doc.place.folders.map((item) => (
+                    <span className="viewer-path-part" key={item.id}>
+                      <span className="viewer-path-sep" aria-hidden="true">
+                        /
+                      </span>
+                      <a href={withBase(folderPath(item.id))}>{item.name}</a>
+                    </span>
+                  ))}
+                  <span className="viewer-path-part">
+                    <span className="viewer-path-sep" aria-hidden="true">
+                      /
+                    </span>
+                    <b>{doc.place.name}</b>
+                  </span>
+                </>
+              ) : (
+                <b>{displayName(doc.file.name)}</b>
+              )}
+            </nav>
           </div>
           <div className="viewer-toolbar" ref={setToolbarHost} />
           <div className="viewer-header-actions">

@@ -196,6 +196,19 @@ export async function createApp(options: {
     const manifest = JSON.parse(await fsp.readFile(path.join(dir, 'manifest.json'), 'utf8'));
     return { design, folder, space, dir, manifest };
   }
+  function folderChain(folder: { id: string; name: string; parent_id: string | null } | null) {
+    const chain: { id: string; name: string }[] = [];
+    const seen = new Set<string>();
+    let current = folder;
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      chain.unshift({ id: current.id, name: current.name });
+      current = current.parent_id
+        ? store.one('SELECT id,name,parent_id FROM folders WHERE id=?', current.parent_id)
+        : null;
+    }
+    return chain;
+  }
   app.get('/api/designs/:id/manifest', async (req: any) => {
     const { design, folder, space, manifest } = await ready(req);
     return {
@@ -208,6 +221,11 @@ export async function createApp(options: {
       designId: design.id,
       folderId: folder?.id ?? null,
       spaceId: space.id,
+      place: {
+        space: { id: space.id, name: space.name },
+        folders: folderChain(folder),
+        name: design.name,
+      },
       file: { name: design.filename, size: design.size },
     };
   });

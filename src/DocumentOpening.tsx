@@ -1,4 +1,3 @@
-import { Logo } from './Logo';
 import { ViewerNavigation } from './ViewerNavigation';
 import { LoaderCircle, FileWarning, RotateCw } from 'lucide-react';
 export function DocumentOpening({
@@ -20,11 +19,10 @@ export function DocumentOpening({
   return (
     <div className="app document-opening">
       <header className="viewer-header">
-        <a className="brand brand-link viewer-brand" href="/spaces" aria-label="GeekDesign 工作台">
-          <Logo size={30} />
-        </a>
-        <div className="viewer-document-nav">
-          <ViewerNavigation folderId={folderId || projectId} spaceId={spaceId} />
+        <div className="viewer-header-leading">
+          <div className="viewer-document-nav">
+            <ViewerNavigation folderId={folderId || projectId} spaceId={spaceId} />
+          </div>
         </div>
       </header>
       <div className="workspace viewer-workspace">

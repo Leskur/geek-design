@@ -72,6 +72,10 @@ export function DesignList({
   requestDelete,
 }: Props) {
   const [dragging, setDragging] = useState(false);
+  const [covers, setCovers] = useState<Record<string, 'ready' | 'missing'>>({});
+  function markCover(id: string, status: 'ready' | 'missing') {
+    setCovers((current) => (current[id] === status ? current : { ...current, [id]: status }));
+  }
   return emptyFolder ? (
     <section
       className={`wb-project-empty${dragging ? ' dragging' : ''}`}
@@ -149,16 +153,28 @@ export function DesignList({
               >
                 <a className="wb-file-cover" href={href} aria-label={`打开 ${d.name}`}>
                   <div className="project-design-cover">
-                    <div className="project-cover-placeholder">
-                      <FileImage size={30} strokeWidth={1.3} />
-                      <span>
-                        {d.status === 'failed'
-                          ? '处理失败'
-                          : d.status !== 'ready'
-                            ? '等待文件就绪'
-                            : '设计稿'}
-                      </span>
-                    </div>
+                    {!listView && ready && covers[d.id] !== 'missing' && (
+                      <img
+                        src={`/api/designs/${encodeURIComponent(d.id)}/cover`}
+                        alt=""
+                        hidden={covers[d.id] !== 'ready'}
+                        draggable={false}
+                        onLoad={() => markCover(d.id, 'ready')}
+                        onError={() => markCover(d.id, 'missing')}
+                      />
+                    )}
+                    {(listView || !ready || covers[d.id] !== 'ready') && (
+                      <div className="project-cover-placeholder">
+                        <FileImage size={30} strokeWidth={1.3} />
+                        <span>
+                          {d.status === 'failed'
+                            ? '处理失败'
+                            : d.status !== 'ready'
+                              ? '等待文件就绪'
+                              : '设计稿'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                   {!ready && (
                     <span className="wb-processing">

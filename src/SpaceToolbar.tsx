@@ -20,6 +20,7 @@ export function SpaceToolbar({
   canManageMembers,
   canUpload,
   identity = true,
+  controls,
   onInvite,
   onMembers,
   onCreateFolder,
@@ -36,6 +37,7 @@ export function SpaceToolbar({
   canManageMembers: boolean;
   canUpload: boolean;
   identity?: boolean;
+  controls?: ReactNode;
   onInvite: () => void;
   onMembers: () => void;
   onCreateFolder: () => void;
@@ -142,24 +144,27 @@ export function SpaceToolbar({
         )}
       </div>
       {identity && (
-        <div className="wb-space-title">
-          <span className="wb-space-title-mark" aria-hidden="true">
-            {mark}
-          </span>
-          <h1>{spaceName}</h1>
-          <details className="wb-space-ops" ref={actions}>
-            <summary aria-label="空间操作">
-              <Ellipsis size={16} aria-hidden="true" />
-            </summary>
-            <div className="wb-create-menu" role="menu">
-              {groups.map((group, index) => (
-                <div key={index} className="wb-menu-group">
-                  {index > 0 && <div className="wb-menu-sep" />}
-                  {group}
-                </div>
-              ))}
-            </div>
-          </details>
+        <div className="wb-space-title-row">
+          <div className="wb-space-title">
+            <span className="wb-space-title-mark" aria-hidden="true">
+              {mark}
+            </span>
+            <h1>{spaceName}</h1>
+            <details className="wb-space-ops" ref={actions}>
+              <summary aria-label="空间操作">
+                <Ellipsis size={16} aria-hidden="true" />
+              </summary>
+              <div className="wb-create-menu" role="menu">
+                {groups.map((group, index) => (
+                  <div key={index} className="wb-menu-group">
+                    {index > 0 && <div className="wb-menu-sep" />}
+                    {group}
+                  </div>
+                ))}
+              </div>
+            </details>
+          </div>
+          {controls}
         </div>
       )}
     </div>

@@ -150,6 +150,24 @@
 .wb-app .wb-section-heading .wb-sort + .wb-view-switch {
   margin-left: 10px;
 }
+.wb-page-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+.wb-page-controls .wb-sort,
+.wb-page-controls .wb-view-switch {
+  margin-left: 0;
+}
+.wb-page-controls .wb-sort > button,
+.wb-page-controls .wb-view-switch {
+  height: 36px;
+  box-sizing: border-box;
+}
+.wb-page-controls .wb-view-switch {
+  align-items: center;
+}
 .wb-sort {
   position: relative;
   margin-left: auto;
@@ -274,6 +292,8 @@
 .wb-app .wb-file-grid.list {
   grid-template-columns: 1fr;
   gap: 8px;
+  padding: 0;
+  overflow: visible;
 }
 .wb-app .wb-file-grid.list .wb-file-card {
   display: grid;
@@ -463,7 +483,7 @@
   color: #949bab;
 }
 .wb-app .management-overview {
-  margin-bottom: 28px;
+  margin-bottom: 16px;
 }
 .management-overview .team-overview-projects {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
@@ -472,6 +492,8 @@
 .management-overview .team-overview-projects.list {
   grid-template-columns: 1fr;
   gap: 8px;
+  padding: 0;
+  overflow: visible;
 }
 .team-overview-projects.list .management-project-card {
   min-height: 64px;
@@ -1681,7 +1703,14 @@
   overflow-wrap: anywhere;
 }
 .wb-app .project-page-heading {
-  margin-bottom: 26px;
+  margin-bottom: 22px;
+  min-height: 36px;
+}
+.wb-app .project-page-heading h1 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  line-height: 1.3;
 }
 .project-title-actions > .wb-icon-button {
   flex-shrink: 0;

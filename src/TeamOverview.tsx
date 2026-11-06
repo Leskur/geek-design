@@ -41,7 +41,15 @@ export function TeamOverview({
         {folders.map((p) => {
           const latest = Math.max(0, ...files.filter((d) => d.folder_id === p.id).map((d) => d.updated || d.created || 0));
           return (
-            <article className="management-project-card" key={p.id}>
+            <article
+              className="management-project-card"
+              key={p.id}
+              onContextMenu={(e) => {
+                if (!onRename && !onDelete) return;
+                e.preventDefault();
+                setMenu({ kind: 'folder', item: p, x: e.clientX, y: e.clientY });
+              }}
+            >
               <a href={folderPath(p.id)} className="team-overview-project">
                 <span className="team-overview-folder">
                   <Folder size={24} strokeWidth={1.6} />

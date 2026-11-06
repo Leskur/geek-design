@@ -390,13 +390,62 @@ button.layer-search-toggle[aria-pressed='true'] {
   gap: 0;
   overflow: visible;
 }
-.viewer-header .viewer-brand {
-  width: 250px;
+.viewer-header-leading {
+  display: flex;
+  align-items: center;
   height: 100%;
-  padding: 0 20px;
-  border-right: 1px solid #ececf2;
+  margin-right: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: calc(50% - 72px);
+}
+.viewer-path {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 13px;
+  color: #8b8796;
+}
+.viewer-path a,
+.viewer-path b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.viewer-path a {
+  color: #6d6a78;
+  text-decoration: none;
+}
+.viewer-path a:hover {
+  color: #6554d9;
+}
+.viewer-path b {
+  color: #2f2d38;
+  font-weight: 600;
+}
+.viewer-path-part {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.viewer-path-sep {
   flex-shrink: 0;
-  font-size: 18px;
+  color: #c4c0cc;
+}
+.viewer-header .viewer-header-leading .viewer-document-nav {
+  flex: 0 0 auto;
+  min-width: 0;
+  padding: 0 12px 0 14px;
+}
+.viewer-header .viewer-brand {
+  height: 100%;
+  padding: 0 16px 0 2px;
+  flex-shrink: 0;
 }
 .viewer-document-nav {
   display: flex;
@@ -470,9 +519,7 @@ button.layer-search-toggle[aria-pressed='true'] {
 }
 @media (max-width: 1100px) {
   .viewer-header .viewer-brand {
-    width: 210px;
-    font-size: 17px;
-    padding: 0 16px;
+    padding: 0 12px 0 2px;
   }
   .viewer-document-nav {
     padding: 0 16px;
@@ -483,9 +530,7 @@ button.layer-search-toggle[aria-pressed='true'] {
 }
 @media (max-width: 760px) {
   .viewer-header .viewer-brand {
-    width: 170px;
-    font-size: 15px;
-    padding: 0 12px;
+    padding: 0 10px 0 2px;
   }
   .viewer-document-nav {
     gap: 7px;
@@ -600,8 +645,8 @@ button.layer-search-toggle[aria-pressed='true'] {
 
 /* Canvas controls share the document header instead of taking a canvas row. */
 .viewer-header .viewer-document-nav {
-  flex: 1 1 180px;
-  min-width: 90px;
+  flex: 0 0 auto;
+  min-width: 0;
   padding: 0 16px;
   gap: 8px;
 }
@@ -652,12 +697,8 @@ button.layer-search-toggle[aria-pressed='true'] {
   gap: 6px;
 }
 @media (max-width: 1100px) {
-  .viewer-header .viewer-brand {
-    width: 190px;
-  }
   .viewer-header .viewer-document-nav {
     padding: 0 10px;
-    flex-basis: 110px;
   }
   .viewer-toolbar .canvas-bar {
     padding: 0 6px;
@@ -672,9 +713,6 @@ button.layer-search-toggle[aria-pressed='true'] {
   }
 }
 @media (max-width: 760px) {
-  .viewer-header .viewer-brand {
-    width: 150px;
-  }
   .viewer-header .viewer-document-nav {
     display: none;
   }

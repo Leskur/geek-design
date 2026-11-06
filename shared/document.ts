@@ -7,12 +7,18 @@ export type Layer = {
   layers?: Layer[];
 };
 export type PageInfo = { id: string; name: string; count: number };
+export type DocumentPlace = {
+  space: { id: string; name: string };
+  folders: { id: string; name: string }[];
+  name: string;
+};
 export interface DocumentSource {
   file: { name: string; size: number };
   pages: PageInfo[];
   symbols: Map<string, Layer>;
   styles: Map<string, any>;
   source: 'local' | 'team';
+  place?: DocumentPlace;
   designId?: string;
   /** Stable id for Cache Storage. Same design file keeps the same image bytes. */
   assetKey?: string;

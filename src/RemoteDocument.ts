@@ -1,6 +1,6 @@
 import { fontNames } from '../shared/fonts';
 import { exactTeamFont, loadBrowserFont, matchingTeamFonts, type TeamFont } from './team-fonts';
-import type { DocumentSource, Layer, PageInfo } from '../shared/document';
+import type { DocumentPlace, DocumentSource, Layer, PageInfo } from '../shared/document';
 import { api } from './api';
 import { rememberDocument } from './workbench';
 import { routeFor, designPath } from './routes';
@@ -40,6 +40,7 @@ export class RemoteDocument implements DocumentSource {
   private teamFonts: TeamFont[] = [];
   private loadedFonts = new Set<string>();
   private fontFaces: FontFace[] = [];
+  place?: DocumentPlace;
   private manifest: any;
   private cache = new Map<string, Layer>();
   private urls = new Map<string, string>();
@@ -88,6 +89,7 @@ export class RemoteDocument implements DocumentSource {
       designPath(this.manifest.spaceId, this.designId) +
         location.search.replace(/([?&])(revision|design)=[^&]*&?/g, '$1').replace(/[?&]$/, ''),
     );
+    this.place = this.manifest.place;
     this.fontLibrary = this.manifest.fontLibrary;
     window.addEventListener('focus', this.refreshFonts);
     this.file = this.manifest.file;
