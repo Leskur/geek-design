@@ -132,7 +132,7 @@ export function TeamHub() {
     return () => window.removeEventListener('popstate', update);
   }, []);
   useEffect(() => {
-    function onClick(e: MouseEvent) {
+    function onClick(e: globalThis.MouseEvent) {
       if (
         e.defaultPrevented ||
         e.button !== 0 ||
@@ -689,8 +689,9 @@ export function TeamHub() {
               <SpaceToolbar
                 spaceName={space.name}
                 mark={
-                  Array.from(space.kind === 'personal' ? me.username : space.name)[0]?.toUpperCase() ||
-                  '空'
+                  Array.from(
+                    String(space.kind === 'personal' ? me.username : space.name),
+                  )[0]?.toUpperCase() || '空'
                 }
                 canInvite={space.kind !== 'personal' && space.role === 'owner'}
                 canRename={space.kind !== 'personal' && space.role === 'owner'}
