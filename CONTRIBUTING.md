@@ -1,6 +1,6 @@
 # 参与贡献
 
-开发环境见 [README](README.md#开发)。代码结构见 [docs/architecture.md](docs/architecture.md)。源码部署环境变量见 [docs/local-deployment.md](docs/local-deployment.md)。
+开发环境见 [README](README.md#开发)。代码结构见 [docs/architecture.md](docs/architecture.md)。部署见 [README 自建服务](README.md#自建服务)。
 
 ## 提交问题
 

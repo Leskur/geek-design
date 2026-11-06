@@ -27,48 +27,71 @@ https://leskur.github.io/geek-design-viewer/
 
 ### 自建服务
 
-装好 Docker 后：
+打开 http://127.0.0.1:5174 注册即可。
+
+Docker：
 
 ```sh
 docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
 ```
 
-打开 http://127.0.0.1:5174 注册即可。局域网默认可访问，数据在卷 `geekdesign-data`。改端口把 `-p 5174:5174` 写成 `-p 8080:5174`。
+局域网默认可访问，数据在卷 `geekdesign-data`。改端口把 `-p 5174:5174` 写成 `-p 8080:5174`。
 
-更新（先拉镜像，再删掉旧容器，数据卷不要动）：
+更新（数据卷不要动）：
 
 ```sh
 docker pull ghcr.io/leskur/geek-design:latest
-docker stop geekdesign
-docker rm geekdesign
+docker rm -f geekdesign
 docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
 ```
 
 卸载。只停服务、保留数据：
 
 ```sh
-docker stop geekdesign
-docker rm geekdesign
+docker rm -f geekdesign
 ```
 
 连镜像和数据一起删掉（不可恢复）：
 
 ```sh
-docker stop geekdesign
-docker rm geekdesign
+docker rm -f geekdesign
 docker rmi ghcr.io/leskur/geek-design:latest
 docker volume rm geekdesign-data
 ```
 
-没有 Docker 时：`npm run build && npm start`，默认只监听本机，数据在 `data/`。详见 [源码部署](docs/local-deployment.md)。
-
-### 开发
-
-需要 Node.js 24。
+源码（Node.js 24）：
 
 ```sh
 git clone https://github.com/Leskur/geek-design.git
 cd geek-design
+npm ci
+npm run build
+npm start
+```
+
+默认只监听本机，数据在 `data/`。局域网：
+
+```sh
+SKETCHPEEK_HOST=0.0.0.0 SKETCHPEEK_PUBLIC_ORIGIN=http://192.168.1.100:5174 npm start
+```
+
+把地址换成机器实际 IP。改端口设 `SKETCHPEEK_PORT`。配置用环境变量，`.env` 不会自动加载。
+
+更新：
+
+```sh
+git pull
+npm ci
+npm run build
+```
+
+停掉旧进程再 `npm start`。卸载：停进程；要删数据就删 `data/`。
+
+### 开发
+
+克隆后：
+
+```sh
 npm ci
 npm run dev
 ```
