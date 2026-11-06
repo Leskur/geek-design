@@ -1,8 +1,7 @@
 import { ManagementSearch } from './ManagementSearch';
-import { Check, LoaderCircle, Users, X } from 'lucide-react';
+import { LoaderCircle, Users } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { api, post } from './api';
-import { Choice } from './Choice';
+import { api } from './api';
 import { Dialog } from './Dialog';
 export const roleName = (role: string) =>
   (
@@ -22,11 +21,11 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
     [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState(''),
     [remove, setRemove] = useState<any>(null);
-  const manage = team.role !== 'member',
+  const manage = team.role === 'owner' && team.kind !== 'personal',
     working = useRef(false),
     alive = useRef(true);
   async function refresh() {
-    const people = await api<any[]>(`/teams/${team.id}/members`);
+    const people = await api<any[]>(`/spaces/${team.id}/members`);
     if (!alive.current) return;
     setMembers(people);
     setLoaded(true);
@@ -40,6 +39,13 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
       alive.current = false;
     };
   }, [team.id]);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => {
+      if (alive.current) setNotice('');
+    }, 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   async function action(task: () => Promise<unknown>, message = '') {
     if (working.current) return;
     working.current = true;
@@ -71,12 +77,8 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
         </div>
       )}
       {notice && (
-        <div className="wb-notice" role="status">
-          <Check size={16} />
-          <span>{notice}</span>
-          <button className="wb-icon-button" aria-label="关闭提示" onClick={() => setNotice('')}>
-            <X size={14} />
-          </button>
+        <div className="wb-toast" role="status">
+          {notice}
         </div>
       )}
 
@@ -96,7 +98,7 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
         loaded && (
           <section
             className={filtered.length ? 'management-panel' : 'management-empty-panel'}
-            aria-label="团队成员"
+            aria-label="空间成员"
           >
             <>
               {filtered.map((m) => (
@@ -111,39 +113,19 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
                     </b>
                     <span>{roleName(m.role)}</span>
                   </div>
-                  {team.role === 'owner' && m.role !== 'owner' ? (
-                    <Choice
+                  <span className="management-role">{roleName(m.role)}</span>
+                  {manage && m.role !== 'owner' && (
+                    <button
+                      className="quiet management-remove"
                       disabled={busy}
-                      label={`${m.username}的团队角色`}
-                      value={m.role}
-                      options={[
-                        { id: 'member', name: '成员' },
-                        { id: 'admin', name: '管理员' },
-                      ]}
-                      onChange={(role) =>
-                        void action(
-                          () => post(`/teams/${team.id}/members/${m.user_id}`, { role }),
-                          '成员角色已更新',
-                        )
-                      }
-                    />
-                  ) : (
-                    <span className="management-role">{roleName(m.role)}</span>
+                      onClick={() => {
+                        setError('');
+                        setRemove(m);
+                      }}
+                    >
+                      移除
+                    </button>
                   )}
-                  {manage &&
-                    m.role !== 'owner' &&
-                    (team.role === 'owner' || m.role === 'member') && (
-                      <button
-                        className="quiet management-remove"
-                        disabled={busy}
-                        onClick={() => {
-                          setError('');
-                          setRemove(m);
-                        }}
-                      >
-                        移除
-                      </button>
-                    )}
                 </div>
               ))}
               {!filtered.length && (
@@ -159,14 +141,14 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
       )}
       {remove && (
         <Dialog
-          title="移除团队成员"
+          title="移除空间成员"
           onClose={() => {
             if (!busy) setRemove(null);
           }}
         >
           <div className="wb-upload-body">
             <p className="wb-dialog-description">
-              将「{remove.username}」移出团队？移除后，对方将失去此团队及其项目的访问权。
+              将「{remove.username}」移出空间？移除后，对方将失去此空间及其文件夹的访问权。
             </p>
             {error && (
               <p className="team-error" role="alert">
@@ -182,7 +164,7 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
                 disabled={busy}
                 onClick={() =>
                   void action(async () => {
-                    await api(`/teams/${team.id}/members/${remove.user_id}`, { method: 'DELETE' });
+                    await api(`/spaces/${team.id}/members/${remove.user_id}`, { method: 'DELETE' });
                     setRemove(null);
                   }, '成员已移除')
                 }

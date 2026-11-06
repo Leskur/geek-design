@@ -44,7 +44,6 @@ export class SketchDocument implements DocumentSource {
   async json(path: string) {
     const e = this.entries.get(path);
     if (!e) throw new Error(`文件缺少 ${path}`);
-    if (e.uncompressedSize > 150 * 1024 * 1024) throw new Error('单页数据过大，暂不支持');
     const text = await e.getData(new TextWriter());
     if (!this.parser) return JSON.parse(text);
     return new Promise<any>((resolve, reject) => {

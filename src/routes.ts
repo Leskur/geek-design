@@ -1,10 +1,9 @@
 export type Route = {
-  kind: 'local' | 'team' | 'revision' | 'missing';
-  projectId?: string;
-  documentId?: string;
-  revisionId?: string;
-  teamId?: string;
-  section?: 'members' | 'overview' | 'settings' | 'fonts';
+  kind: 'local' | 'space' | 'design' | 'missing';
+  spaceId?: string;
+  folderId?: string;
+  designId?: string;
+  section?: 'overview' | 'resources';
   auth?: 'login' | 'register';
   inviteToken?: string;
 };
@@ -41,24 +40,16 @@ export function withBase(path: string) {
 }
 
 const part = (id: string) => encodeURIComponent(id);
-export const projectPath = (projectId: string) => `/projects/${part(projectId)}`;
-export const documentPath = (projectId: string, documentId: string) =>
-  `${projectPath(projectId)}/documents/${part(documentId)}`;
-export const revisionPath = (projectId: string, documentId: string, revisionId: string) =>
-  `${documentPath(projectId, documentId)}/revisions/${part(revisionId)}`;
-export function routeFor(pathname: string, search = ''): Route {
+export const spacePath = (spaceId: string) => `/spaces/${part(spaceId)}`;
+export const folderPath = (folderId: string) => `/folders/${part(folderId)}`;
+export const designPath = (spaceId: string, designId: string) =>
+  `${spacePath(spaceId)}/designs/${part(designId)}`;
+
+export function routeFor(pathname: string, _search = ''): Route {
   const path = stripBase(pathname);
-  const q = new URLSearchParams(search);
   if (path === '/') {
     if (localOnly) return { kind: 'local' };
-    if (q.get('revision')) return { kind: 'revision', revisionId: q.get('revision')! };
-    if (q.has('team'))
-      return {
-        kind: 'team',
-        projectId: q.get('project') || undefined,
-        documentId: q.get('document') || undefined,
-      };
-    return { kind: 'team' };
+    return { kind: 'space' };
   }
   const parts = path.replace(/\/$/, '').split('/').slice(1);
   try {
@@ -71,35 +62,17 @@ export function routeFor(pathname: string, search = ''): Route {
   }
   if (parts.length === 1 && parts[0] === 'local') return { kind: 'local' };
   if (parts.length === 1 && ['login', 'register'].includes(parts[0]))
-    return { kind: 'team', auth: parts[0] as 'login' | 'register' };
-  if (parts[0] === 'invite' && parts.length === 2) return { kind: 'team', inviteToken: parts[1] };
-  if (parts[0] === 'teams') {
-    if (parts.length === 1) return { kind: 'team' };
-    if (parts.length === 2) return { kind: 'team', teamId: parts[1], section: 'overview' };
-    if (parts.length === 3 && parts[2] === 'workspace') return { kind: 'team', teamId: parts[1] };
-    if (parts.length === 3 && parts[2] === 'fonts')
-      return { kind: 'team', teamId: parts[1], section: 'fonts' };
-    if (parts.length === 3 && parts[2] === 'settings')
-      return { kind: 'team', teamId: parts[1], section: 'settings' };
-    if (parts.length === 3 && parts[2] === 'members')
-      return { kind: 'team', teamId: parts[1], section: 'members' };
+    return { kind: 'space', auth: parts[0] as 'login' | 'register' };
+  if (parts[0] === 'invite' && parts.length === 2) return { kind: 'space', inviteToken: parts[1] };
+  if (parts[0] === 'spaces') {
+    if (parts.length === 1) return { kind: 'space' };
+    if (parts.length === 2) return { kind: 'space', spaceId: parts[1], section: 'overview' };
+    if (parts.length === 3 && parts[2] === 'resources')
+      return { kind: 'space', spaceId: parts[1], section: 'resources' };
+    if (parts.length === 4 && parts[2] === 'designs')
+      return { kind: 'design', spaceId: parts[1], designId: parts[3] };
   }
-  if (parts[0] === 'projects') {
-    if (parts.length === 1) return { kind: 'team' };
-    if (parts.length === 2) return { kind: 'team', projectId: parts[1] };
-    if (parts.length === 3 && parts[2] === 'settings')
-      return { kind: 'team', projectId: parts[1], section: 'settings' };
-    if (parts[2] === 'documents') {
-      if (parts.length === 4) return { kind: 'team', projectId: parts[1], documentId: parts[3] };
-      if (parts.length === 6 && parts[4] === 'revisions')
-        return {
-          kind: 'revision',
-          projectId: parts[1],
-          documentId: parts[3],
-          revisionId: parts[5],
-        };
-    }
-  }
+  if (parts[0] === 'folders' && parts.length === 2) return { kind: 'space', folderId: parts[1] };
   return { kind: 'missing' };
 }
 export function safeReturnPath(next: string | null) {
@@ -107,10 +80,7 @@ export function safeReturnPath(next: string | null) {
   const url = new URL(next, 'http://local');
   if (url.origin !== 'http://local') return null;
   const r = routeFor(url.pathname, url.search);
-  return r.kind === 'revision' || (r.kind === 'team' && !r.auth) ? url.pathname + url.search : null;
+  return r.kind === 'design' || (r.kind === 'space' && !r.auth) ? url.pathname + url.search : null;
 }
 
-export const teamPath = (teamId: string) => `/teams/${part(teamId)}`;
-export const workspacePath = (teamId: string) => `${teamPath(teamId)}/workspace`;
-export const matchesId = (id: string | undefined, entity: { id: string; legacy_id?: string }) =>
-  id === entity.id || (!!id && id === entity.legacy_id);
+export const matchesId = (id: string | undefined, entity: { id: string }) => id === entity.id;

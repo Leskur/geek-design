@@ -1,76 +1,56 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  documentPath,
-  projectPath,
-  revisionPath,
-  routeFor,
-  safeReturnPath,
-  teamPath,
-  workspacePath,
-} from '../src/routes';
-test('project, document and immutable revision paths round trip', () => {
-  assert.equal(projectPath('p'), '/projects/p');
-  assert.deepEqual(routeFor(documentPath('p', '设计 稿')), {
-    kind: 'team',
-    projectId: 'p',
-    documentId: '设计 稿',
-  });
-  assert.deepEqual(routeFor(revisionPath('p', 'd', 'r'), '?page=page&artboard=board'), {
-    kind: 'revision',
-    projectId: 'p',
-    documentId: 'd',
-    revisionId: 'r',
+import { designPath, folderPath, routeFor, safeReturnPath, spacePath } from '../src/routes';
+
+test('space, folder and design paths round trip', () => {
+  assert.equal(folderPath('p'), '/folders/p');
+  assert.deepEqual(routeFor(designPath('s', '设计 稿')), {
+    kind: 'design',
+    spaceId: 's',
+    designId: '设计 稿',
   });
   assert.deepEqual(routeFor('/local'), { kind: 'local' });
-  assert.deepEqual(routeFor('/projects'), { kind: 'team' });
-  assert.deepEqual(routeFor('/teams/t/members'), { kind: 'team', teamId: 't', section: 'members' });
-  assert.deepEqual(routeFor(teamPath('t')), { kind: 'team', teamId: 't', section: 'overview' });
-  assert.deepEqual(routeFor(workspacePath('t')), { kind: 'team', teamId: 't' });
-  assert.deepEqual(routeFor('/register'), { kind: 'team', auth: 'register' });
+  assert.deepEqual(routeFor(spacePath('t')), {
+    kind: 'space',
+    spaceId: 't',
+    section: 'overview',
+  });
+  assert.equal(routeFor('/spaces/t/resources').section, 'resources');
+  assert.deepEqual(routeFor('/register'), { kind: 'space', auth: 'register' });
   assert.equal(safeReturnPath('/invite/token'), '/invite/token');
   assert.equal(safeReturnPath('/login'), null);
+  assert.equal(safeReturnPath('/spaces/s/designs/d'), '/spaces/s/designs/d');
 });
-test('legacy links retain their identities for authorized canonicalization', () => {
-  assert.deepEqual(routeFor('/', '?team=1&project=p&document=d'), {
-    kind: 'team',
-    projectId: 'p',
-    documentId: 'd',
-  });
-  assert.deepEqual(routeFor('/', '?revision=r&page=page'), { kind: 'revision', revisionId: 'r' });
-  assert.equal(
-    safeReturnPath('/projects/p/documents/d/revisions/r?page=page'),
-    '/projects/p/documents/d/revisions/r?page=page',
-  );
-  assert.equal(safeReturnPath('/?revision=r'), '/?revision=r');
-});
-test('unknown routes and external login returns are rejected', () => {
+
+test('retired addresses are missing', () => {
   for (const url of [
-    '/projects/p/documents',
-    '/projects/p/documents/d/revisions',
-    '/projects/%2Fother',
-    '/projects/%ZZ',
-    '/unknown',
+    '/teams/t',
+    '/teams/t/members',
+    '/projects/p',
+    '/folders',
+    '/folders/p/settings',
+    '/folders/p/designs/d',
+    '/folders/p/designs/d/revisions/r',
+    '/folders/p/documents/d',
+    '/spaces/t/workspace',
+    '/spaces/t/fonts',
+    '/spaces/t/settings',
+    '/spaces/t/members',
+    '/spaces/t/documents/d',
   ])
+    assert.equal(routeFor(url).kind, 'missing', url);
+  assert.equal(routeFor('/', '?design=d').kind, 'space');
+  assert.equal(routeFor('/', '?design=d').designId, undefined);
+});
+
+test('unknown routes and external login returns are rejected', () => {
+  for (const url of ['/folders/p/designs', '/folders/%2Fother', '/folders/%ZZ', '/unknown'])
     assert.equal(routeFor(url).kind, 'missing');
   for (const url of ['https://example.com', '//example.com', '/\\example.com', '/unknown', null])
     assert.equal(safeReturnPath(url), null);
 });
 
-test('root opens the team workspace while local viewing stays explicit', () => {
-  assert.equal(routeFor('/').kind, 'team');
+test('root opens the space workspace while local viewing stays explicit', () => {
+  assert.equal(routeFor('/').kind, 'space');
   assert.equal(routeFor('/local').kind, 'local');
-});
-
-test('team settings has a direct refreshable URL', () => {
-  assert.equal(routeFor('/teams/t/settings').section, 'settings');
-});
-
-test('team font library has a direct URL', () => {
-  assert.equal(routeFor('/teams/t/fonts').section, 'fonts');
-});
-
-test('project settings has a direct URL', () => {
-  assert.equal(routeFor('/projects/p/settings').section, 'settings');
-  assert.equal(routeFor('/projects/p/settings').projectId, 'p');
 });

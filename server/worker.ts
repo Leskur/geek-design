@@ -167,6 +167,20 @@ async function run(job: Job) {
       await object(storage, hash, bytes);
       assets[name] = { hash, mime: mime(bytes), size: bytes.length };
     }
+    let cover: { hash: string; mime: 'image/png'; size: number } | undefined;
+    const preview = entries.get('previews/preview.png');
+    if (preview) {
+      if (preview.uncompressedSize > 80 * 1024 ** 2) issues.push('预览图超过当前单资源限制：previews/preview.png');
+      else {
+        const bytes = await preview.getData(new Uint8ArrayWriter());
+        if (mime(bytes) !== 'image/png') issues.push('预览图不是有效 PNG：previews/preview.png');
+        else {
+          const hash = createHash('sha256').update(bytes).digest('hex');
+          await object(storage, hash, bytes);
+          cover = { hash, mime: 'image/png', size: bytes.length };
+        }
+      }
+    }
     const manifest = {
       schemaVersion: 1,
       parserVersion: PARSER_VERSION,
@@ -174,6 +188,7 @@ async function run(job: Job) {
       pages: info.pages,
       pageFiles,
       assets,
+      ...(cover ? { cover } : {}),
       issues,
     };
     await fsp.writeFile(

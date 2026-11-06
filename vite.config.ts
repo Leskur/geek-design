@@ -7,7 +7,10 @@ function normalizeBase(value: string | undefined) {
 
 export default defineConfig({
   base: normalizeBase(process.env.VITE_BASE),
-  server: { proxy: { '/api': { target: 'http://127.0.0.1:5174' } } },
+  server: {
+    proxy: { '/api': { target: 'http://127.0.0.1:5174' } },
+    watch: { ignored: ['**/data/**', '**/.server-build/**'] },
+  },
   build: {
     rollupOptions: {
       output: { manualChunks: { 'vector-engine': ['paper'], archive: ['@zip.js/zip.js'] } },

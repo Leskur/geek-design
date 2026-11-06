@@ -30,7 +30,7 @@ export class Jobs {
   private tick() {
     if (this.child || this.stopping) return;
     const upload = this.store.one(
-      "SELECT u.*,r.hash FROM uploads u JOIN revisions r ON r.id=u.revision_id WHERE u.status='received' ORDER BY u.created LIMIT 1",
+      "SELECT * FROM uploads WHERE status='received' ORDER BY created LIMIT 1",
     );
     const artifact = upload
       ? null
@@ -57,8 +57,15 @@ export class Jobs {
       if (settled) return;
       settled = true;
       this.store.transaction(() => {
-        if (upload) this.store.run("UPDATE uploads SET status='failed' WHERE id=?", upload.id);
-        // A forged or damaged new upload must not invalidate an existing valid artifact.
+        if (upload) {
+          this.store.run("UPDATE uploads SET status='failed' WHERE id=?", upload.id);
+          this.store.run(
+            "UPDATE designs SET status='failed',error=?,updated=? WHERE id=?",
+            message,
+            Date.now(),
+            upload.design_id,
+          );
+        }
         if (verified) {
           this.store.run(
             "UPDATE artifacts SET status='failed',error=?,step='处理失败' WHERE key=?",
@@ -66,16 +73,12 @@ export class Jobs {
             key,
           );
           this.store.run(
-            "UPDATE revisions SET status='failed',error=? WHERE artifact_key=? AND status!='ready'",
+            "UPDATE designs SET status='failed',error=?,updated=? WHERE artifact_key=? AND status!='ready'",
             message,
+            Date.now(),
             key,
           );
         } else {
-          this.store.run(
-            "UPDATE revisions SET status='failed',error=? WHERE id=? AND status!='ready'",
-            message,
-            upload.revision_id,
-          );
           this.store.run(
             "UPDATE artifacts SET status='queued' WHERE key=? AND status='running'",
             key,
@@ -102,9 +105,13 @@ export class Jobs {
           );
           this.store.run("UPDATE uploads SET status='verified' WHERE id=?", upload.id);
           this.store.run(
-            "UPDATE revisions SET status='processing',artifact_key=?,error=NULL WHERE id=? AND status!='ready'",
+            "UPDATE designs SET status='processing',hash=?,size=?,filename=?,artifact_key=?,error=NULL,updated=? WHERE id=?",
+            hash,
+            upload.size,
+            upload.filename,
             key,
-            upload.revision_id,
+            Date.now(),
+            upload.design_id,
           );
         });
       } else if (message.type === 'done') {
@@ -114,18 +121,13 @@ export class Jobs {
             "UPDATE artifacts SET status='ready',step='可查看',error=NULL WHERE key=?",
             key,
           );
-          for (const r of this.store.all(
-            "SELECT * FROM revisions WHERE artifact_key=? AND status!='ready'",
+          this.store.run(
+            "UPDATE designs SET status='ready',artifact_key=?,error=NULL,updated=? WHERE artifact_key=? OR id=?",
             key,
-          )) {
-            this.store.run("UPDATE revisions SET status='ready',error=NULL WHERE id=?", r.id);
-            this.store.run(
-              'UPDATE documents SET current_revision=? WHERE id=? AND current_revision IS ?',
-              r.id,
-              r.document_id,
-              r.base_revision,
-            );
-          }
+            Date.now(),
+            key,
+            upload?.design_id || '',
+          );
         });
       } else if (message.type === 'failed') failed(message.error);
     });

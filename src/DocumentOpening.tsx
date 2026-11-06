@@ -5,21 +5,26 @@ export function DocumentOpening({
   status,
   error,
   onRetry,
+  folderId,
+  spaceId,
   projectId,
 }: {
   status: string;
   error: string;
   onRetry: () => void;
+  folderId?: string;
+  spaceId?: string;
+  /** @deprecated use folderId */
   projectId?: string;
 }) {
   return (
     <div className="app document-opening">
       <header className="viewer-header">
-        <a className="brand brand-link viewer-brand" href="/teams" aria-label="GeekDesign 工作台">
+        <a className="brand brand-link viewer-brand" href="/spaces" aria-label="GeekDesign 工作台">
           <Logo size={30} />
         </a>
         <div className="viewer-document-nav">
-          <ViewerNavigation projectId={projectId} />
+          <ViewerNavigation folderId={folderId || projectId} spaceId={spaceId} />
         </div>
       </header>
       <div className="workspace viewer-workspace">
@@ -56,7 +61,7 @@ export function DocumentOpening({
                     <RotateCw size={14} />
                     重试
                   </button>
-                  <a href="/teams">返回工作台</a>
+                  <a href="/spaces">返回工作台</a>
                 </div>
               )}
             </div>

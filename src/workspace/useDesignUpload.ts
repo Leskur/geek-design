@@ -3,38 +3,45 @@ import { Upload as TusUpload } from 'tus-js-client';
 import { api, post } from '../api';
 
 export type UploadPhase =
-  'idle' | 'hashing' | 'uploading' | 'paused' | 'processing' | 'done' | 'error';
-export interface UploadRevision {
+  | 'idle'
+  | 'hashing'
+  | 'uploading'
+  | 'paused'
+  | 'processing'
+  | 'done'
+  | 'error';
+export interface UploadDesign {
   id: string;
-  document_id: string;
+  space_id: string;
+  folder_id: string | null;
   status: string;
-  seq: number;
   step?: string;
   error?: string;
 }
 interface Options {
-  projectId?: string;
-  loadDocuments: () => Promise<void>;
-  loadDocument: (id: string) => Promise<unknown>;
+  spaceId?: string;
+  folderId?: string;
+  loadDesigns: () => Promise<void>;
+  loadDesign: (id: string) => Promise<unknown>;
   setError: (message: string) => void;
   setNotice: (message: string) => void;
 }
 
 export function useDesignUpload({
-  projectId,
-  loadDocuments,
-  loadDocument,
+  spaceId,
+  folderId,
+  loadDesigns,
+  loadDesign,
   setError,
   setNotice,
 }: Options) {
   const [showUpload, setShowUpload] = useState(false);
   const [file, setFile] = useState<File | null>(null),
     [target, setTarget] = useState(''),
-    [documentName, setDocumentName] = useState(''),
-    [note, setNote] = useState(''),
+    [designName, setDesignName] = useState(''),
     [phase, setPhase] = useState<UploadPhase>('idle'),
     [progress, setProgress] = useState(0),
-    [currentRevision, setCurrentRevision] = useState<UploadRevision | null>(null);
+    [currentDesign, setCurrentDesign] = useState<UploadDesign | null>(null);
   const worker = useRef<Worker | null>(null),
     tus = useRef<TusUpload | null>(null),
     rejectHash = useRef<((e: Error) => void) | null>(null),
@@ -76,17 +83,14 @@ export function useDesignUpload({
   async function poll(id: string) {
     for (;;) {
       if (!alive.current) return;
-      const r = await api(`/revisions/${id}`);
-      setCurrentRevision(r);
-      if (r.status === 'ready' || r.status === 'failed') {
-        setPhase(r.status === 'ready' ? 'done' : 'error');
-        setNotice(
-          r.status === 'ready'
-            ? '设计稿已就绪，可以打开固定链接'
-            : r.error || '处理失败，可重新解析',
-        );
-        await loadDocuments();
-        await loadDocument(r.document_id);
+      const d = await api(`/designs/${id}`);
+      setCurrentDesign(d);
+      if (d.status === 'ready' || d.status === 'failed') {
+        setPhase(d.status === 'ready' ? 'done' : 'error');
+        if (d.status === 'ready') setNotice('设计稿已就绪，可以打开');
+        else setError(d.error || '处理失败，可重新解析');
+        await loadDesigns();
+        await loadDesign(d.id);
         return;
       }
       await new Promise((resolve) => setTimeout(resolve, 800));
@@ -98,38 +102,38 @@ export function useDesignUpload({
       tus.current.start();
       return;
     }
-    if (uploadBusy.current || !file || !projectId) return;
+    if (uploadBusy.current || !file || !spaceId) return;
     uploadBusy.current = true;
     setError('');
     setNotice('');
     setPhase('hashing');
     setProgress(0);
-    setCurrentRevision(null);
+    setCurrentDesign(null);
     try {
       const hash = await hashFile(file);
       if (!alive.current) return;
       const preflight = await post('/uploads/preflight', {
-        projectId,
-        documentId: target || undefined,
-        documentName: documentName || file.name.replace(/\.sketch$/i, ''),
+        spaceId,
+        ...(folderId ? { folderId } : {}),
+        designId: target || undefined,
+        designName: designName || file.name.replace(/\.sketch$/i, ''),
         filename: file.name,
         size: file.size,
         sha256: hash,
-        note,
       });
-      setCurrentRevision(preflight.revision);
-      setTarget(preflight.documentId);
-      await loadDocuments();
-      await loadDocument(preflight.documentId);
+      setCurrentDesign(preflight.design);
+      setTarget(preflight.design.id);
+      await loadDesigns();
+      await loadDesign(preflight.design.id);
       if (preflight.kind === 'duplicate') {
         setPhase('done');
-        setNotice(`文件内容与 r${preflight.revision.seq} 一致，未重复传输或新增记录`);
+        setNotice('文件内容与当前设计一致，未重复传输');
         return;
       }
       if (preflight.kind === 'reused') {
         setNotice('已找到相同原文件，无需传输，正在准备查看数据');
         setPhase('processing');
-        await poll(preflight.revision.id);
+        await poll(preflight.design.id);
         return;
       }
       if (preflight.kind === 'upload') {
@@ -157,7 +161,7 @@ export function useDesignUpload({
         tus.current = null;
       }
       setPhase('processing');
-      await poll(preflight.revision.id);
+      await poll(preflight.design.id);
     } catch (e) {
       if (alive.current) {
         setError((e as Error).message);
@@ -180,7 +184,7 @@ export function useDesignUpload({
   }
   async function retry(id: string) {
     try {
-      await post(`/revisions/${id}/retry`);
+      await post(`/designs/${id}/retry`);
       setPhase('processing');
       await poll(id);
     } catch (e) {
@@ -195,26 +199,25 @@ export function useDesignUpload({
     }
     setFile(next);
     setPhase('idle');
-    setCurrentRevision(null);
+    setCurrentDesign(null);
     setError('');
-    if (!documentName) setDocumentName(next.name.replace(/\.sketch$/i, ''));
+    if (!designName) setDesignName(next.name.replace(/\.sketch$/i, ''));
   }
-  function beginUpload(documentId = '', nextFile?: File) {
+  function beginUpload(designId = '', nextFile?: File) {
     setShowUpload(true);
     if (active) return;
-    setTarget(documentId);
+    setTarget(designId);
     setFile(null);
-    setDocumentName('');
-    setNote('');
+    setDesignName('');
     setPhase('idle');
-    setCurrentRevision(null);
+    setCurrentDesign(null);
     setError('');
     setNotice('');
     if (nextFile) {
       if (!nextFile.name.toLowerCase().endsWith('.sketch')) setError('请选择 .sketch 文件');
       else {
         setFile(nextFile);
-        setDocumentName(nextFile.name.replace(/\.sketch$/i, ''));
+        setDesignName(nextFile.name.replace(/\.sketch$/i, ''));
       }
     }
   }
@@ -226,7 +229,7 @@ export function useDesignUpload({
         : phase === 'paused'
           ? '上传已暂停'
           : phase === 'processing'
-            ? currentRevision?.step || '正在准备设计'
+            ? currentDesign?.step || '正在准备设计'
             : '设计已就绪';
 
   return {
@@ -235,13 +238,18 @@ export function useDesignUpload({
     file,
     target,
     setTarget,
-    documentName,
-    setDocumentName,
-    note,
-    setNote,
+    designName,
+    setDesignName,
+    /** @deprecated alias */
+    documentName: designName,
+    setDocumentName: setDesignName,
+    note: '',
+    setNote: (_: string) => {},
     phase,
     progress,
-    currentRevision,
+    currentDesign,
+    /** @deprecated alias */
+    currentRevision: currentDesign,
     active,
     uploadLabel,
     chooseFile,

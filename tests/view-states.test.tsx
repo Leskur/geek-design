@@ -1,7 +1,5 @@
 import { FontPanel } from '../src/FontPanel';
 import { Inspector } from '../src/Inspector';
-import { TeamTree } from '../src/TeamTree';
-import { TeamPageHeader } from '../src/TeamPageHeader';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { renderToStaticMarkup } from 'react-dom/server';
@@ -15,7 +13,7 @@ test('a direct design URL renders the viewer loading shell on its very first ren
   try {
     Object.defineProperty(globalThis, 'location', {
       configurable: true,
-      value: new URL('http://test.local/projects/p/documents/d/revisions/r'),
+      value: new URL('http://test.local/folders/p/designs/d'),
     });
     const html = renderToStaticMarkup(<App />);
     assert.match(html, /正在打开设计/);
@@ -44,37 +42,39 @@ test('failed design loading keeps a recoverable viewer state instead of the welc
   assert.match(html, /返回工作台/);
   assert.doesNotMatch(html, /设计稿，打开就能看/);
 });
-test('team overview shows its projects and keeps project creation behind team roles', () => {
+test('space overview shows its folders and keeps folder creation available', () => {
   const props = {
-    team: { id: 't', name: 'H5', member_count: 2, role: 'owner' },
-    projects: [{ id: 'p', name: 'Mobile' }],
-    files: [{ project_id: 'p' }],
-    onCreateProject: () => {},
+    team: { id: 't', name: 'H5', member_count: 2, role: 'owner', kind: 'shared' },
+    folders: [{ id: 'p', name: 'Mobile' }],
+    files: [{ folder_id: 'p' }],
+    onCreateFolder: () => {},
   };
   const html = renderToStaticMarkup(<TeamOverview {...props} />);
-  assert.match(html, /搜索项目/);
-  assert.match(html, /href="\/projects\/p"/);
-  assert.doesNotMatch(html, />新建项目<\/button>/);
-  assert.doesNotMatch(
-    renderToStaticMarkup(<TeamOverview {...props} team={{ ...props.team, role: 'member' }} />),
-    /新建项目/,
-  );
+  assert.doesNotMatch(html, /搜索文件夹/);
+  assert.match(html, /href="\/folders\/p"/);
+  assert.doesNotMatch(html, />新建文件夹<\/button>/);
 });
 
-test('viewer provides a project return without a redundant design switcher', () => {
-  const html = renderToStaticMarkup(<ViewerNavigation projectId="p" />);
-  assert.match(html, /href="\/projects\/p"/);
-  assert.match(html, /返回项目/);
+test('viewer provides a folder return without a redundant design switcher', () => {
+  const html = renderToStaticMarkup(<ViewerNavigation folderId="p" />);
+  assert.match(html, /href="\/folders\/p"/);
+  assert.match(html, /返回文件夹/);
   assert.doesNotMatch(html, /切换设计/);
 });
 
-test('detail header returns to overview with an icon button and no project link', () => {
+test('viewer falls back to space when folder is absent', () => {
+  const html = renderToStaticMarkup(<ViewerNavigation spaceId="s" />);
+  assert.match(html, /href="\/spaces\/s"/);
+  assert.match(html, /返回空间/);
+});
+
+test('detail header returns to overview with an icon button and no folder link', () => {
   const html = renderToStaticMarkup(
-    <ViewerNavigation projectId="p" detail onOverview={() => {}} />,
+    <ViewerNavigation folderId="p" detail onOverview={() => {}} />,
   );
   assert.match(html, /<button/);
   assert.match(html, /aria-label="返回总览"/);
-  assert.doesNotMatch(html, /href=|返回项目|fu-h5/);
+  assert.doesNotMatch(html, /href=|返回文件夹|fu-h5/);
 });
 
 test('opening keeps all visible copy in the center and uses indeterminate loading', () => {
@@ -91,79 +91,6 @@ test('opening keeps all visible copy in the center and uses indeterminate loadin
       .trim(),
     '',
   );
-});
-
-test('team projects and members share a header and clear active navigation', () => {
-  const props = {
-    team: { id: 't', name: 'Design', member_count: 3, role: 'owner' },
-    projectCount: 2,
-    fileCount: 8,
-    onRename: () => {},
-    onDelete: () => {},
-    onInvite: () => {},
-    onCreateProject: () => {},
-  };
-  const projects = renderToStaticMarkup(<TeamPageHeader {...props} members={false} />),
-    members = renderToStaticMarkup(<TeamPageHeader {...props} members />);
-  assert.match(projects, /href="\/teams\/t" aria-current="page"/);
-  assert.match(members, /href="\/teams\/t\/members" aria-current="page"/);
-  assert.match(projects, /设置/);
-  assert.match(projects, /邀请成员/);
-  assert.match(projects, /新建项目/);
-  assert.match(members, />Design<\/h1>/);
-});
-
-test('sidebar lists teams without repeating project creation and empty-project prompts', () => {
-  const html = renderToStaticMarkup(
-    <TeamTree
-      userId="u"
-      teams={[
-        { id: 'a', name: 'Alpha', role: 'owner' },
-        { id: 'b', name: 'Beta', role: 'owner' },
-      ]}
-      projects={[]}
-      activeTeamId="a"
-      busy={false}
-      onCreateTeam={() => {}}
-    />,
-  );
-  assert.match(html, /团队列表/);
-  assert.match(html, /新增团队/);
-  assert.doesNotMatch(html, /wb-tree-heading/);
-  assert.match(html, /href="\/teams\/a" aria-current="page"/);
-  assert.doesNotMatch(html, /新建项目|还没有项目|等待分配项目|aria-expanded|wb-tree-projects|团队操作|gd-tree-more/);
-});
-
-test('empty project list provides creation in place only for team managers', () => {
-  const props = {
-    team: { id: 't', role: 'owner' },
-    projects: [],
-    files: [],
-    onCreateProject: () => {},
-  };
-  assert.match(renderToStaticMarkup(<TeamOverview {...props} />), />新建项目<\/button>/);
-  assert.doesNotMatch(
-    renderToStaticMarkup(<TeamOverview {...props} team={{ id: 't', role: 'member' }} />),
-    />新建项目<\/button>/,
-  );
-});
-
-test('sidebar lists nested projects without expand toggles or empty prompts', () => {
-  const html = renderToStaticMarkup(
-    <TeamTree
-      userId="u"
-      teams={[{ id: 'a', name: 'Alpha', role: 'owner' }]}
-      projects={[{ id: 'p', name: 'Project', team_id: 'a' }]}
-      activeTeamId="a"
-      activeProjectId="p"
-      busy={false}
-      onCreateTeam={() => {}}
-    />,
-  );
-  assert.match(html, /href="\/projects\/p" aria-current="page"/);
-  assert.doesNotMatch(html, /href="\/teams\/a" aria-current="page"/);
-  assert.doesNotMatch(html, /wb-tree-team current/);
-  assert.doesNotMatch(html, /aria-expanded|management-team-toggle|新建项目|还没有项目|等待分配项目/);
 });
 
 test('container inspector prioritizes own layout and CSS before export and ignores child text panels', () => {
@@ -195,7 +122,7 @@ test('container inspector prioritizes own layout and CSS before export and ignor
   assert.ok(html.indexOf('复制 width') < html.indexOf('复制 x'));
 });
 
-test('font panel distinguishes local loading, team permissions and failed team loads', () => {
+test('font panel distinguishes local loading, space permissions and failed space loads', () => {
   const render = (doc: any) =>
     renderToStaticMarkup(
       <FontPanel
@@ -209,18 +136,18 @@ test('font panel distinguishes local loading, team permissions and failed team l
   const local = render({ source: 'local' });
   assert.match(local, /不会上传|刷新/);
   assert.doesNotMatch(local, /字体库/);
-  const owner = render({ source: 'team', fontLibrary: { teamId: 'abc', canUpload: true } });
+  const owner = render({ source: 'team', fontLibrary: { spaceId: 'abc', canUpload: true } });
   assert.match(owner, /前往字体库上传/);
-  assert.match(owner, /href="\/teams\/abc\/fonts"/);
-  const viewer = render({ source: 'team', fontLibrary: { teamId: 'abc', canUpload: false } });
-  assert.match(viewer, /联系团队管理员/);
+  assert.match(owner, /href="\/spaces\/abc\/resources"/);
+  const viewer = render({ source: 'team', fontLibrary: { spaceId: 'abc', canUpload: false } });
+  assert.match(viewer, /联系空间拥有者/);
   assert.doesNotMatch(viewer, /前往字体库上传/);
   const failed = render({
     source: 'team',
     fontLoadError: () => 'Network failed',
     retryFonts: async () => {},
   });
-  assert.match(failed, /团队字体加载失败/);
+  assert.match(failed, /空间字体加载失败/);
   assert.match(failed, /重试加载/);
   assert.match(failed, /临时加载/);
 });

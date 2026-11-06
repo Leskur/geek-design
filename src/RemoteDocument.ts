@@ -3,15 +3,16 @@ import { exactTeamFont, loadBrowserFont, matchingTeamFonts, type TeamFont } from
 import type { DocumentSource, Layer, PageInfo } from '../shared/document';
 import { api } from './api';
 import { rememberDocument } from './workbench';
-import { routeFor, revisionPath } from './routes';
+import { routeFor, designPath } from './routes';
 import { readAsset, writeAsset } from './asset-cache';
+
 export class RemoteDocument implements DocumentSource {
   source = 'team' as const;
-  file = { name: '团队文档', size: 0 };
+  file = { name: '设计', size: 0 };
   pages: PageInfo[] = [];
   symbols = new Map<string, Layer>();
   styles = new Map<string, any>();
-  fontLibrary?: { teamId: string; canUpload: boolean };
+  fontLibrary?: { spaceId: string; canUpload: boolean };
   private failedFonts = new Map<string, string>();
   private fontLibraryError = '';
   matchedFont(name: string) {
@@ -53,7 +54,7 @@ export class RemoteDocument implements DocumentSource {
     if (this.fontRefresh) return this.fontRefresh;
     this.fontRefresh = (async () => {
       this.teamFonts = await api<TeamFont[]>(
-        `/revisions/${encodeURIComponent(this.revisionId)}/fonts`,
+        `/designs/${encodeURIComponent(this.designId)}/fonts`,
         { signal: this.abort.signal },
       );
       this.fontLibraryError = '';
@@ -69,44 +70,36 @@ export class RemoteDocument implements DocumentSource {
       });
     return this.fontRefresh;
   }
-  constructor(public revisionId: string) {
-    this.assetKey = `team:${revisionId}`;
+  constructor(public designId: string) {
+    this.assetKey = `design:${designId}`;
   }
   assetKey: string;
   async open() {
-    this.manifest = await api(`/revisions/${encodeURIComponent(this.revisionId)}/manifest`, {
+    this.manifest = await api(`/designs/${encodeURIComponent(this.designId)}/manifest`, {
       signal: this.abort.signal,
     });
     const route = routeFor(location.pathname, location.search);
-    if (
-      route.documentId &&
-      ![this.manifest.documentId, this.manifest.legacyDocumentId].includes(route.documentId)
-    )
-      throw new Error('稿件不属于此文档，请检查链接');
-    this.revisionId = this.manifest.revisionId;
+    if (route.designId && this.manifest.designId !== route.designId)
+      throw new Error('稿件不属于此设计，请检查链接');
+    this.designId = this.manifest.designId;
     history.replaceState(
       null,
       '',
-      revisionPath(this.manifest.projectId, this.manifest.documentId, this.revisionId) +
-        location.search.replace(/([?&])revision=[^&]*&?/, '$1').replace(/[?&]$/, ''),
+      designPath(this.manifest.spaceId, this.designId) +
+        location.search.replace(/([?&])(revision|design)=[^&]*&?/g, '$1').replace(/[?&]$/, ''),
     );
     this.fontLibrary = this.manifest.fontLibrary;
     window.addEventListener('focus', this.refreshFonts);
     this.file = this.manifest.file;
     this.pages = this.manifest.pages;
-    if (this.manifest.viewerId)
-      rememberDocument(
-        this.manifest.viewerId,
-        this.manifest.documentId,
-        this.manifest.legacyDocumentId,
-      );
+    if (this.manifest.viewerId) rememberDocument(this.manifest.viewerId, this.manifest.designId);
   }
   async loadSymbols() {
     const [data, fonts] = await Promise.all([
-      api(`/revisions/${encodeURIComponent(this.revisionId)}/symbols`, {
+      api(`/designs/${encodeURIComponent(this.designId)}/symbols`, {
         signal: this.abort.signal,
       }),
-      api<TeamFont[]>(`/revisions/${encodeURIComponent(this.revisionId)}/fonts`, {
+      api<TeamFont[]>(`/designs/${encodeURIComponent(this.designId)}/fonts`, {
         signal: this.abort.signal,
       }).catch((e) => {
         this.fontLibraryError = (e as Error).message;
@@ -121,7 +114,7 @@ export class RemoteDocument implements DocumentSource {
     const cached = this.cache.get(id);
     if (cached) return cached;
     const page = await api<Layer>(
-      `/revisions/${encodeURIComponent(this.revisionId)}/pages/${encodeURIComponent(id)}`,
+      `/designs/${encodeURIComponent(this.designId)}/pages/${encodeURIComponent(id)}`,
       { signal: this.abort.signal },
     );
     await this.ensureFonts(page);
@@ -167,7 +160,7 @@ export class RemoteDocument implements DocumentSource {
         return url;
       }
       const response = await fetch(
-        `/api/revisions/${encodeURIComponent(this.revisionId)}/assets/${entry.hash}`,
+        `/api/designs/${encodeURIComponent(this.designId)}/assets/${entry.hash}`,
         { credentials: 'same-origin', signal: this.abort.signal },
       );
       if (!response.ok) throw new Error('资源读取失败');

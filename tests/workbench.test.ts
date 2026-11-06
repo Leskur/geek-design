@@ -3,11 +3,10 @@ import { sortDesigns, workspaceView, rememberWorkspaceView } from '../src/workbe
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  preferredTeam,
+  preferredSpace,
   recentDocuments,
   rememberDocument,
-  rememberTeam,
-  migratePreferences,
+  rememberSpace,
 } from '../src/workbench';
 test('recent designs and remembered workspace stay isolated between accounts', () => {
   const memory = new Map<string, string>();
@@ -30,23 +29,10 @@ test('recent designs and remembered workspace stay isolated between accounts', (
     recentDocuments('bob').map((r) => r.id),
     ['design-c'],
   );
-  rememberTeam('alice', 'team-b');
-  assert.equal(preferredTeam('alice', [{ id: 'team-a' }, { id: 'team-b' }]), 'team-b');
-  assert.equal(preferredTeam('bob', [{ id: 'team-a' }, { id: 'team-b' }]), 'team-a');
-  assert.equal(preferredTeam('alice', [{ id: 'team-a' }]), 'team-a');
-  memory.set('sketchpeek:recent:legacy', '[{"id":"old-document","time":1}]');
-  memory.set('sketchpeek:team:legacy', 'old-team');
-  migratePreferences('short-user', 'legacy');
-  assert.equal(recentDocuments('short-user')[0].id, 'old-document');
-  assert.equal(
-    preferredTeam('short-user', [{ id: 'short-team', legacy_id: 'old-team' }]),
-    'short-team',
-  );
-  rememberDocument('short-user', 'short-document', 'old-document');
-  assert.deepEqual(
-    recentDocuments('short-user').map((r) => r.id),
-    ['short-document'],
-  );
+  rememberSpace('alice', 'space-b');
+  assert.equal(preferredSpace('alice', [{ id: 'space-a' }, { id: 'space-b' }]), 'space-b');
+  assert.equal(preferredSpace('bob', [{ id: 'space-a' }, { id: 'space-b' }]), 'space-a');
+  assert.equal(preferredSpace('alice', [{ id: 'space-a' }]), 'space-a');
   memory.set('sketchpeek:recent:alice', 'broken json');
   assert.deepEqual(recentDocuments('alice'), []);
   Object.defineProperty(globalThis, 'localStorage', {
@@ -61,7 +47,7 @@ test('recent designs and remembered workspace stay isolated between accounts', (
     },
   });
   assert.doesNotThrow(() => rememberDocument('alice', 'design-a'));
-  assert.equal(preferredTeam('alice', [{ id: 'team-a' }]), 'team-a');
+  assert.equal(preferredSpace('alice', [{ id: 'space-a' }]), 'space-a');
   delete (globalThis as any).localStorage;
 });
 
@@ -104,12 +90,12 @@ test('design ordering keeps source data unchanged and workspace view preferences
   }
 });
 
-test('team reordering handles both directions, legacy IDs and new or removed teams', () => {
-  const teams = [{ id: 'a' }, { id: 'b', legacy_id: 'old-b' }, { id: 'c' }];
+test('space reordering handles both directions and new or removed spaces', () => {
+  const spaces = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
   assert.deepEqual(moveTeam(['a', 'b', 'c'], 'a', 'c', true), ['b', 'c', 'a']);
   assert.deepEqual(moveTeam(['a', 'b', 'c'], 'c', 'a'), ['c', 'a', 'b']);
   assert.deepEqual(
-    orderTeams(teams, ['deleted', 'old-b', 'b', 'a']).map((t) => t.id),
+    orderTeams(spaces, ['deleted', 'b', 'a']).map((t) => t.id),
     ['b', 'a', 'c'],
   );
   const memory = new Map<string, string>();

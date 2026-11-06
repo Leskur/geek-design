@@ -1,13 +1,10 @@
 import { TeamFonts } from './TeamFonts';
-import { TeamSettings } from './TeamSettings';
 import { TeamInviteDialog } from './TeamInviteDialog';
-import { TeamPageHeader } from './TeamPageHeader';
 import { Logo } from './Logo';
-import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useDesignUpload } from './workspace/useDesignUpload';
 import { UploadDialog } from './workspace/UploadDialog';
 import { DesignList } from './workspace/DesignList';
-import { size, label } from './workspace/format';
 import { api, post } from './api';
 import './team.css';
 import './workbench.css';
@@ -15,29 +12,29 @@ import './team-tree.css';
 import './theme.css';
 import './management.css';
 import { TeamTree } from './TeamTree';
+import { SpaceSwitcher } from './SpaceSwitcher';
+import { SpaceToolbar } from './SpaceToolbar';
 import { TeamOverview } from './TeamOverview';
 import {
   Folder,
   Plus,
   ChevronRight,
+  LayoutGrid,
+  List,
   Monitor,
   ArrowUpRight,
-  LogOut,
   X,
   LoaderCircle,
   CircleCheck,
   Ellipsis,
-  History,
-  Upload,
-  Link,
   Menu,
 } from 'lucide-react';
 import { Dialog } from './Dialog';
 import { ContextMenu, type MenuPosition } from './ContextMenu';
 import { Trash2, Pencil, FolderInput } from 'lucide-react';
 import {
-  preferredTeam,
-  rememberTeam,
+  preferredSpace,
+  rememberSpace,
   migratePreferences,
   sortDesigns,
   workspaceView,
@@ -46,9 +43,11 @@ import {
 } from './workbench';
 import { AccountScreen } from './AccountScreen';
 import { InviteScreen } from './InviteScreen';
-import { TeamMembers, roleName } from './TeamMembers';
+import { TeamMembers } from './TeamMembers';
 import { Choice } from './Choice';
-import { routeFor, projectPath, documentPath, revisionPath, teamPath, matchesId } from './routes';
+import { routeFor, folderPath, designPath, spacePath, matchesId } from './routes';
+import { visit } from './visit';
+import { SortMenu } from './SortMenu';
 
 export function TeamHub() {
   const [sidebarOpen, setSidebarOpen] = useState(false),
@@ -77,80 +76,109 @@ export function TeamHub() {
       menuToggle.current?.focus();
     };
   }, [sidebarOpen]);
-  const [projectMenu, setProjectMenu] = useState<MenuPosition | null>(null);
-  const [accountMenu, setAccountMenu] = useState<MenuPosition | null>(null);
-  const [inviteTeam, setInviteTeam] = useState<any>(null);
+  const [folderMenu, setFolderMenu] = useState<MenuPosition | null>(null);
+  const [inviteSpace, setInviteSpace] = useState<any>(null),
+    [membersOpen, setMembersOpen] = useState(false),
+    [linkOpen, setLinkOpen] = useState(false);
   const [sort, setSort] = useState<DesignSort>('updated');
   const [editing, setEditing] = useState<{
-      kind: 'team' | 'project' | 'document';
+      kind: 'space' | 'folder' | 'design';
       item: any;
       move: boolean;
     } | null>(null),
     [editName, setEditName] = useState(''),
-    [moveProjectId, setMoveProjectId] = useState(''),
+    [moveFolderId, setMoveFolderId] = useState(''),
     [savingEdit, setSavingEdit] = useState(false),
     [editError, setEditError] = useState('');
   const [deletion, setDeletion] = useState<{
-      kind: 'team' | 'project' | 'document';
+      kind: 'space' | 'folder' | 'design';
       item: any;
     } | null>(null),
     [deleting, setDeleting] = useState(false),
     [deleteError, setDeleteError] = useState(''),
     [fileMenu, setFileMenu] = useState<(MenuPosition & { item: any }) | null>(null);
   const route = routeFor(location.pathname, location.search);
-  const [, setNavigationEpoch] = useState(0),
-    [membersVisited, setMembersVisited] = useState(route.section === 'members'),
-    [fontsVisited, setFontsVisited] = useState(route.section === 'fonts');
+  const [navigationEpoch, setNavigationEpoch] = useState(0);
+  const seenSpace = useRef<string | null>(null);
   useEffect(() => {
     const update = () => setNavigationEpoch((v) => v + 1);
     window.addEventListener('popstate', update);
     return () => window.removeEventListener('popstate', update);
   }, []);
-  function switchTeamTab(
-    e: MouseEvent<HTMLAnchorElement>,
-    members: boolean,
-    settings = false,
-    fonts = false,
-  ) {
-    if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-    e.preventDefault();
-    if (members) setMembersVisited(true);
-    if (fonts) setFontsVisited(true);
-    const path =
-      teamPath(team.id) + (fonts ? '/fonts' : settings ? '/settings' : members ? '/members' : '');
-    if (location.pathname !== path) history.pushState(null, '', path);
-    setNavigationEpoch((v) => v + 1);
-  }
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (
+        e.defaultPrevented ||
+        e.button !== 0 ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.shiftKey ||
+        e.altKey
+      )
+        return;
+      const anchor = (e.target as Element | null)?.closest?.('a');
+      if (!anchor || anchor.target === '_blank' || anchor.hasAttribute('download')) return;
+      const url = new URL(anchor.href, location.origin);
+      if (url.origin !== location.origin) return;
+      const next = routeFor(url.pathname, url.search);
+      if (next.kind !== 'space' || next.auth || next.inviteToken) return;
+      e.preventDefault();
+      visit(url.pathname + url.search);
+    }
+    document.addEventListener('click', onClick);
+    return () => document.removeEventListener('click', onClick);
+  }, []);
 
-  const [createProjectTeamId, setCreateProjectTeamId] = useState('');
+  const [createFolderSpaceId, setCreateFolderSpaceId] = useState('');
+  const [createFolderParentId, setCreateFolderParentId] = useState('');
   const [spaceLoaded, setSpaceLoaded] = useState(false),
-    [documentsLoaded, setDocumentsLoaded] = useState(false),
+    [designsLoaded, setDesignsLoaded] = useState(false),
     [files, setFiles] = useState<any[]>([]),
-    [showHistory, setShowHistory] = useState(false),
-    [createKind, setCreateKind] = useState<'team' | 'project' | null>(null),
-    [creatingProject, setCreatingProject] = useState(false),
-    [search, setSearch] = useState(''),
+    [createKind, setCreateKind] = useState<'space' | 'folder' | null>(null),
+    [creatingFolder, setCreatingFolder] = useState(false),
     [listView, setListView] = useState(false);
   const [loaded, setLoaded] = useState(false),
-    [teams, setTeams] = useState<any[]>([]),
-    [team, setTeam] = useState<any>(null),
-    [newTeam, setNewTeam] = useState(''),
-    [creatingTeam, setCreatingTeam] = useState(false);
+    [spaces, setSpaces] = useState<any[]>([]),
+    [space, setSpace] = useState<any>(null),
+    [newSpace, setNewSpace] = useState(''),
+    [creatingSpace, setCreatingSpace] = useState(false);
   const [me, setMe] = useState<any>(null),
     [error, setError] = useState(''),
-    [notice, setNotice] = useState(''),
-    [projects, setProjects] = useState<any[]>([]),
-    [project, setProject] = useState<any>(null),
-    [documents, setDocuments] = useState<any[]>([]),
-    [document, setDocument] = useState<any>(null),
-    [members, setMembers] = useState<any[]>([]),
-    [users, setUsers] = useState<any[]>([]),
-    [showMembers, setShowMembers] = useState(false),
-    [newProject, setNewProject] = useState('');
+    [notice, setNotice] = useState('');
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(''), 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+  const [folders, setFolders] = useState<any[]>([]),
+    [folder, setFolder] = useState<any>(null),
+    [designs, setDesigns] = useState<any[]>([]),
+    [newFolder, setNewFolder] = useState('');
+  useEffect(() => {
+    if (!spaceLoaded || !me) return;
+    const requested = route.folderId ? folders.find((f) => matchesId(route.folderId, f)) : null;
+    if (route.folderId && !requested) {
+      setError('文件夹不存在或无权访问');
+      return;
+    }
+    const id = route.spaceId || requested?.space_id;
+    if (!id) return;
+    const selected = spaces.find((s) => matchesId(id, s));
+    if (!selected) {
+      setError('空间不存在或无权访问');
+      return;
+    }
+    setSpace((current: any) => (current?.id === selected.id ? current : selected));
+    setFolder((current: any) =>
+      (current?.id || null) === (requested?.id || null) ? current : requested || null,
+    );
+    rememberSpace(me.id, selected.id);
+  }, [navigationEpoch, spaceLoaded]);
   const upload = useDesignUpload({
-    projectId: project?.id,
-    loadDocuments,
-    loadDocument,
+    spaceId: space?.id,
+    folderId: folder?.id,
+    loadDesigns,
+    loadDesign,
     setError,
     setNotice,
   });
@@ -163,7 +191,6 @@ export function TeamHub() {
     active,
     uploadLabel,
     beginUpload,
-    retry,
   } = upload;
   useEffect(() => {
     if (me) {
@@ -180,15 +207,14 @@ export function TeamHub() {
     setSort(order);
     rememberWorkspaceView(me.id, listView, order);
   }
-  const mayUpload = !!me && (project?.role === 'owner' || project?.role === 'designer');
-  const owner = !!me && project?.role === 'owner';
-  function requestDelete(kind: 'team' | 'project' | 'document', item: any) {
+  const mayUpload = !!me && !!space;
+  const canManageFolder = !!me && space?.role === 'owner';
+  function requestDelete(kind: 'space' | 'folder' | 'design', item: any) {
     setDeleteError('');
     setDeletion({ kind, item });
   }
   function canDeleteFile(d: any) {
-    const p = projects.find((p) => p.id === (d.project_id || project?.id));
-    return p?.role === 'owner' || p?.role === 'designer';
+    return d.created_by === me?.id || space?.role === 'owner';
   }
   async function removeItem() {
     if (!deletion || deleting) return;
@@ -196,19 +222,24 @@ export function TeamHub() {
     setDeleteError('');
     try {
       await api(
-        `/${deletion.kind === 'team' ? 'teams' : deletion.kind === 'project' ? 'projects' : 'documents'}/${deletion.item.id}`,
+        `/${deletion.kind === 'space' ? 'spaces' : deletion.kind === 'folder' ? 'folders' : 'designs'}/${deletion.item.id}`,
         { method: 'DELETE' },
       );
-      if (deletion.kind === 'team') {
-        location.assign('/teams');
+      if (deletion.kind === 'space') {
+        location.assign('/spaces');
         return;
       }
-      if (deletion.kind === 'project') {
-        location.assign(teamPath(deletion.item.team_id));
+      if (deletion.kind === 'folder') {
+        const parentId = deletion.item.parent_id;
+        location.assign(
+          parentId
+            ? folderPath(parentId)
+            : spacePath(deletion.item.space_id || space?.id),
+        );
         return;
       }
-      if (project) await loadDocuments();
-      else if (team) setFiles(await api(`/teams/${team.id}/files`));
+      if (folder) await loadDesigns();
+      else if (space) setFiles(await api(`/spaces/${space.id}/designs`));
       setDeletion(null);
       setNotice('设计已删除');
     } catch (e) {
@@ -217,18 +248,26 @@ export function TeamHub() {
       setDeleting(false);
     }
   }
-  function moveTargets(d: any) {
-    const source = projects.find((p) => p.id === (d.project_id || project?.id));
-    return projects.filter(
-      (p) =>
-        p.team_id === source?.team_id &&
-        p.id !== source?.id &&
-        ['owner', 'designer'].includes(p.role),
-    );
+  function moveOptions(d: any) {
+    const sourceId = d.folder_id || null;
+    const spaceId =
+      d.space_id ||
+      folders.find((f) => f.id === sourceId)?.space_id ||
+      space?.id;
+    const opts: { id: string; name: string }[] = [];
+    if (sourceId) opts.push({ id: '', name: '空间根' });
+    for (const f of folders.filter((x) => x.space_id === spaceId && x.id !== sourceId))
+      opts.push({
+        id: f.id,
+        name: folderAncestors(f)
+          .map((item) => item.name)
+          .join(' / '),
+      });
+    return opts;
   }
-  function requestEdit(kind: 'team' | 'project' | 'document', item: any, move = false) {
+  function requestEdit(kind: 'space' | 'folder' | 'design', item: any, move = false) {
     setEditName(item.name);
-    setMoveProjectId(move ? moveTargets(item)[0]?.id || '' : '');
+    setMoveFolderId(move ? moveOptions(item)[0]?.id ?? '' : '');
     setEditError('');
     setEditing({ kind, item, move });
   }
@@ -239,24 +278,18 @@ export function TeamHub() {
     setEditError('');
     try {
       const { kind, item, move } = editing;
-      if (move) await post(`/documents/${item.id}/move`, { projectId: moveProjectId });
+      if (move) await post(`/designs/${item.id}/move`, { folderId: moveFolderId || null });
       else
         await api(
-          `/${kind === 'team' ? 'teams' : kind === 'project' ? 'projects' : 'documents'}/${item.id}`,
+          `/${kind === 'space' ? 'spaces' : kind === 'folder' ? 'folders' : 'designs'}/${item.id}`,
           { method: 'PATCH', body: JSON.stringify({ name: editName }) },
         );
-      await loadProjects();
-      if (project) await loadDocuments();
-      if (kind === 'document' && document?.id === item.id) {
-        if (move) {
-          setShowHistory(false);
-          setDocument(null);
-          history.replaceState(null, '', projectPath(project.id));
-        } else setDocument({ ...document, name: editName.trim() });
-      }
+      await loadSpaces();
+      if (folder) await loadDesigns();
+      else if (space) await loadDesigns();
       if (move && target === item.id) setTarget('');
       setEditing(null);
-      setNotice(move ? '设计已移动，历史版本和预览已保留' : '名称已更新');
+      setNotice(move ? '设计已移动' : '名称已更新');
     } catch (e) {
       setEditError((e as Error).message);
     } finally {
@@ -281,65 +314,65 @@ export function TeamHub() {
       setLoaded(true);
     }
   }
-  async function loadProjects() {
-    const [allTeams, all] = await Promise.all([api<any[]>('/teams'), api<any[]>('/projects')]);
-    setTeams(allTeams);
+  async function loadSpaces() {
+    const allSpaces = await api<any[]>('/spaces');
+    setSpaces(allSpaces);
     if (route.auth || route.inviteToken) return;
-    const requested = route.projectId ? all.find((p) => matchesId(route.projectId, p)) : null;
-    if (route.projectId && !requested) throw new Error('项目不存在或无权访问');
-    const id = route.teamId || requested?.team_id || preferredTeam(me.id, allTeams),
-      selected = allTeams.find((t) => matchesId(id, t));
-    if (id && !selected) throw new Error('团队不存在或无权访问');
-    setTeam(selected || null);
-    setProjects(all);
-    setProject(requested || null);
+    const folderLists = await Promise.all(
+      allSpaces.map(async (s) => {
+        const list = await api<any[]>(`/spaces/${s.id}/folders`);
+        return list.map((f) => ({ ...f, space_id: f.space_id || s.id }));
+      }),
+    );
+    const allFolders = folderLists.flat();
+    setFolders(allFolders);
+
+    const requested = route.folderId
+      ? allFolders.find((f) => matchesId(route.folderId, f))
+      : null;
+    if (route.folderId && !requested) throw new Error('文件夹不存在或无权访问');
+
+    const id =
+      route.spaceId || requested?.space_id || preferredSpace(me.id, allSpaces);
+    const selected = allSpaces.find((s) => matchesId(id, s));
+    if (id && !selected) throw new Error('空间不存在或无权访问');
+    setSpace(selected || null);
+    setFolder(requested || null);
     if (selected) {
-      rememberTeam(me.id, selected.id);
-      setFiles(await api(`/teams/${selected.id}/files`));
+      rememberSpace(me.id, selected.id);
+      setFiles(await api(`/spaces/${selected.id}/designs`));
       if (!requested)
         history.replaceState(
           null,
           '',
-          teamPath(selected.id) +
-            (route.section === 'members'
-              ? '/members'
-              : route.section === 'settings'
-                ? '/settings'
-                : route.section === 'fonts'
-                  ? '/fonts'
-                  : '') +
+          spacePath(selected.id) +
+            (route.section === 'resources' ? '/resources' : '') +
             location.search,
         );
-      else if (route.projectId !== requested.id)
-        history.replaceState(
-          null,
-          '',
-          projectPath(requested.id) +
-            (route.documentId ? '/documents/' + encodeURIComponent(route.documentId) : '') +
-            location.search,
-        );
-    }
-  }
-  async function loadDocuments(id = project?.id) {
-    if (!id) return;
-    setDocumentsLoaded(false);
-    try {
-      const list = await api(`/projects/${id}/documents`);
-      setDocuments(list);
-      if (team) setFiles(await api(`/teams/${team.id}/files`));
-    } finally {
-      setDocumentsLoaded(true);
-    }
-  }
-  async function loadDocument(id: string, reveal = false) {
-    try {
-      const d = await api(`/documents/${id}`);
-      if (project && d.project_id !== project.id) throw new Error('文档不属于当前项目');
-      setDocument(d);
-      if (reveal) {
-        setShowHistory(true);
-        history.replaceState(null, '', documentPath(d.project_id, d.id));
+      else {
+        const canonical = folderPath(requested.id) + location.search;
+        if (location.pathname + location.search !== canonical)
+          history.replaceState(null, '', canonical);
       }
+    }
+  }
+  async function loadDesigns(id = folder?.id) {
+    setDesignsLoaded(false);
+    try {
+      if (id) {
+        const list = await api(`/folders/${id}/designs`);
+        setDesigns(list);
+      }
+      if (space) setFiles(await api(`/spaces/${space.id}/designs`));
+    } finally {
+      setDesignsLoaded(true);
+    }
+  }
+  async function loadDesign(id: string) {
+    try {
+      const d = await api(`/designs/${id}`);
+      if (folder && d.folder_id !== folder.id) throw new Error('设计不属于当前文件夹');
+      if (!folder && space && d.space_id !== space.id) throw new Error('设计不属于当前空间');
       return d;
     } catch (e) {
       setError((e as Error).message);
@@ -350,113 +383,115 @@ export function TeamHub() {
   }, []);
   useEffect(() => {
     if (me)
-      loadProjects()
+      loadSpaces()
         .catch((e) => setError(e.message))
         .finally(() => setSpaceLoaded(true));
   }, [me]);
   useEffect(() => {
-    setDocument(null);
     setTarget('');
-    if (project) {
-      loadDocuments(project.id).catch((e) => setError(e.message));
-      const route = routeFor(location.pathname, location.search);
-      const id = route.documentId;
-      if (id) void loadDocument(id, true);
-      else history.replaceState(null, '', projectPath(project.id));
+    if (folder) {
+      loadDesigns(folder.id).catch((e) => setError(e.message));
+      history.replaceState(null, '', folderPath(folder.id));
+    } else if (space) {
+      if (seenSpace.current && seenSpace.current !== space.id)
+        api(`/spaces/${space.id}/designs`)
+          .then(setFiles)
+          .catch((e) => setError((e as Error).message));
+      seenSpace.current = space.id;
+      setDesignsLoaded(true);
     }
-  }, [project?.id]);
-  async function createTeam(e: FormEvent) {
+  }, [folder?.id, space?.id]);
+  async function createSpace(e: FormEvent) {
     e.preventDefault();
-    if (creatingTeam) return;
-    setCreatingTeam(true);
+    if (creatingSpace) return;
+    setCreatingSpace(true);
     setError('');
     try {
-      const t = await post('/teams', { name: newTeam });
-      location.assign(teamPath(t.id));
+      const t = await post('/spaces', { name: newSpace });
+      location.assign(spacePath(t.id));
     } catch (e) {
       setError((e as Error).message);
-      setCreatingTeam(false);
+      setCreatingSpace(false);
     }
   }
-  function openCreateProject(teamId = team?.id) {
-    setCreateProjectTeamId(teamId || '');
-    setNewProject('');
-    setError('');
-    setCreateKind('project');
+  function folderAncestors(target: any) {
+    const chain: any[] = [];
+    const seen = new Set<string>();
+    let current = target;
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id);
+      chain.unshift(current);
+      current = current.parent_id
+        ? folders.find((item) => item.id === current.parent_id)
+        : null;
+    }
+    return chain;
   }
-  async function createProject(e: FormEvent) {
+  function openCreateFolder(spaceId = space?.id, parentId = '') {
+    setCreateFolderSpaceId(spaceId || '');
+    setCreateFolderParentId(parentId || '');
+    setNewFolder('');
+    setError('');
+    setCreateKind('folder');
+  }
+  async function createFolder(e: FormEvent) {
     e.preventDefault();
-    if (creatingProject) return;
-    setCreatingProject(true);
+    if (creatingFolder) return;
+    setCreatingFolder(true);
     setError('');
     try {
-      const p = await post('/projects', {
-        teamId: createProjectTeamId || team.id,
-        name: newProject,
+      const p = await post('/folders', {
+        spaceId: createFolderSpaceId || space.id,
+        name: newFolder,
+        ...(createFolderParentId ? { parentId: createFolderParentId } : {}),
       });
-      location.assign(projectPath(p.id));
+      setFolders((list) => [{ ...p, created: Date.now() }, ...list]);
+      setNewFolder('');
+      setCreateKind(null);
     } catch (e) {
       setError((e as Error).message);
-      setCreatingProject(false);
+    } finally {
+      setCreatingFolder(false);
     }
   }
-  async function manage() {
-    try {
-      setMembers(await api(`/projects/${project.id}/members`));
-      setUsers(
-        (await api<any[]>(`/teams/${team.id}/members`)).map((m) => ({
-          id: m.user_id,
-          username: m.username,
-        })),
-      );
-      setShowMembers(true);
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  async function addMember(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    try {
-      await post(`/projects/${project.id}/members`, {
-        userId: form.get('userId'),
-        role: form.get('role'),
-      });
-      await manage();
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  async function makeCurrent(id: string) {
-    try {
-      await post(`/documents/${document.id}/current`, { revisionId: id });
-      await loadDocument(document.id);
-      await loadDocuments();
-      setNotice('当前稿已更新；原固定链接保持不变');
-    } catch (e) {
-      setError((e as Error).message);
-    }
-  }
-  async function copyLink(id: string, docId = document?.id) {
-    if (!docId) return;
-    const link = `${location.origin}${revisionPath(project.id, docId, id)}`;
+  async function copySpaceLink() {
+    if (!space) return;
+    const link = `${location.origin}${spacePath(space.id)}`;
     try {
       await navigator.clipboard.writeText(link);
       setNotice('链接已复制');
     } catch {
-      setNotice(link);
+      setError(`复制失败，请手动复制：${link}`);
+    }
+  }
+  async function copyLink(designId: string) {
+    const item = designs.find((d) => d.id === designId) || files.find((d) => d.id === designId);
+    const sid = item?.space_id || space?.id;
+    if (!sid) return;
+    const link = `${location.origin}${designPath(sid, designId)}`;
+    try {
+      await navigator.clipboard.writeText(link);
+      setNotice('链接已复制');
+    } catch {
+      setError(`复制失败，请手动复制：${link}`);
     }
   }
   const workspaceReady = loaded && (!me || !!route.auth || !!route.inviteToken || spaceLoaded);
-  const visibleFiles = sortDesigns(
-    (project ? documents : files).filter((d) =>
-      `${d.name} ${d.project_name || ''}`
-        .toLocaleLowerCase()
-        .includes(search.trim().toLocaleLowerCase()),
-    ),
-    sort,
+  const rootDesigns = files.filter((d) => !d.folder_id);
+  const visibleFiles = sortDesigns(folder ? designs : rootDesigns, sort);
+  const viewActions = (
+    <>
+      {visibleFiles.length > 0 && <SortMenu value={sort} onChange={changeSort} />}
+      <div className="wb-view-switch" role="group" aria-label="展示方式">
+        <button aria-label="网格视图" aria-pressed={!listView} onClick={() => changeView(false)}>
+          <LayoutGrid size={16} />
+        </button>
+        <button aria-label="列表视图" aria-pressed={listView} onClick={() => changeView(true)}>
+          <List size={16} />
+        </button>
+      </div>
+    </>
   );
-  const canCreateProject = team && team.role !== 'member';
   const icon = (Icon: any) => <Icon size={20} strokeWidth={2} aria-hidden="true" />;
   const alert = error && (
     <div className="team-error" role="alert">
@@ -469,7 +504,7 @@ export function TeamHub() {
   const authShell = (content: React.ReactNode) => (
     <div className="team-app">
       <header>
-        <a className="brand brand-link" href="/teams">
+        <a className="brand brand-link" href="/spaces">
           <Logo size={32} />
           Geek<span>Design</span>
         </a>
@@ -493,7 +528,9 @@ export function TeamHub() {
     );
   if (route.inviteToken) return authShell(<InviteScreen token={route.inviteToken} me={me} />);
   if (!me || route.auth) return authShell(<AccountScreen register={route.auth === 'register'} />);
-  const emptyProject = project && documentsLoaded && !documents.length;
+  const emptyFolder = designsLoaded && !(folder ? designs.length : rootDesigns.length);
+  const spaceFolders = folders.filter((f) => f.space_id === space?.id && !f.parent_id);
+  const childFolders = folder ? folders.filter((f) => f.parent_id === folder.id) : [];
   return (
     <div className={`team-app wb-app${sidebarOpen ? ' navigation-open' : ''}`}>
       <aside
@@ -503,24 +540,24 @@ export function TeamHub() {
         inert={narrow && !sidebarOpen}
         aria-hidden={narrow && !sidebarOpen ? true : undefined}
       >
-        <a className="brand brand-link" href="/teams">
-          <Logo size={30} />
-          Geek<span>Design</span>
-        </a>
-
-        <TeamTree
+        <SpaceSwitcher
           userId={me.id}
-          teams={teams}
-          projects={projects}
-          activeTeamId={team?.id}
-          activeProjectId={project?.id}
+          username={me.username}
+          spaces={spaces}
+          value={space?.id}
           busy={active}
-          onCreateTeam={() => {
+          onCreate={() => {
             setError('');
-            setNewTeam('');
-            setCreateKind('team');
+            setNewSpace('');
+            setCreateKind('space');
+          }}
+          onLogout={() => {
+            void post('/logout')
+              .then(() => location.assign('/login'))
+              .catch((e) => setError((e as Error).message));
           }}
         />
+        <TeamTree spaceId={space?.id} section={folder ? undefined : route.section} />
         <button
           className="wb-icon-button management-drawer-close"
           aria-label="关闭侧边栏"
@@ -554,34 +591,13 @@ export function TeamHub() {
           >
             <Menu size={19} />
           </button>
-          <button
-            className="management-account-avatar"
-            aria-label={`账号菜单：${me.username}`}
-            title={me.username}
-            aria-haspopup="menu"
-            aria-expanded={!!accountMenu}
-            onClick={(e) => {
-              const r = e.currentTarget.getBoundingClientRect();
-              setAccountMenu(accountMenu ? null : { x: r.right - 190, y: r.bottom + 8 });
-            }}
-          >
-            {Array.from(me.username as string)[0]?.toUpperCase()}
-          </button>
         </header>
 
         <main className="wb-content">
           {alert}
           {notice && (
-            <div className="wb-notice" role="status">
-              <CircleCheck size={16} />
-              <span>{notice}</span>
-              <button
-                className="wb-icon-button"
-                aria-label="关闭提示"
-                onClick={() => setNotice('')}
-              >
-                <X size={14} />
-              </button>
+            <div className="wb-toast" role="status">
+              {notice}
             </div>
           )}
           {!workspaceReady ? (
@@ -589,57 +605,74 @@ export function TeamHub() {
               <LoaderCircle size={22} className="wb-spin" />
               正在打开工作台…
             </div>
-          ) : team && !project ? (
+          ) : space && !folder && route.section === 'resources' ? (
+            <div className="wb-resources">
+              <TeamFonts key={space.id} team={space} />
+            </div>
+          ) : space && !folder ? (
             <>
-              <TeamPageHeader
-                team={team}
-                projectCount={projects.filter((p) => p.team_id === team.id).length}
-                fileCount={files.length}
-                members={route.section === 'members'}
-                settings={route.section === 'settings'}
-                fonts={route.section === 'fonts'}
-                onNavigate={switchTeamTab}
-                onRename={() => requestEdit('team', team)}
-                onDelete={() => requestDelete('team', team)}
-                onInvite={() => setInviteTeam(team)}
-                onCreateProject={() => openCreateProject(team.id)}
-              />
-              {(fontsVisited || route.section === 'fonts') && (
-                <div hidden={route.section !== 'fonts'}>
-                  <TeamFonts key={team.id} team={team} />
-                </div>
-              )}
-              {route.section === 'settings' && (
-                <TeamSettings
-                  team={team}
-                  busy={active}
-                  onRename={() => requestEdit('team', team)}
-                  onDelete={() => requestDelete('team', team)}
-                />
-              )}
-              <div
-                hidden={
-                  route.section === 'members' ||
-                  route.section === 'settings' ||
-                  route.section === 'fonts'
+              <SpaceToolbar
+                spaceName={space.name}
+                mark={
+                  Array.from(space.kind === 'personal' ? me.username : space.name)[0]?.toUpperCase() ||
+                  '空'
                 }
-              >
-                <TeamOverview
-                  team={team}
-                  projects={projects.filter((p) => p.team_id === team.id)}
-                  files={files}
-                  onCreateProject={() => openCreateProject(team.id)}
-                  onRename={(kind, item) => requestEdit(kind, item)}
-                  onDelete={requestDelete}
+                canInvite={space.kind !== 'personal' && space.role === 'owner'}
+                canRename={space.kind !== 'personal' && space.role === 'owner'}
+                canDelete={space.kind !== 'personal' && space.role === 'owner'}
+                canManageMembers={space.kind !== 'personal'}
+                canUpload={mayUpload}
+                onInvite={() => setInviteSpace(space)}
+                onMembers={() => setMembersOpen(true)}
+                onCreateFolder={() => openCreateFolder(space.id)}
+                onUpload={() => beginUpload()}
+                onRename={() => requestEdit('space', space)}
+                onCopy={() => setLinkOpen(true)}
+                onDelete={() => requestDelete('space', space)}
+              />
+              <TeamOverview
+                team={space}
+                folders={spaceFolders}
+                files={files}
+                listView={listView}
+                headingActions={viewActions}
+                onCreateFolder={() => openCreateFolder(space.id)}
+                onRename={(kind, item) => requestEdit(kind, item)}
+                onDelete={requestDelete}
+              />
+              {!(spaceFolders.length && emptyFolder) && (
+                <DesignList
+                  spaceId={space.id}
+                  folder={null}
+                  emptyFolder={!!emptyFolder && !spaceFolders.length}
+                  designsLoaded={designsLoaded}
+                  visibleFiles={visibleFiles}
+                  listView={listView}
+                  headingActions={spaceFolders.length ? undefined : viewActions}
+                  mayUpload={mayUpload}
+                  active={active}
+                  beginUpload={beginUpload}
+                  setFileMenu={setFileMenu}
+                  copyLink={copyLink}
+                  canDeleteFile={canDeleteFile}
+                  canMoveFile={(d) => !!moveOptions(d).length}
+                  requestEdit={requestEdit}
+                  requestDelete={requestDelete}
                 />
-              </div>
-              {(membersVisited || route.section === 'members') && (
-                <div hidden={route.section !== 'members'}>
-                  <TeamMembers key={team.id} team={team} me={me} />
-                </div>
+              )}
+              {space.kind !== 'personal' && membersOpen && (
+                <Dialog
+                  wide
+                  title="成员"
+                  onClose={() => setMembersOpen(false)}
+                >
+                  <div className="wb-upload-body">
+                    <TeamMembers key={space.id} team={space} me={me} />
+                  </div>
+                </Dialog>
               )}
             </>
-          ) : !team ? (
+          ) : !space ? (
             <div className="wb-onboarding">
               <div className="wb-onboarding-art">
                 <Folder size={62} strokeWidth={1} />
@@ -649,7 +682,7 @@ export function TeamHub() {
               </div>
               <h1>给设计一个共同的空间</h1>
               <p>
-                创建团队，和伙伴一起查看、交付设计。
+                创建协作空间，和伙伴一起查看、交付设计。
                 <br />
                 已经收到邀请？直接打开邀请链接即可。
               </p>
@@ -657,110 +690,155 @@ export function TeamHub() {
                 className="primary"
                 onClick={() => {
                   setError('');
-                  setCreateKind('team');
+                  setCreateKind('space');
                 }}
               >
                 <Plus size={16} />
-                创建团队
+                创建协作空间
               </button>
             </div>
           ) : (
             <>
+              <div className="wb-folder-bar">
+                <nav className="wb-breadcrumb" aria-label="所在位置">
+                  <a href={spacePath(space.id)}>{space.name}</a>
+                  {folderAncestors(folder).flatMap((item, index, chain) => [
+                    <ChevronRight key={`${item.id}-sep`} size={14} aria-hidden="true" />,
+                    index === chain.length - 1 ? (
+                      <b key={item.id}>{item.name}</b>
+                    ) : (
+                      <a key={item.id} href={folderPath(item.id)}>
+                        {item.name}
+                      </a>
+                    ),
+                  ])}
+                </nav>
+                <SpaceToolbar
+                  spaceName={folder?.name || '设计文件'}
+                  mark=""
+                  canInvite={false}
+                  canRename={false}
+                  canDelete={false}
+                  canManageMembers={false}
+                  canUpload={mayUpload}
+                  identity={false}
+                  onInvite={() => {}}
+                  onMembers={() => {}}
+                  onCreateFolder={() => openCreateFolder(space.id, folder.id)}
+                  onUpload={() => beginUpload()}
+                  onRename={() => {}}
+                  onCopy={() => {}}
+                  onDelete={() => {}}
+                />
+              </div>
               <div className="wb-page-heading project-page-heading">
                 <div className="project-title-actions">
-                  <h1>{project?.name || '设计文件'}</h1>
-                  {owner && (
-                    <button
-                      className="wb-icon-button"
-                      aria-label="项目操作"
-                      title="项目操作"
-                      onClick={(e) => {
-                        const rect = e.currentTarget.getBoundingClientRect();
-                        setProjectMenu({ x: rect.left, y: rect.bottom + 6 });
-                      }}
-                    >
-                      <Ellipsis size={18} />
-                    </button>
-                  )}
-                </div>
-                {mayUpload && (
-                  <button className="primary" onClick={() => beginUpload()}>
-                    <Plus size={16} />
-                    上传设计
+                  <h1>
+                    <span className="wb-folder-mark" aria-hidden="true">
+                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                        <path d="M9 13h6" />
+                        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z" />
+                      </svg>
+                    </span>
+                    <span>{folder?.name || '设计文件'}</span>
+                  </h1>
+                  <button
+                    className="wb-icon-button"
+                    aria-label="文件夹操作"
+                    title="文件夹操作"
+                    onClick={(e) => {
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setFolderMenu({ x: rect.left, y: rect.bottom + 6 });
+                    }}
+                  >
+                    <Ellipsis size={18} />
                   </button>
-                )}
+                </div>
               </div>
+              <TeamOverview
+                team={space}
+                folders={childFolders}
+                files={files}
+                listView={listView}
+                headingActions={viewActions}
+                onCreateFolder={() => openCreateFolder(space.id, folder.id)}
+                onRename={(kind, item) => requestEdit(kind, item)}
+                onDelete={requestDelete}
+              />
+              {!(childFolders.length && emptyFolder) && (
               <div>
                 <DesignList
-                  project={project}
-                  emptyProject={!!emptyProject}
-                  documentsLoaded={documentsLoaded}
+                  spaceId={space.id}
+                  folder={folder}
+                  emptyFolder={!!emptyFolder && !childFolders.length}
+                  designsLoaded={designsLoaded}
                   visibleFiles={visibleFiles}
-                  search={search}
-                  setSearch={setSearch}
-                  sort={sort}
-                  changeSort={changeSort}
                   listView={listView}
-                  changeView={changeView}
+                  headingActions={childFolders.length ? undefined : viewActions}
                   mayUpload={mayUpload}
                   active={active}
                   beginUpload={beginUpload}
                   setFileMenu={setFileMenu}
-                  loadDocument={loadDocument}
                   copyLink={copyLink}
                   canDeleteFile={canDeleteFile}
-                  canMoveFile={(d) => !!moveTargets(d).length}
+                  canMoveFile={(d) => !!moveOptions(d).length}
                   requestEdit={requestEdit}
                   requestDelete={requestDelete}
                 />
               </div>
+              )}
             </>
           )}
         </main>
       </div>
-      {projectMenu && project && (
-        <ContextMenu position={projectMenu} onClose={() => setProjectMenu(null)}>
-          <button disabled={active} onClick={() => requestEdit('project', project)}>
+      {folderMenu && folder && (
+        <ContextMenu position={folderMenu} onClose={() => setFolderMenu(null)}>
+          <button disabled={active} onClick={() => requestEdit('folder', folder)}>
             <Pencil size={16} />
-            重命名项目
+            重命名文件夹
           </button>
-          <button
-            className="danger"
-            disabled={active}
-            onClick={() => requestDelete('project', project)}
-          >
-            <Trash2 size={16} />
-            删除项目
-          </button>
+          {canManageFolder && (
+            <button
+              className="danger"
+              disabled={active}
+              onClick={() => requestDelete('folder', folder)}
+            >
+              <Trash2 size={16} />
+              删除文件夹
+            </button>
+          )}
         </ContextMenu>
       )}
-      {accountMenu && (
-        <ContextMenu position={accountMenu} onClose={() => setAccountMenu(null)}>
-          <div className="management-account-name">
-            <span>当前账号</span>
-            <b>{me.username}</b>
+      {linkOpen && space && (
+        <Dialog title="复制链接" onClose={() => setLinkOpen(false)}>
+          <div className="wb-upload-body">
+            <p className="wb-dialog-description">这是「{space.name}」的链接。</p>
+            <div className="invite-copy">
+              <input
+                aria-label="空间链接"
+                readOnly
+                spellCheck={false}
+                data-dialog-initial-focus
+                value={`${location.origin}${spacePath(space.id)}`}
+                onFocus={(e) => e.target.select()}
+              />
+            </div>
+            <div className="wb-dialog-actions">
+              <button type="button" onClick={() => setLinkOpen(false)}>
+                关闭
+              </button>
+              <button className="primary" type="button" onClick={() => void copySpaceLink()}>
+                复制
+              </button>
+            </div>
           </div>
-          <button
-            disabled={active}
-            onClick={async () => {
-              try {
-                await post('/logout');
-                location.assign('/login');
-              } catch (e) {
-                setError((e as Error).message);
-              }
-            }}
-          >
-            <LogOut size={16} />
-            退出登录
-          </button>
-        </ContextMenu>
+        </Dialog>
       )}
-      {inviteTeam && (
+      {inviteSpace && (
         <TeamInviteDialog
-          key={inviteTeam.id}
-          team={inviteTeam}
-          onClose={() => setInviteTeam(null)}
+          key={inviteSpace.id}
+          team={inviteSpace}
+          onClose={() => setInviteSpace(null)}
         />
       )}
       {editing && (
@@ -768,7 +846,7 @@ export function TeamHub() {
           title={
             editing.move
               ? '移动设计'
-              : `重命名${editing.kind === 'team' ? '团队' : editing.kind === 'project' ? '项目' : '设计'}`
+              : `重命名${editing.kind === 'space' ? '空间' : editing.kind === 'folder' ? '文件夹' : '设计'}`
           }
           onClose={() => {
             if (!savingEdit) setEditing(null);
@@ -778,14 +856,14 @@ export function TeamHub() {
             {editing.move ? (
               <>
                 <p className="wb-dialog-description">
-                  将「{editing.item.name}」及其全部历史版本移动到同一团队的其他项目。
+                  将「{editing.item.name}」移动到同一空间的其他位置。
                 </p>
                 <Choice
-                  label="目标项目"
-                  value={moveProjectId}
-                  onChange={setMoveProjectId}
+                  label="目标位置"
+                  value={moveFolderId}
+                  onChange={setMoveFolderId}
                   disabled={savingEdit}
-                  options={moveTargets(editing.item).map((p) => ({ id: p.id, name: p.name }))}
+                  options={moveOptions(editing.item)}
                 />
               </>
             ) : (
@@ -815,7 +893,10 @@ export function TeamHub() {
               </button>
               <button
                 className="primary"
-                disabled={savingEdit || (editing.move ? !moveProjectId : !editName.trim())}
+                disabled={
+                  savingEdit ||
+                  (editing.move ? !moveOptions(editing.item).length : !editName.trim())
+                }
               >
                 {savingEdit ? '保存中…' : editing.move ? '移动' : '保存'}
               </button>
@@ -827,13 +908,11 @@ export function TeamHub() {
         <ContextMenu position={fileMenu} onClose={() => setFileMenu(null)}>
           <a
             href={
-              fileMenu.item.current_revision
-                ? revisionPath(
-                    fileMenu.item.project_id,
-                    fileMenu.item.id,
-                    fileMenu.item.current_revision,
-                  )
-                : projectPath(fileMenu.item.project_id)
+              fileMenu.item.status === 'ready'
+                ? designPath(fileMenu.item.space_id || space.id, fileMenu.item.id)
+                : fileMenu.item.folder_id
+                  ? folderPath(fileMenu.item.folder_id)
+                  : spacePath(fileMenu.item.space_id || space.id)
             }
           >
             <ArrowUpRight size={16} />
@@ -841,16 +920,16 @@ export function TeamHub() {
           </a>
           {canDeleteFile(fileMenu.item) && (
             <>
-              <button disabled={active} onClick={() => requestEdit('document', fileMenu.item)}>
+              <button disabled={active} onClick={() => requestEdit('design', fileMenu.item)}>
                 <Pencil size={16} />
                 重命名设计
               </button>
               <button
-                disabled={active || !moveTargets(fileMenu.item).length}
-                onClick={() => requestEdit('document', fileMenu.item, true)}
+                disabled={active || !moveOptions(fileMenu.item).length}
+                onClick={() => requestEdit('design', fileMenu.item, true)}
               >
                 <FolderInput size={16} />
-                移动到项目
+                移动到文件夹
               </button>
             </>
           )}
@@ -858,7 +937,7 @@ export function TeamHub() {
             <button
               className="danger"
               disabled={active}
-              onClick={() => requestDelete('document', fileMenu.item)}
+              onClick={() => requestDelete('design', fileMenu.item)}
             >
               <Trash2 size={16} />
               删除设计
@@ -868,7 +947,7 @@ export function TeamHub() {
       )}
       {deletion && (
         <Dialog
-          title={`删除${deletion.kind === 'team' ? '团队' : deletion.kind === 'project' ? '项目' : '设计'}`}
+          title={`删除${deletion.kind === 'space' ? '空间' : deletion.kind === 'folder' ? '文件夹' : '设计'}`}
           onClose={() => {
             if (!deleting) setDeletion(null);
           }}
@@ -878,11 +957,11 @@ export function TeamHub() {
               确定删除「<strong>{deletion.item.name}</strong>」？
             </p>
             <p>
-              {deletion.kind === 'team'
-                ? '团队下的全部项目、设计、上传记录和成员关系将一并删除。'
-                : deletion.kind === 'project'
-                  ? '项目下的全部设计、上传记录和项目权限将一并删除。'
-                  : '该设计的全部稿件和上传记录将一并删除。'}{' '}
+              {deletion.kind === 'space'
+                ? '空间下的全部文件夹、设计和成员关系将一并删除。'
+                : deletion.kind === 'folder'
+                  ? '文件夹下的全部设计将一并删除。'
+                  : '该设计将被删除。'}{' '}
               此操作无法撤销。
             </p>
             <p className="gd-delete-note">共用的原文件与图片资源保留在服务器，不影响其他设计。</p>
@@ -905,31 +984,35 @@ export function TeamHub() {
       )}
       {createKind && (
         <Dialog
-          title={createKind === 'team' ? '创建团队' : '新建项目'}
+          title={createKind === 'space' ? '创建协作空间' : '新建文件夹'}
           onClose={() => {
-            if (!creatingTeam && !creatingProject) setCreateKind(null);
+            if (!creatingSpace && !creatingFolder) setCreateKind(null);
           }}
         >
           <form
             className="wb-create-form"
-            onSubmit={createKind === 'team' ? createTeam : createProject}
+            onSubmit={createKind === 'space' ? createSpace : createFolder}
           >
             <p>
-              {createKind === 'team'
-                ? '为你的团队取一个名字，之后就可以邀请伙伴加入。'
-                : `创建在「${teams.find((t) => t.id === createProjectTeamId)?.name || team?.name}」中。`}
+              {createKind === 'space'
+                ? '为协作空间取一个名字，之后就可以邀请伙伴加入。'
+                : `创建在「${
+                    folders.find((item) => item.id === createFolderParentId)?.name ||
+                    spaces.find((t) => t.id === createFolderSpaceId)?.name ||
+                    space?.name
+                  }」中。`}
             </p>
             <label>
-              {createKind === 'team' ? '团队名称' : '项目名称'}
+              {createKind === 'space' ? '空间名称' : '文件夹名称'}
               <input
                 autoFocus
                 data-dialog-initial-focus
                 required
                 maxLength={120}
-                placeholder={createKind === 'team' ? '例如：产品设计团队' : '例如：移动端设计'}
-                value={createKind === 'team' ? newTeam : newProject}
+                placeholder={createKind === 'space' ? '例如：产品设计协作' : '例如：移动端设计'}
+                value={createKind === 'space' ? newSpace : newFolder}
                 onChange={(e) =>
-                  createKind === 'team' ? setNewTeam(e.target.value) : setNewProject(e.target.value)
+                  createKind === 'space' ? setNewSpace(e.target.value) : setNewFolder(e.target.value)
                 }
               />
             </label>
@@ -938,136 +1021,26 @@ export function TeamHub() {
               <button
                 type="button"
                 onClick={() => setCreateKind(null)}
-                disabled={creatingTeam || creatingProject}
+                disabled={creatingSpace || creatingFolder}
               >
                 取消
               </button>
-              <button className="primary" disabled={creatingTeam || creatingProject}>
-                {creatingTeam || creatingProject ? '正在创建…' : '创建'}
+              <button className="primary" disabled={creatingSpace || creatingFolder}>
+                {creatingSpace || creatingFolder ? '正在创建…' : '创建'}
               </button>
             </div>
           </form>
         </Dialog>
       )}
-      {showUpload && project && (
+      {showUpload && space && (
         <UploadDialog
           upload={upload}
-          projectId={project.id}
-          targetName={documents.find((d) => d.id === target)?.name}
+          spaceId={space.id}
+          targetName={
+            (folder ? designs : files).find((d) => d.id === target)?.name
+          }
           alert={alert}
         />
-      )}
-      {showMembers && project && (
-        <Dialog title="项目成员" onClose={() => setShowMembers(false)}>
-          <div className="wb-upload-body">
-            <p className="wb-dialog-description">团队拥有者和管理员可以管理此项目。</p>
-            <div className="member-list">
-              {members.map((m) => (
-                <span key={m.user_id}>
-                  {m.username} · {roleName(m.role)}
-                  <button
-                    aria-label={`取消${m.username}的项目权限`}
-                    onClick={async () => {
-                      try {
-                        await api(`/projects/${project.id}/members/${m.user_id}`, {
-                          method: 'DELETE',
-                        });
-                        await manage();
-                      } catch (e) {
-                        setError((e as Error).message);
-                      }
-                    }}
-                  >
-                    <X size={11} />
-                  </button>
-                </span>
-              ))}
-            </div>
-            <form className="team-inline" onSubmit={addMember}>
-              <Choice
-                name="userId"
-                label="选择团队成员"
-                options={users.map((u) => ({ id: u.id, name: u.username }))}
-              />
-              <Choice
-                name="role"
-                label="项目权限"
-                options={[
-                  { id: 'viewer', name: '可查看' },
-                  { id: 'designer', name: '可上传' },
-                ]}
-              />
-              <button className="primary">添加</button>
-            </form>
-            {alert}
-            <a className="team-link" href={teamPath(team.id) + '/members'}>
-              邀请新的团队成员 <ArrowUpRight size={12} />
-            </a>
-          </div>
-        </Dialog>
-      )}
-      {showHistory && document && project && (
-        <Dialog
-          title={document.name}
-          wide
-          onClose={() => {
-            setShowHistory(false);
-            history.replaceState(null, '', projectPath(project.id));
-          }}
-        >
-          <div className="wb-upload-body">
-            <div className="wb-history-heading">
-              <span>上传记录 · {document.revisions.length}</span>
-              {mayUpload && (
-                <button
-                  onClick={() => {
-                    setShowHistory(false);
-                    beginUpload(document.id);
-                  }}
-                >
-                  <Upload size={14} />
-                  上传新稿
-                </button>
-              )}
-            </div>
-            {document.revisions.map((r: any) => (
-              <div className="team-revision" key={r.id}>
-                <span className="revision-number">r{r.seq}</span>
-                <div>
-                  <b>{r.note || r.filename}</b>
-                  <small>
-                    {r.username} · {size(r.size)} · {new Date(r.created).toLocaleString('zh-CN')}
-                  </small>
-                  <p>{r.error || (r.status === 'ready' ? '' : r.step) || label(r.status)}</p>
-                </div>
-                <div className="revision-actions">
-                  <span className={`team-status ${r.status}`}>
-                    {r.id === document.current_revision ? '当前稿' : label(r.status)}
-                  </span>
-                  {r.status === 'ready' ? (
-                    <>
-                      <a href={revisionPath(project.id, document.id, r.id)}>
-                        打开设计 <ArrowUpRight size={12} />
-                      </a>
-                      <button onClick={() => copyLink(r.id)}>
-                        <Link size={12} />
-                        复制链接
-                      </button>
-                      {r.id !== document.current_revision && mayUpload && (
-                        <button onClick={() => makeCurrent(r.id)}>设为当前稿</button>
-                      )}
-                    </>
-                  ) : r.status === 'failed' && mayUpload ? (
-                    <button onClick={() => retry(r.id)}>重新处理</button>
-                  ) : (
-                    <button onClick={() => loadDocument(document.id, true)}>刷新状态</button>
-                  )}
-                </div>
-              </div>
-            ))}
-            {alert}
-          </div>
-        </Dialog>
       )}
       {(active || phase === 'done') && !showUpload && (
         <button className="wb-transfer-pill" onClick={() => setShowUpload(true)}>

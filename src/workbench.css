@@ -2,7 +2,7 @@
   height: 100dvh;
   min-height: 0;
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr);
+  grid-template-columns: 240px minmax(0, 1fr);
   overflow: hidden;
   background: #fafbfc;
   color: #30313a;
@@ -55,19 +55,439 @@
   overflow: auto;
 }
 .wb-space-switch {
-  padding: 0 17px 23px;
+  position: relative;
+  flex: 0 0 auto;
+  margin: 10px 8px 2px;
 }
-.wb-space-switch .page-switcher-trigger {
-  background: #fff;
-  font-weight: 500;
+.wb-app .wb-space-trigger {
+  justify-content: flex-start;
+}
+.wb-space-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-space-trigger:hover,
+.wb-space-switch.open .wb-space-trigger {
+  background: #f1f2f7;
+}
+.wb-space-trigger:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.wb-space-trigger-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wb-space-trigger > svg {
+  flex-shrink: 0;
+  color: var(--sp-muted);
+}
+.wb-space-mark {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--sp-accent);
+  color: #fff;
   font-size: 12px;
-  color: #626170;
-  border-color: #e9e8ee;
-  min-height: 40px;
+  font-weight: 650;
+  line-height: 1;
 }
-.wb-space-switch .page-switcher-popover {
-  z-index: 50;
-  min-width: 195px;
+.wb-space-mark.lg {
+  width: 44px;
+  height: 44px;
+  font-size: 18px;
+}
+.wb-space-menu {
+  position: fixed;
+  z-index: 80;
+  padding: 14px 10px 8px;
+  border: 1px solid var(--sp-border);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 12px 32px #41339a14;
+}
+.wb-space-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 12px;
+  text-align: center;
+}
+.wb-space-identity b {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 650;
+}
+.wb-space-kind {
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--sp-bg);
+  color: var(--sp-muted);
+  font-size: 11px;
+  line-height: 18px;
+}
+.wb-space-footer .wb-space-create {
+  justify-content: center;
+  cursor: pointer;
+  width: calc(100% - 4px);
+  margin: 2px 2px 6px;
+  min-height: 34px;
+  padding: 0 12px;
+  background: var(--sp-accent);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: 0 2px 5px #41339a12;
+}
+.wb-space-footer .wb-space-create:hover {
+  background: var(--sp-accent-hover);
+  color: #fff;
+}
+.wb-space-section {
+  margin: 2px 8px 4px;
+  color: var(--sp-muted);
+  font-size: 11px;
+}
+.wb-space-options {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.wb-app .wb-space-option {
+  justify-content: flex-start;
+}
+.wb-space-option {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.wb-space-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+}
+.wb-space-tag {
+  flex-shrink: 0;
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--sp-bg);
+  color: var(--sp-muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+}
+.wb-space-option.current .wb-space-tag {
+  background: #fff;
+  color: #5743c3;
+}
+.wb-space-option:hover,
+.wb-space-option.highlighted {
+  background: #f5f6fa;
+}
+.wb-space-option.current {
+  background: var(--sp-selected);
+  color: #5743c3;
+}
+.wb-space-footer {
+  display: flex;
+  flex-direction: column;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--sp-border);
+}
+.wb-space-footer a,
+.wb-space-footer button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  margin: 0;
+  padding: 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sp-secondary);
+  font-size: 12px;
+  text-align: left;
+  text-decoration: none;
+}
+.wb-space-footer a:hover,
+.wb-space-footer button:hover {
+  background: #f5f6fa;
+  color: var(--sp-text);
+}
+.wb-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.wb-create {
+  position: relative;
+}
+.wb-app .wb-create > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 8px 14px;
+  border: 1px solid var(--sp-accent);
+  border-radius: 8px;
+  background: var(--sp-accent);
+  color: #fff;
+  list-style: none;
+  cursor: pointer;
+  font-size: 12px;
+  user-select: none;
+}
+.wb-app .wb-create > summary::-webkit-details-marker,
+.wb-app .wb-create > summary::marker {
+  display: none;
+  content: '';
+}
+.wb-app .wb-create > summary:hover {
+  background: var(--sp-accent-hover);
+  border-color: var(--sp-accent-hover);
+}
+.wb-app .wb-toolbar-actions > button {
+  min-height: 36px;
+  padding: 8px 14px;
+  border-radius: 8px;
+}
+.wb-app .wb-create[open] > summary svg:last-child {
+  transform: rotate(180deg);
+}
+.wb-folder-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+.wb-folder-bar .wb-space-head {
+  width: auto;
+  margin-bottom: 0;
+}
+.wb-folder-bar .wb-toolbar-actions {
+  width: auto;
+}
+.wb-app .wb-folder-bar .wb-breadcrumb {
+  flex: 1;
+  min-width: 0;
+  gap: 6px;
+}
+.wb-folder-bar .wb-breadcrumb > a,
+.wb-folder-bar .wb-breadcrumb > b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.wb-folder-bar .wb-breadcrumb > svg {
+  flex-shrink: 0;
+  color: var(--sp-muted);
+}
+.wb-space-head {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+  margin-bottom: 22px;
+}
+.wb-space-head .wb-toolbar-actions {
+  width: 100%;
+  margin-left: 0;
+  justify-content: flex-end;
+}
+.wb-space-title {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  min-width: 0;
+  text-align: start;
+}
+.wb-space-title-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--sp-accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1;
+}
+.wb-space-title h1 {
+  margin: 0;
+  color: var(--sp-text);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.4px;
+  line-height: 1.3;
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+.wb-space-ops {
+  position: relative;
+  flex-shrink: 0;
+}
+.wb-app .wb-space-ops > summary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  color: var(--sp-muted);
+  list-style: none;
+  cursor: pointer;
+}
+.wb-app .wb-space-ops > summary::-webkit-details-marker,
+.wb-app .wb-space-ops > summary::marker {
+  display: none;
+  content: '';
+}
+.wb-app .wb-space-ops > summary:hover,
+.wb-app .wb-space-ops[open] > summary {
+  background: #eeebf5;
+  color: #5743c3;
+}
+.wb-space-ops .wb-create-menu {
+  left: 0;
+  right: auto;
+}
+.wb-app .wb-space-ops .wb-create-menu a,
+.wb-app .wb-space-ops .wb-create-menu button {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  width: 100%;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  font-size: 12px;
+  text-decoration: none;
+}
+.wb-app .wb-space-ops .wb-create-menu a:hover,
+.wb-app .wb-space-ops .wb-create-menu button:hover {
+  background: var(--sp-bg);
+}
+.wb-app .wb-space-ops .wb-create-menu button.danger {
+  color: #be3347;
+}
+.wb-space-ops .wb-menu-sep {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--sp-border);
+}
+.wb-create-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 168px;
+  padding: 6px;
+  border: 1px solid var(--sp-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 32px #1c173014;
+}
+.wb-app .wb-create-menu > button {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 36px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+}
+.wb-app .wb-create-menu > button:hover:not(:disabled) {
+  background: var(--sp-bg);
+}
+.wb-tree-root {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 2px;
+  padding: 9px 12px;
+  border-radius: 6px;
+  color: var(--sp-secondary);
+  text-decoration: none;
+  font-size: 12px;
+  font-weight: 500;
+}
+.wb-tree-root:hover {
+  background: #f5f6fa;
+  color: var(--sp-text);
+}
+.wb-tree-root.current {
+  background: var(--sp-selected);
+  color: #5743c3;
+}
+.wb-tree-folders {
+  margin: 0 0 4px !important;
+  padding: 0 !important;
+}
+.wb-app .management-team-list .wb-tree-folders a {
+  padding-left: 12px;
+}
+.wb-app .management-team-list.wb-team-tree {
+  padding-top: 4px;
+}
+.wb-app .management-team-list .management-add-team {
+  margin-top: 2px;
+}
+.wb-app .management-team-list .wb-tree-no-teams {
+  margin: 4px 0 0;
+  padding: 6px 12px;
 }
 .wb-space-empty {
   width: 100%;
@@ -804,6 +1224,21 @@
   color: #b09bc0;
   min-height: 250px;
   font-size: 12px;
+}
+.wb-toast {
+  position: fixed;
+  z-index: 40;
+  left: 50%;
+  bottom: 28px;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: #2c3142;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1.4;
+  box-shadow: 0 8px 24px #1c173024;
+  pointer-events: none;
 }
 .wb-notice {
   display: flex;

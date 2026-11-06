@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent } from 'react';
-import { Type, Upload, Trash2, LoaderCircle, Check, X, Download, Eye, EyeOff } from 'lucide-react';
+import { Type, Upload, Trash2, LoaderCircle, Download, Eye, EyeClosed } from 'lucide-react';
 import { api } from './api';
 import { ManagementSearch } from './ManagementSearch';
 import { Dialog } from './Dialog';
@@ -24,9 +24,9 @@ export function TeamFonts({ team }: { team: any }) {
     controller = useRef(new AbortController()),
     faces = useRef<FontFace[]>([]),
     previewing = useRef(false);
-  const manage = team.role !== 'member';
+  const manage = team.role === 'owner';
   async function refresh() {
-    const list = await api<TeamFont[]>(`/teams/${team.id}/fonts`, {
+    const list = await api<TeamFont[]>(`/spaces/${team.id}/fonts`, {
       signal: controller.current.signal,
     });
     if (alive.current) {
@@ -34,6 +34,13 @@ export function TeamFonts({ team }: { team: any }) {
       setLoaded(true);
     }
   }
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => {
+      if (alive.current) setNotice('');
+    }, 3200);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
   useEffect(() => {
     alive.current = true;
     if (controller.current.signal.aborted) controller.current = new AbortController();
@@ -61,7 +68,7 @@ export function TeamFonts({ team }: { team: any }) {
         if (!/[.](ttf|otf|woff|woff2)$/i.test(file.name) || file.size > limit)
           throw Error(`${file.name}：支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB`);
         setProgress(`正在上传 ${file.name}`);
-        const response = await fetch(`/api/teams/${team.id}/fonts`, {
+        const response = await fetch(`/api/spaces/${team.id}/fonts`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
@@ -166,7 +173,7 @@ export function TeamFonts({ team }: { team: any }) {
     setBusy(true);
     setError('');
     try {
-      await api(`/teams/${team.id}/fonts/${remove.id}`, { method: 'DELETE' });
+      await api(`/spaces/${team.id}/fonts/${remove.id}`, { method: 'DELETE' });
       if (preview === remove.id) {
         setPreview('');
         for (const face of faces.current) document.fonts.delete(face);
@@ -187,6 +194,16 @@ export function TeamFonts({ team }: { team: any }) {
       .toLocaleLowerCase()
       .includes(query.trim().toLocaleLowerCase()),
   );
+  const fontsNetIcon = new URL('./assets/fonts-net.ico', import.meta.url).href;
+  const fontSite = (
+    <p className="management-font-site">
+      <span>社区资源：</span>
+      <a href="https://www.fonts.net.cn/" target="_blank" rel="noopener noreferrer">
+        <img src={fontsNetIcon} alt="" width={14} height={14} />
+        字体天下
+      </a>
+    </p>
+  );
   return (
     <div className="management-fonts">
       {error && !remove && (
@@ -205,20 +222,29 @@ export function TeamFonts({ team }: { team: any }) {
         </div>
       )}
       {notice && (
-        <div className="wb-notice" role="status">
-          <Check size={15} />
-          <span>{notice}</span>
-          <button className="wb-icon-button" aria-label="关闭提示" onClick={() => setNotice('')}>
-            <X size={13} />
-          </button>
+        <div className="wb-toast" role="status">
+          {notice}
         </div>
       )}
-      <div className="management-font-toolbar">
-        <ManagementSearch label="搜索字体" value={query} onChange={setQuery} disabled={!loaded} />
-        {manage && (
-          <button className="primary" disabled={busy} onClick={() => input.current?.click()}>
-            {busy ? <LoaderCircle size={15} className="wb-spin" /> : <Upload size={15} />}上传字体
-          </button>
+      <div className="management-font-head">
+        <div className="management-font-heading">
+          <h2 className="management-fonts-title">字体</h2>
+          {fontSite}
+        </div>
+        {loaded && fonts.length > 0 && (
+          <div className="management-font-toolbar">
+            <ManagementSearch label="搜索字体" value={query} onChange={setQuery} />
+            {manage && (
+              <button
+                className="primary"
+                disabled={busy}
+                title="TTF、OTF、WOFF、WOFF2，单个不超过 20 MB"
+                onClick={() => input.current?.click()}
+              >
+                {busy ? <LoaderCircle size={15} className="wb-spin" /> : <Upload size={15} />}上传字体
+              </button>
+            )}
+          </div>
         )}
         <input
           ref={input}
@@ -243,7 +269,7 @@ export function TeamFonts({ team }: { team: any }) {
       ) : (
         loaded &&
         (visible.length ? (
-          <section className="management-panel" aria-label="团队字体库">
+          <section className="management-panel" aria-label="空间字体库">
             {visible.map((font) => (
               <div className="management-font-entry" key={font.id}>
                 <div className="management-font-row">
@@ -273,7 +299,7 @@ export function TeamFonts({ team }: { team: any }) {
                     {previewLoading === font.id ? (
                       <LoaderCircle size={15} className="wb-spin" />
                     ) : preview === font.id ? (
-                      <EyeOff size={15} />
+                      <EyeClosed size={15} />
                     ) : (
                       <Eye size={15} />
                     )}
@@ -325,24 +351,27 @@ export function TeamFonts({ team }: { team: any }) {
         ) : (
           <div className="wb-soft-empty">
             <Type size={30} />
-            <h3>{query ? '没有找到匹配的字体' : '团队字体库还是空的'}</h3>
-            <p>{query ? '试试字体名称或文件名。' : '上传团队常用字体，查看设计时自动匹配。'}</p>
+            <h3>{query ? '没有匹配的字体' : '还没有字体'}</h3>
+            {!query && <p>上传后，打开设计会自动匹配。</p>}
             {query ? (
               <button onClick={() => setQuery('')}>清除搜索</button>
             ) : (
               manage && (
-                <button onClick={() => input.current?.click()}>
-                  <Upload size={15} />
-                  上传字体
-                </button>
+                <>
+                  <button
+                    title="TTF、OTF、WOFF、WOFF2，单个不超过 20 MB"
+                    onClick={() => input.current?.click()}
+                  >
+                    <Upload size={15} />
+                    上传字体
+                  </button>
+                  <p className="management-font-hint">TTF、OTF、WOFF、WOFF2，单个不超过 20 MB。</p>
+                </>
               )
             )}
           </div>
         ))
       )}
-      <p className="management-caption">
-        支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB。团队设计详情会自动匹配已上传的字体。
-      </p>
       {remove && (
         <Dialog
           title="删除字体"
@@ -352,7 +381,7 @@ export function TeamFonts({ team }: { team: any }) {
         >
           <div className="wb-upload-body">
             <p className="wb-dialog-description">
-              删除「{remove.full_name}」？之后打开团队设计时将不再加载该字体，可能使用替代字体。
+              删除「{remove.full_name}」？打开设计时不再使用这款字体。
             </p>
             {error && (
               <p className="team-error" role="alert">

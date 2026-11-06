@@ -4,7 +4,7 @@ import { mkdtemp } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from '../server/app';
 
-test('accounts, teams and invitation lifecycle enforce separate identities and scopes', async () => {
+test('accounts, spaces and invitation lifecycle enforce separate identities and scopes', async () => {
   const root = await mkdtemp(path.resolve('.test-output/accounts-'));
   const { app, store } = await createApp({ dataDir: root, startJobs: false });
   const call = async (
@@ -41,15 +41,26 @@ test('accounts, teams and invitation lifecycle enforce separate identities and s
       (await call('/register', { username: 'OWNER', password: 'abc123' })).statusCode,
       409,
     );
-    assert.deepEqual(await ok('/teams', undefined, member.cookie), []);
-    const a = await ok('/teams', { name: 'Design' }, owner.cookie),
-      b = await ok('/teams', { name: 'Other' }, outsider.cookie);
-    assert.equal((await call('/teams/' + b.id, undefined, owner.cookie)).statusCode, 404);
+    const memberSpaces = await ok('/spaces', undefined, member.cookie);
+    assert.equal(memberSpaces.length, 1);
+    assert.equal(memberSpaces[0].kind, 'personal');
+    const a = await ok('/spaces', { name: 'Design' }, owner.cookie),
+      b = await ok('/spaces', { name: 'Other' }, outsider.cookie);
+    assert.equal(a.kind, 'shared');
+    assert.equal((await call('/spaces/' + b.id, undefined, owner.cookie)).statusCode, 404);
     assert.equal(
-      (await call('/teams/' + b.id + '/files', undefined, owner.cookie)).statusCode,
+      (await call('/spaces/' + b.id + '/designs', undefined, owner.cookie)).statusCode,
       404,
     );
-    const invite = await ok(`/teams/${a.id}/invitations`, { role: 'member' }, owner.cookie);
+    const personal = (await ok('/spaces', undefined, owner.cookie)).find(
+      (s: any) => s.kind === 'personal',
+    );
+    assert.equal(
+      (await call(`/spaces/${personal.id}/invitations`, { role: 'member' }, owner.cookie))
+        .statusCode,
+      403,
+    );
+    const invite = await ok(`/spaces/${a.id}/invitations`, {}, owner.cookie);
     assert.equal((await ok('/invitations/' + invite.token)).status, 'active');
     assert.equal((await call('/invitations/' + invite.token + '/accept', {})).statusCode, 401);
     await ok('/invitations/' + invite.token + '/accept', {}, member.cookie);
@@ -58,73 +69,40 @@ test('accounts, teams and invitation lifecycle enforce separate identities and s
       (await call('/invitations/' + invite.token + '/accept', {}, outsider.cookie)).statusCode,
       409,
     );
-    assert.equal((await ok('/teams', undefined, member.cookie)).length, 1);
-    assert.equal(
-      (await call('/projects', { teamId: a.id, name: 'Denied' }, member.cookie)).statusCode,
-      403,
-    );
-    const project = await ok('/projects', { teamId: a.id, name: 'App' }, owner.cookie);
-    assert.deepEqual(await ok('/projects', undefined, member.cookie), []);
-    assert.deepEqual(await ok('/teams/' + a.id + '/files', undefined, member.cookie), []);
-    assert.equal(
-      (
-        await call(
-          `/projects/${project.id}/members`,
-          { userId: outsider.id, role: 'viewer' },
-          owner.cookie,
-        )
-      ).statusCode,
-      400,
-    );
-    await ok(
-      `/projects/${project.id}/members`,
-      { userId: member.id, role: 'viewer' },
-      owner.cookie,
-    );
-    assert.equal((await ok('/projects', undefined, member.cookie))[0].role, 'viewer');
-    assert.equal(
-      (
-        await call(
-          `/projects/${project.id}/members`,
-          { userId: member.id, role: 'designer' },
-          member.cookie,
-        )
-      ).statusCode,
-      403,
-    );
-    const revoked = await ok(`/teams/${a.id}/invitations`, {}, owner.cookie);
-    await ok(`/teams/${a.id}/invitations/${revoked.id}/revoke`, {}, owner.cookie);
+    assert.equal((await ok('/spaces', undefined, member.cookie)).length, 2);
+    const folder = await ok('/folders', { spaceId: a.id, name: 'App' }, member.cookie);
+    assert.equal(folder.space_id, a.id);
+    const designs = await ok('/spaces/' + a.id + '/designs', undefined, member.cookie);
+    assert.deepEqual(designs, []);
+    const folders = await ok('/spaces/' + a.id + '/folders', undefined, member.cookie);
+    assert.equal(folders.length, 1);
+
+    const revoked = await ok(`/spaces/${a.id}/invitations`, {}, owner.cookie);
+    await ok(`/spaces/${a.id}/invitations/${revoked.id}/revoke`, {}, owner.cookie);
     assert.equal(
       (await call('/invitations/' + revoked.token + '/accept', {}, outsider.cookie)).statusCode,
       410,
     );
-    const expired = await ok(`/teams/${a.id}/invitations`, {}, owner.cookie);
+    const expired = await ok(`/spaces/${a.id}/invitations`, {}, owner.cookie);
     store.run('UPDATE invitations SET expires=? WHERE id=?', Date.now() - 1, expired.id);
     assert.equal((await ok('/invitations/' + expired.token)).status, 'expired');
     assert.equal(
       (await call('/invitations/' + expired.token + '/accept', {}, outsider.cookie)).statusCode,
       410,
     );
-    await ok(`/teams/${a.id}/members/${member.id}`, { role: 'admin' }, owner.cookie);
-    await ok('/projects', { teamId: a.id, name: 'Admin-created' }, member.cookie);
     assert.equal(
-      (await call(`/teams/${a.id}/invitations`, { role: 'admin' }, member.cookie)).statusCode,
+      (await call(`/spaces/${a.id}/invitations`, {}, member.cookie)).statusCode,
       403,
     );
     assert.equal(
-      (await call(`/teams/${a.id}/members/${owner.id}`, { role: 'member' }, member.cookie))
+      (await call(`/spaces/${a.id}/members/${owner.id}`, undefined, owner.cookie, 'DELETE'))
         .statusCode,
       403,
     );
+    const delegated = await ok(`/spaces/${a.id}/invitations`, {}, owner.cookie);
+    await ok(`/spaces/${a.id}/members/${member.id}`, undefined, owner.cookie, 'DELETE');
     assert.equal(
-      (await call(`/teams/${a.id}/members/${owner.id}`, undefined, owner.cookie, 'DELETE'))
-        .statusCode,
-      403,
-    );
-    const delegated = await ok(`/teams/${a.id}/invitations`, {}, member.cookie);
-    await ok(`/teams/${a.id}/members/${member.id}`, undefined, owner.cookie, 'DELETE');
-    assert.equal(
-      (await call(`/projects/${project.id}/documents`, undefined, member.cookie)).statusCode,
+      (await call(`/spaces/${a.id}/folders`, undefined, member.cookie)).statusCode,
       404,
     );
     assert.equal(
@@ -133,18 +111,14 @@ test('accounts, teams and invitation lifecycle enforce separate identities and s
     );
     assert.equal(
       (await call('/invitations/' + delegated.token + '/accept', {}, outsider.cookie)).statusCode,
-      410,
+      200,
     );
-    const rejoin = await ok(`/teams/${a.id}/invitations`, {}, owner.cookie);
+    const rejoin = await ok(`/spaces/${a.id}/invitations`, {}, owner.cookie);
     await ok('/invitations/' + rejoin.token + '/accept', {}, member.cookie);
-    assert.deepEqual(await ok('/projects', undefined, member.cookie), []);
-    assert.deepEqual(await ok('/teams/' + a.id + '/files', undefined, member.cookie), []);
-    await ok('/teams', { name: 'Personal' }, member.cookie);
-    assert.equal((await ok('/teams', undefined, member.cookie)).length, 2);
-    // A new invitation cannot promote an already joined team member.
-    const promoteLink = await ok(`/teams/${a.id}/invitations`, { role: 'admin' }, owner.cookie);
-    await ok('/invitations/' + promoteLink.token + '/accept', {}, member.cookie);
-    assert.equal((await ok('/teams/' + a.id, undefined, member.cookie)).role, 'member');
+    assert.equal((await ok('/spaces/' + a.id + '/folders', undefined, member.cookie)).length, 1);
+    await ok('/spaces', { name: 'Another' }, member.cookie);
+    assert.equal((await ok('/spaces', undefined, member.cookie)).length, 3);
+    assert.equal((await ok('/spaces/' + a.id, undefined, member.cookie)).role, 'member');
     assert.equal((await call('/users', undefined, owner.cookie)).statusCode, 404);
     assert.equal((await call('/setup', {}, owner.cookie)).statusCode, 404);
   } finally {

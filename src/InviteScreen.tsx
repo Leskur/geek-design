@@ -1,8 +1,7 @@
 import { ArrowUpRight } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api, post } from './api';
-import { teamPath } from './routes';
-import { roleName } from './TeamMembers';
+import { spacePath } from './routes';
 export function InviteScreen({ token, me }: { token: string; me: any }) {
   const [invite, setInvite] = useState<any>(null),
     [error, setError] = useState(''),
@@ -19,13 +18,13 @@ export function InviteScreen({ token, me }: { token: string; me: any }) {
         <ArrowUpRight size={25} />
       </div>
       <div className="eyebrow">BETTER TOGETHER</div>
-      <h1>{invite ? `加入 ${invite.teamName}` : '团队邀请'}</h1>
+      <h1>{invite ? `加入 ${invite.spaceName}` : '空间邀请'}</h1>
       {invite && (
         <>
           <p>
-            你受邀以「{roleName(invite.role)}」身份加入团队。
+            你受邀加入协作空间。
             <br />
-            接受后，由团队管理者为你分配项目。
+            接受后即可查看并上传该空间中的设计。
           </p>
           <div className="invitation-summary">
             <span>邀请状态</span>
@@ -57,14 +56,14 @@ export function InviteScreen({ token, me }: { token: string; me: any }) {
                     setError('');
                     try {
                       const r = await post(`/invitations/${token}/accept`);
-                      location.assign(teamPath(r.teamId));
+                      location.assign(spacePath(r.spaceId));
                     } catch (e) {
                       setError((e as Error).message);
                       setBusy(false);
                     }
                   }}
                 >
-                  接受邀请并进入团队
+                  接受邀请并进入空间
                 </button>
               </>
             ) : (
@@ -76,7 +75,7 @@ export function InviteScreen({ token, me }: { token: string; me: any }) {
               </div>
             )
           ) : (
-            <p>请向团队管理者索取新的邀请链接。</p>
+            <p>请向空间拥有者索取新的邀请链接。</p>
           )}
         </>
       )}
@@ -85,8 +84,8 @@ export function InviteScreen({ token, me }: { token: string; me: any }) {
           {error}
         </div>
       )}
-      <a className="team-link" href="/teams">
-        返回我的团队
+      <a className="team-link" href="/spaces">
+        返回我的空间
       </a>
     </main>
   );

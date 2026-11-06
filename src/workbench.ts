@@ -19,19 +19,23 @@ export function rememberDocument(userId: string, id: string, legacyId?: string) 
     );
   } catch {}
 }
-export function preferredTeam(userId: string, teams: { id: string; legacy_id?: string }[]) {
+export function preferredSpace(userId: string, spaces: { id: string; legacy_id?: string }[]) {
   try {
     const saved = localStorage.getItem(`sketchpeek:team:${userId}`);
-    const found = teams.find((t) => t.id === saved || t.legacy_id === saved);
+    const found = spaces.find((t) => t.id === saved || t.legacy_id === saved);
     if (found) return found.id;
   } catch {}
-  return teams[0]?.id;
+  return spaces[0]?.id;
 }
-export function rememberTeam(userId: string, id: string) {
+/** @deprecated use preferredSpace */
+export const preferredTeam = preferredSpace;
+export function rememberSpace(userId: string, id: string) {
   try {
     localStorage.setItem(`sketchpeek:team:${userId}`, id);
   } catch {}
 }
+/** @deprecated use rememberSpace */
+export const rememberTeam = rememberSpace;
 export function migratePreferences(userId: string, legacyId?: string) {
   if (!legacyId) return;
   try {

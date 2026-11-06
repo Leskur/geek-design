@@ -13,10 +13,10 @@ export interface DocumentSource {
   symbols: Map<string, Layer>;
   styles: Map<string, any>;
   source: 'local' | 'team';
-  revisionId?: string;
-  /** Stable id for Cache Storage. Same file or revision keeps the same image bytes. */
+  designId?: string;
+  /** Stable id for Cache Storage. Same design file keeps the same image bytes. */
   assetKey?: string;
-  fontLibrary?: { teamId: string; canUpload: boolean };
+  fontLibrary?: { spaceId: string; canUpload: boolean };
   matchedFont?(name: string): { family: string; weight: number; style: string; name: string } | undefined;
   fontLoadError?(name: string): string | undefined;
   retryFonts?(): Promise<void>;
@@ -26,7 +26,7 @@ export interface DocumentSource {
   image(ref: string): Promise<string>;
   close(): Promise<void>;
 }
-export const PARSER_VERSION = 'sketch-core-1';
+export const PARSER_VERSION = 'sketch-core-2';
 export function metadata(meta: any, doc: any) {
   const order = (doc.pages || []).map((p: any) => p._ref?.split('/').pop());
   const pages: PageInfo[] = Object.entries(meta.pagesAndArtboards || {}).map(

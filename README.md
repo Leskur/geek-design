@@ -106,7 +106,7 @@ npm start
 
 - [开发检查、图片下载、切图与导出](docs/developer-inspector.md)
 - [页面导航与性能分级](docs/viewer-navigation.md)
-- [账号、团队、权限与字体库](docs/accounts-and-teams.md)
+- [账号、空间、权限与字体库](docs/accounts-and-teams.md)
 - [开发与局域网部署](docs/local-deployment.md)
 - [Docker Compose 部署](docs/docker.md)
 - [文档索引与实现记录](docs/README.md)

@@ -53,15 +53,17 @@ try {
   const assetResponse = await fetch(base + asset);
   assert.equal(assetResponse.status, 200);
   await assetResponse.arrayBuffer();
-  assert.equal((await request('/projects')).status, 401);
+  assert.equal((await request('/spaces')).status, 401);
   const username = 'smoke_' + randomBytes(6).toString('hex'),
     password = randomBytes(16).toString('hex');
   const registration = await request('/register', { username, password });
   assert.equal(registration.status, 200, await registration.clone().text());
   cookie = registration.headers.get('set-cookie')?.split(';')[0] || '';
   assert.ok(cookie);
-  const team = await json('/teams', { name: 'Docker smoke test' }),
-    project = await json('/projects', { teamId: team.id, name: 'Test project' });
+  const spaces = await json('/spaces');
+  assert.equal(spaces[0]?.kind, 'personal');
+  const space = await json('/spaces', { name: 'Docker smoke test' }),
+    folder = await json('/folders', { spaceId: space.id, name: 'Test folder' });
   const frame = { x: 0, y: 0, width: 100, height: 100 };
   const png = await sharp({ create: { width: 2, height: 2, channels: 4, background: '#7962bd' } })
     .png()
@@ -117,7 +119,7 @@ try {
   await writer.add('images/smoke.png', new Uint8ArrayReader(png));
   const bytes = await writer.close();
   const upload = await json('/uploads/preflight', {
-    projectId: project.id,
+    folderId: folder.id,
     filename: 'smoke.sketch',
     sha256: createHash('sha256').update(bytes).digest('hex'),
     size: bytes.length,
@@ -141,9 +143,9 @@ try {
     body: bytes,
   });
   assert.equal(response.status, 204, await response.text());
-  const revision = upload.revision.id;
-  await waitFor('/revisions/' + revision, (r) => r.status === 'ready');
-  const manifest = await json('/revisions/' + revision + '/manifest');
+  const designId = upload.design.id;
+  await waitFor('/designs/' + designId, (r) => r.status === 'ready');
+  const manifest = await json('/designs/' + designId + '/manifest');
   assert.equal(manifest.pages.length, 1);
 
   console.log(

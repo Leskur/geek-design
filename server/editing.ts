@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { Store, User } from './db';
-import { documentAccess, fail, membership, teamAccess } from './auth';
+import { canDeleteDesign, designAccess, fail, folderAccess, spaceAccess } from './auth';
 
 export function editingRoutes(app: FastifyInstance, store: Store, user: (req: any) => User) {
   const name = (value: unknown) => {
@@ -8,49 +8,53 @@ export function editingRoutes(app: FastifyInstance, store: Store, user: (req: an
       fail(400, '名称需要 1 至 120 个字符');
     return value.trim();
   };
-  app.patch('/api/teams/:id', async (req: any) => {
-    const t = teamAccess(store, user(req), req.params.id, true),
+  app.patch('/api/spaces/:id', async (req: any) => {
+    const s = spaceAccess(store, user(req), req.params.id, true),
       value = name(req.body?.name);
-    store.run('UPDATE teams SET name=? WHERE id=?', value, t.id);
-    return { id: t.id, name: value };
+    if (s.kind === 'personal') fail(403, '个人空间名称跟随用户名');
+    store.run('UPDATE spaces SET name=? WHERE id=?', value, s.id);
+    return { id: s.id, name: value };
   });
-  app.patch('/api/projects/:id', async (req: any) => {
-    membership(store, user(req), req.params.id, false, true);
+  app.patch('/api/folders/:id', async (req: any) => {
+    folderAccess(store, user(req), req.params.id);
     const value = name(req.body?.name);
-    store.run('UPDATE projects SET name=? WHERE id=?', value, req.params.id);
+    store.run('UPDATE folders SET name=? WHERE id=?', value, req.params.id);
     return { id: req.params.id, name: value };
   });
-  app.patch('/api/documents/:id', async (req: any) => {
-    const d = documentAccess(store, user(req), req.params.id, true),
-      value = name(req.body?.name);
-    store.run('UPDATE documents SET name=? WHERE id=?', value, d.id);
-    return { id: d.id, name: value };
-  });
-  app.post('/api/documents/:id/move', async (req: any) => {
+  app.patch('/api/designs/:id', async (req: any) => {
     const u = user(req),
-      d = documentAccess(store, u, req.params.id, true),
-      projectId = req.body?.projectId;
-    if (typeof projectId !== 'string' || !projectId) fail(400, '请选择目标项目');
-    membership(store, u, projectId, true);
-    const source = store.one('SELECT team_id FROM projects WHERE id=?', d.project_id),
-      target = store.one('SELECT team_id FROM projects WHERE id=?', projectId);
-    if (source.team_id !== target.team_id) fail(400, '只能移动到同一团队的项目');
-    return store.transaction(() => {
-      if (d.project_id !== projectId) {
-        if (
-          store.one(
-            "SELECT u.id FROM uploads u JOIN revisions r ON r.id=u.revision_id WHERE r.document_id=? AND u.status IN ('uploading','received','verifying')",
-            d.id,
-          ) ||
-          store.one(
-            "SELECT id FROM revisions WHERE document_id=? AND status IN ('uploading','processing')",
-            d.id,
-          )
-        )
-          fail(409, '设计正在上传或处理，请完成后再移动');
-        store.run('UPDATE documents SET project_id=? WHERE id=?', projectId, d.id);
-      }
-      return { id: d.id, projectId, name: d.name };
-    });
+      { design, space } = designAccess(store, u, req.params.id);
+    if (design.created_by !== u.id && space.role !== 'owner') fail(403, '只能重命名自己创建的设计');
+    const value = name(req.body?.name);
+    store.run('UPDATE designs SET name=?,updated=? WHERE id=?', value, Date.now(), design.id);
+    return { id: design.id, name: value };
+  });
+  app.post('/api/designs/:id/move', async (req: any) => {
+    const u = user(req),
+      { design, space } = designAccess(store, u, req.params.id),
+      folderId = req.body?.folderId;
+    if (design.created_by !== u.id && space.role !== 'owner') fail(403, '只能移动自己创建的设计');
+    let targetFolderId: string | null;
+    if (folderId === null) targetFolderId = null;
+    else if (typeof folderId === 'string' && folderId) {
+      const target = folderAccess(store, u, folderId);
+      if (target.folder.space_id !== space.id) fail(400, '只能移动到同一空间的文件夹');
+      targetFolderId = folderId;
+    } else fail(400, '请选择目标文件夹');
+    if (
+      store.one(
+        "SELECT id FROM uploads WHERE design_id=? AND status IN ('uploading','received','verifying')",
+        design.id,
+      ) ||
+      design.status === 'processing'
+    )
+      fail(409, '设计正在上传或处理，请完成后再移动');
+    store.run(
+      'UPDATE designs SET folder_id=?,updated=? WHERE id=?',
+      targetFolderId,
+      Date.now(),
+      design.id,
+    );
+    return { id: design.id, folderId: targetFolderId, name: design.name };
   });
 }

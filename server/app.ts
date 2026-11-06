@@ -8,22 +8,22 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { LocalStorage } from './storage';
-import { Store, type User } from './db';
+import { personalSpaceName, Store, type User } from './db';
 import {
   authenticate,
   checkPassword,
-  documentAccess,
+  designAccess,
   fail,
+  folderAccess,
   hashToken,
-  membership,
   passwordHash,
-  revisionAccess,
   session,
+  spaceAccess,
 } from './auth';
 import { Jobs, artifactKey } from './jobs';
-import { teamRoutes } from './teams';
-import { publicIds } from './public-ids';
+import { spaceRoutes } from './spaces';
 import { deletionRoutes } from './deletion';
+import { collectDesignRefs, reclaimStorage } from './gc';
 
 const text = (v: any, min = 1, max = 120) => {
   if (typeof v !== 'string' || v.trim().length < min || v.length > max)
@@ -75,7 +75,6 @@ export async function createApp(options: {
     requestTimeout: 0,
   });
   await app.register(cookie);
-  publicIds(app, store);
   const user = (req: any): User => authenticate(store, req.cookies.sp_session);
   const setSession = (reply: any, userId: string) =>
     reply.setCookie('sp_session', session(store, userId), {
@@ -124,8 +123,12 @@ export async function createApp(options: {
       hash = await passwordHash(password(b?.password));
     const id = store.transaction(() => {
       if (store.one('SELECT id FROM users WHERE username=?', name)) fail(409, '用户名已被使用');
-      const id = store.id();
+      const id = store.id(),
+        spaceId = store.id(),
+        now = Date.now();
       store.run('INSERT INTO users VALUES(?,?,?)', id, name, hash);
+      store.run('INSERT INTO spaces VALUES(?,?,?,?)', spaceId, personalSpaceName(name), 'personal', now);
+      store.run("INSERT INTO space_members VALUES(?,?,'owner')", spaceId, id);
       return id;
     });
     setSession(reply, id);
@@ -155,244 +158,240 @@ export async function createApp(options: {
     return { ok: true };
   });
   app.get('/api/me', async (req) => user(req));
-  teamRoutes(app, store, user);
+  spaceRoutes(app, store, user);
   deletionRoutes(app, store, user);
   editingRoutes(app, store, user);
   fontRoutes(app, store, user);
-  app.get('/api/projects/:id/documents', async (req: any) => {
-    membership(store, user(req), req.params.id);
+
+  app.get('/api/folders/:id/designs', async (req: any) => {
+    folderAccess(store, user(req), req.params.id);
     return store.all(
-      'SELECT d.*,COALESCE(r.seq,latest.seq) AS seq,COALESCE(r.status,latest.status) AS status,a.step,latest.status AS latest_status,COALESCE(latest.created,d.created) AS updated FROM documents d LEFT JOIN revisions r ON r.id=d.current_revision LEFT JOIN revisions latest ON latest.id=(SELECT id FROM revisions WHERE document_id=d.id ORDER BY seq DESC LIMIT 1) LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE d.project_id=? ORDER BY updated DESC',
+      'SELECT d.*,u.username AS created_by_name,a.step FROM designs d JOIN users u ON u.id=d.created_by LEFT JOIN artifacts a ON a.key=d.artifact_key WHERE d.folder_id=? ORDER BY d.updated DESC',
       req.params.id,
     );
   });
-  app.get('/api/documents/:id', async (req: any) => {
-    const d = documentAccess(store, user(req), req.params.id);
+  app.get('/api/designs/:id', async (req: any) => {
+    const { design, folder, space } = designAccess(store, user(req), req.params.id);
+    const a = design.artifact_key
+      ? store.one('SELECT step FROM artifacts WHERE key=?', design.artifact_key)
+      : null;
     return {
-      ...d,
-      revisions: store.all(
-        'SELECT r.*,u.username,a.step FROM revisions r JOIN users u ON u.id=r.created_by LEFT JOIN artifacts a ON a.key=r.artifact_key WHERE document_id=? ORDER BY seq DESC',
-        d.id,
-      ),
-    };
-  });
-  app.post('/api/documents/:id/current', async (req: any) => {
-    const d = documentAccess(store, user(req), req.params.id, true),
-      id = text((req.body as any)?.revisionId, 1, 60),
-      r = store.one(
-        "SELECT * FROM revisions WHERE id=? AND document_id=? AND status='ready'",
-        id,
-        d.id,
-      );
-    if (!r) fail(400, '只有该文档中可查看的记录可以设为当前稿');
-    store.run('UPDATE documents SET current_revision=? WHERE id=?', id, d.id);
-    return { ok: true };
-  });
-  app.get('/api/revisions/:id', async (req: any) => {
-    const r = revisionAccess(store, user(req), req.params.id),
-      a = r.artifact_key
-        ? store.one('SELECT step FROM artifacts WHERE key=?', r.artifact_key)
-        : null;
-    return {
-      ...r,
+      ...design,
+      folder_id: folder?.id ?? null,
+      space_id: space.id,
       step:
-        a?.step || ({ uploading: '等待文件传输', failed: '处理失败' } as any)[r.status] || r.status,
+        a?.step ||
+        ({ uploading: '等待文件传输', failed: '处理失败', empty: '等待上传' } as any)[
+          design.status
+        ] ||
+        design.status,
     };
   });
   async function ready(req: any) {
-    const r = revisionAccess(store, user(req), req.params.id);
-    if (r.status !== 'ready' || !r.artifact_key) fail(409, '文档尚未处理完成');
-    const a = store.one("SELECT * FROM artifacts WHERE key=? AND status='ready'", r.artifact_key);
+    const { design, folder, space } = designAccess(store, user(req), req.params.id);
+    if (design.status !== 'ready' || !design.artifact_key) fail(409, '设计尚未处理完成');
+    const a = store.one("SELECT * FROM artifacts WHERE key=? AND status='ready'", design.artifact_key);
     if (!a) fail(409, '查看数据尚未就绪');
-    const dir = storage.path('artifacts', r.artifact_key);
+    const dir = storage.path('artifacts', design.artifact_key);
     const manifest = JSON.parse(await fsp.readFile(path.join(dir, 'manifest.json'), 'utf8'));
-    return { r, dir, manifest };
+    return { design, folder, space, dir, manifest };
   }
-  app.get('/api/revisions/:id/manifest', async (req: any) => {
-    const { r, manifest } = await ready(req);
-    const project = store.one(
-        'SELECT p.team_id FROM projects p JOIN documents d ON d.project_id=p.id WHERE d.id=?',
-        r.document_id,
-      ),
-      teamRole = store.one(
-        'SELECT role FROM team_members WHERE team_id=? AND user_id=?',
-        project.team_id,
-        user(req).id,
-      )?.role;
+  app.get('/api/designs/:id/manifest', async (req: any) => {
+    const { design, folder, space, manifest } = await ready(req);
     return {
       ...manifest,
       fontLibrary: {
-        teamId: store.publicId(project.team_id),
-        canUpload: teamRole === 'owner' || teamRole === 'admin',
+        spaceId: space.id,
+        canUpload: space.role === 'owner',
       },
       viewerId: user(req).id,
-      revisionId: r.id,
-      documentId: r.document_id,
-      projectId: store.one('SELECT project_id FROM documents WHERE id=?', r.document_id).project_id,
-      file: { name: r.filename, size: r.size },
+      designId: design.id,
+      folderId: folder?.id ?? null,
+      spaceId: space.id,
+      file: { name: design.filename, size: design.size },
     };
   });
-  app.get('/api/revisions/:id/symbols', async (req: any) => {
+  app.get('/api/designs/:id/symbols', async (req: any) => {
     const { dir } = await ready(req);
     return JSON.parse(await fsp.readFile(path.join(dir, 'symbols.json'), 'utf8'));
   });
-  app.get('/api/revisions/:id/pages/:pageId', async (req: any) => {
+  app.get('/api/designs/:id/pages/:pageId', async (req: any) => {
     const { dir, manifest } = await ready(req);
     const relative = manifest.pageFiles[req.params.pageId];
     if (typeof relative !== 'string') fail(404, '页面不存在');
     return JSON.parse(await fsp.readFile(path.join(dir, relative), 'utf8'));
   });
-  app.get('/api/revisions/:id/assets/:hash', async (req: any, reply) => {
+  app.get('/api/designs/:id/assets/:hash', async (req: any, reply) => {
     const { manifest } = await ready(req);
     const hash = req.params.hash,
-      asset = Object.values(manifest.assets).find((a: any) => a.hash === hash) as any;
+      asset = Object.values(manifest.assets || {}).find((a: any) => a.hash === hash) as any;
     if (!asset) fail(404, '资源不属于此记录');
     reply.type(asset.mime).header('Content-Disposition', 'inline');
     if (asset.mime === 'application/octet-stream')
       reply.header('Content-Disposition', 'attachment');
     return reply.send(fs.createReadStream(storage.object(hash)));
   });
-  app.post('/api/revisions/:id/retry', async (req: any) => {
-    const r = revisionAccess(store, user(req), req.params.id);
-    documentAccess(store, user(req), r.document_id, true);
-    if (r.status === 'ready') return { ok: true };
-    if (!r.artifact_key || !store.one('SELECT hash FROM objects WHERE hash=?', r.hash))
+  app.get('/api/designs/:id/cover', async (req: any, reply) => {
+    const { manifest } = await ready(req);
+    const cover = manifest.cover as { hash?: string; mime?: string } | undefined;
+    if (!cover?.hash || cover.mime !== 'image/png') fail(404, '没有可用封面');
+    reply.type('image/png').header('Content-Disposition', 'inline');
+    return reply.send(fs.createReadStream(storage.object(cover.hash)));
+  });
+  app.post('/api/designs/:id/retry', async (req: any) => {
+    const { design } = designAccess(store, user(req), req.params.id);
+    if (design.status === 'ready') return { ok: true };
+    if (!design.hash || !store.one('SELECT hash FROM objects WHERE hash=?', design.hash))
       fail(409, '尚无校验通过的原文件，请重新选择文件上传');
-    const key = jobs.enqueue(r.hash);
+    const key = jobs.enqueue(design.hash);
     store.transaction(() => {
       store.run(
         "UPDATE artifacts SET status='queued',error=NULL WHERE key=? AND status='failed'",
         key,
       );
       store.run(
-        "UPDATE revisions SET status='processing',artifact_key=?,error=NULL WHERE id=?",
+        "UPDATE designs SET status='processing',artifact_key=?,error=NULL,updated=? WHERE id=?",
         key,
-        r.id,
+        Date.now(),
+        design.id,
       );
     });
     return { ok: true };
   });
+
   app.post('/api/uploads/preflight', async (req) => {
     const u = user(req),
       b = req.body as any,
-      projectId = text(b?.projectId, 1, 60);
-    membership(store, u, projectId, true);
+      spaceId = text(b?.spaceId, 1, 60);
+    let folderId: string | null = null,
+      space;
+    if (b?.folderId != null && b.folderId !== '') {
+      folderId = text(b.folderId, 1, 60);
+      const access = folderAccess(store, u, folderId);
+      if (access.folder.space_id !== spaceId) fail(400, '文件夹不属于该空间');
+      space = access.space;
+    } else {
+      space = spaceAccess(store, u, spaceId);
+    }
     const hash = b?.sha256,
       size = b?.size,
-      name = text(b?.filename, 1, 240);
+      filename = text(b?.filename, 1, 240);
     if (
       !/^[a-f0-9]{64}$/.test(hash) ||
       !Number.isSafeInteger(size) ||
       size < 1 ||
       size > maxSize ||
-      !name.toLowerCase().endsWith('.sketch')
+      !filename.toLowerCase().endsWith('.sketch')
     )
       fail(400, '请选择大小符合限制的 Sketch 文件');
-    let d = b.documentId ? documentAccess(store, u, text(b.documentId, 1, 60), true) : null;
-    if (d && d.project_id !== projectId) fail(400, '目标文档与项目不一致');
+    let design = b.designId ? designAccess(store, u, text(b.designId, 1, 60)).design : null;
+    if (design) {
+      if (design.space_id !== space.id) fail(400, '目标设计与空间不一致');
+      if ((design.folder_id || null) !== folderId) fail(400, '目标设计与文件夹不一致');
+    }
     const reuse =
       store.one(
-        'SELECT r.id FROM revisions r JOIN documents d ON d.id=r.document_id JOIN objects o ON o.hash=r.hash WHERE d.project_id=? AND r.hash=? AND o.size=? AND r.artifact_key IS NOT NULL LIMIT 1',
-        projectId,
+        'SELECT id FROM designs WHERE space_id=? AND hash=? AND size=? AND artifact_key IS NOT NULL LIMIT 1',
+        space.id,
         hash,
         size,
       ) && fs.existsSync(storage.object(hash));
-    return store.transaction(() => {
-      if (!d) {
-        const id = store.id();
-        store.run(
-          'INSERT INTO documents VALUES(?,?,?,NULL,?)',
-          id,
-          projectId,
-          text(b.documentName || name.replace(/\.sketch$/i, '')),
-          Date.now(),
-        );
-        d = store.one('SELECT * FROM documents WHERE id=?', id);
-      }
-      let r = store.one('SELECT * FROM revisions WHERE document_id=? AND hash=?', d.id, hash);
-      if (r?.status === 'ready') return { kind: 'duplicate', documentId: d.id, revision: r };
-      const key = reuse ? jobs.enqueue(hash) : null;
-      if (!r) {
+    const previous =
+      design && design.hash
+        ? await collectDesignRefs(store, storage, [design.id])
+        : { objectHashes: [], artifactKeys: [], uploadIds: [] };
+    const result = store.transaction(() => {
+      if (!design) {
         const id = store.id(),
-          seq =
-            (store.one('SELECT MAX(seq) AS n FROM revisions WHERE document_id=?', d.id).n || 0) + 1;
+          now = Date.now();
         store.run(
-          'INSERT INTO revisions(id,document_id,seq,hash,size,filename,note,created_by,base_revision,artifact_key,status,created) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)',
+          "INSERT INTO designs(id,space_id,folder_id,name,created_by,status,created,updated) VALUES(?,?,?,?,?,'empty',?,?)",
           id,
-          d.id,
-          seq,
-          hash,
-          size,
-          name,
-          typeof b.note === 'string' ? b.note.slice(0, 1000) : '',
+          space.id,
+          folderId,
+          text(b.designName || filename.replace(/\.sketch$/i, '')),
           u.id,
-          d.current_revision,
-          key,
-          reuse ? 'processing' : 'uploading',
-          Date.now(),
+          now,
+          now,
         );
-        r = store.one('SELECT * FROM revisions WHERE id=?', id);
+        design = store.one('SELECT * FROM designs WHERE id=?', id);
       }
+      if (design.hash === hash && design.status === 'ready')
+        return { kind: 'duplicate', design };
+      const key = reuse ? jobs.enqueue(hash) : null;
       if (reuse) {
         const a = store.one('SELECT * FROM artifacts WHERE key=?', key);
         store.run(
-          'UPDATE revisions SET artifact_key=?,status=?,error=NULL WHERE id=?',
+          'UPDATE designs SET hash=?,size=?,filename=?,artifact_key=?,status=?,error=NULL,updated=? WHERE id=?',
+          hash,
+          size,
+          filename,
           key,
           a.status === 'ready' ? 'ready' : 'processing',
-          r.id,
+          Date.now(),
+          design.id,
         );
         if (a.status === 'failed')
           store.run("UPDATE artifacts SET status='queued',error=NULL WHERE key=?", key);
-        if (a.status === 'ready')
-          store.run(
-            'UPDATE documents SET current_revision=? WHERE id=? AND current_revision IS ?',
-            r.id,
-            d.id,
-            r.base_revision,
-          );
         return {
           kind: 'reused',
-          documentId: d.id,
-          revision: store.one('SELECT * FROM revisions WHERE id=?', r.id),
+          design: store.one('SELECT * FROM designs WHERE id=?', design.id),
         };
       }
       const pending = store.one(
-        "SELECT * FROM uploads WHERE revision_id=? AND user_id=? AND status IN ('uploading','received','verifying') ORDER BY created DESC LIMIT 1",
-        r.id,
+        "SELECT * FROM uploads WHERE design_id=? AND user_id=? AND status IN ('uploading','received','verifying') ORDER BY created DESC LIMIT 1",
+        design.id,
         u.id,
       );
       if (pending)
         return {
           kind: pending.status === 'uploading' ? 'upload' : 'processing',
-          documentId: d.id,
-          revision: r,
+          design,
           ticket: pending.id,
         };
       const id = store.id();
       store.run(
-        "INSERT INTO uploads VALUES(?,?,?,?,'uploading',?)",
+        "INSERT INTO uploads(id,design_id,user_id,size,hash,filename,status,created) VALUES(?,?,?,?,?,?,'uploading',?)",
         id,
-        r.id,
+        design.id,
         u.id,
         size,
+        hash,
+        filename,
         Date.now(),
       );
-      store.run("UPDATE revisions SET status='uploading',error=NULL WHERE id=?", r.id);
-      return { kind: 'upload', documentId: d.id, revision: r, ticket: id };
+      store.run(
+        "UPDATE designs SET status='uploading',filename=?,size=?,error=NULL,updated=? WHERE id=?",
+        filename,
+        size,
+        Date.now(),
+        design.id,
+      );
+      return { kind: 'upload', design: store.one('SELECT * FROM designs WHERE id=?', design.id), ticket: id };
     });
+    if (
+      (result.kind === 'reused' || result.kind === 'duplicate') &&
+      previous.objectHashes.length
+    ) {
+      const next = store.one('SELECT hash,artifact_key FROM designs WHERE id=?', result.design.id);
+      await reclaimStorage(store, storage, {
+        objectHashes: previous.objectHashes.filter((h) => h !== next.hash),
+        artifactKeys: previous.artifactKeys.filter((k) => k !== next.artifact_key),
+        uploadIds: previous.uploadIds,
+      });
+    }
+    return result;
   });
+
   const fileStore = new FileStore({ directory: storage.path('uploads') });
   function tusUser(req: any) {
     return authenticate(store, app.parseCookie(req.headers.get('cookie') || '').sp_session);
   }
   function ticket(req: any, id: string) {
     const u = tusUser(req),
-      t = store.one(
-        'SELECT t.*,r.document_id FROM uploads t JOIN revisions r ON r.id=t.revision_id WHERE t.id=?',
-        id,
-      );
+      t = store.one('SELECT * FROM uploads WHERE id=?', id);
     if (!t || t.user_id !== u.id) fail(404, '上传会话不存在');
-    documentAccess(store, u, t.document_id, true);
+    designAccess(store, u, t.design_id);
     return t;
   }
   const tus = new TusServer({
@@ -403,7 +402,7 @@ export async function createApp(options: {
     allowedOrigins: [],
     disableTerminationForFinishedUploads: true,
     async namingFunction(req, meta) {
-      const id = meta?.ticket ? store.resolveId(meta.ticket) : undefined;
+      const id = meta?.ticket || undefined;
       if (!id) throw { status_code: 400, body: '缺少上传会话' };
       ticket(req, id);
       try {
@@ -453,8 +452,7 @@ export async function createApp(options: {
     const u = user(req),
       t = store.one('SELECT * FROM uploads WHERE id=? AND user_id=?', req.params.id, u.id);
     if (!t) fail(404, '上传会话不存在');
-    const r = revisionAccess(store, u, t.revision_id);
-    documentAccess(store, u, r.document_id, true);
+    designAccess(store, u, t.design_id);
     let offset = 0,
       exists = false;
     try {
@@ -468,8 +466,7 @@ export async function createApp(options: {
     const u = user(req),
       t = store.one('SELECT * FROM uploads WHERE id=? AND user_id=?', req.params.id, u.id);
     if (!t) fail(404, '上传会话不存在');
-    const r = revisionAccess(store, u, t.revision_id);
-    documentAccess(store, u, r.document_id, true);
+    designAccess(store, u, t.design_id);
     const upload = await fileStore.getUpload(t.id);
     if (upload.offset !== t.size) fail(409, '文件尚未完整接收');
     store.run("UPDATE uploads SET status='received' WHERE id=? AND status='uploading'", t.id);
@@ -506,9 +503,7 @@ export async function createApp(options: {
       return reply.type('text/html').send(fs.createReadStream(path.join(root, 'index.html')));
     });
   }
-  if (options.startJobs !== false) {
-    jobs.start();
-  }
+  if (options.startJobs !== false) jobs.start();
   app.addHook('onClose', async () => {
     await jobs.stop();
     store.close();

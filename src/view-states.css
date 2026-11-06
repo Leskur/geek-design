@@ -12,9 +12,9 @@
   width: 54px;
   height: 54px;
   flex-shrink: 0;
-  background: #ebe7fb;
-  color: #745cb9;
-  border: 1px solid #dfd8f0;
+  background: var(--sp-accent);
+  color: #fff;
+  border: 1px solid var(--sp-accent);
   border-radius: 13px;
   font-size: 22px;
   font-weight: 500;

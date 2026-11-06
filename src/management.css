@@ -143,9 +143,64 @@
   cursor: pointer;
 }
 .wb-app .wb-section-heading .wb-view-switch {
-  margin-left: 2px;
+  margin-left: auto;
   border-color: #e0e4ec;
   border-radius: 7px;
+}
+.wb-app .wb-section-heading .wb-sort + .wb-view-switch {
+  margin-left: 10px;
+}
+.wb-sort {
+  position: relative;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.wb-sort > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 35px;
+  padding: 0 10px 0 12px;
+  border: 1px solid #e0e4ec;
+  border-radius: 7px;
+  background: #fff;
+  color: #5c6578;
+  font-size: 12px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.wb-sort > button svg {
+  color: #8b93a3;
+}
+.wb-sort > button:hover,
+.wb-sort.open > button {
+  border-color: #d5d0ea;
+  background: #f6f5fb;
+  color: #5743c3;
+}
+.wb-sort > button:hover svg,
+.wb-sort.open > button svg {
+  color: #5743c3;
+}
+.wb-sort .wb-create-menu {
+  min-width: 148px;
+}
+.wb-sort .wb-create-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #414859;
+}
+.wb-sort .wb-create-menu > button svg {
+  color: transparent;
+}
+.wb-sort .wb-create-menu > button[aria-selected='true'] {
+  color: #5743c3;
+  font-weight: 600;
+}
+.wb-sort .wb-create-menu > button[aria-selected='true'] svg {
+  color: #5743c3;
 }
 .wb-app .wb-view-switch > button {
   width: 29px;
@@ -168,40 +223,89 @@
   box-shadow: 0 6px 20px #3a2f680a;
 }
 .wb-app .wb-file-cover {
-  height: 158px;
+  height: auto;
+  aspect-ratio: 2 / 1;
   border-radius: 10px 10px 0 0;
   background: #f0eef7;
 }
 .wb-app .wb-file-info {
-  padding: 16px 42px 16px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 30px auto;
+  align-items: center;
+  column-gap: 4px;
+  padding: 12px 8px 14px 18px;
 }
 .wb-app .wb-file-title {
+  grid-column: 1;
+  grid-row: 1;
   font-size: 14px;
-  color: #353c4c;
+  line-height: 30px;
+  color: #424b5d;
   font-weight: 550;
 }
 .wb-app .wb-file-info > p {
-  font-size: 12px;
-  color: #848c9d;
-  margin-top: 9px;
+  grid-column: 1;
+  grid-row: 2;
+  margin: 0;
+  color: #949bab;
+  font-size: 11px;
+  line-height: 16px;
+}
+.wb-app .wb-file-info .wb-file-menu {
+  grid-column: 2;
+  grid-row: 1;
+  position: relative;
+  top: auto;
+  right: auto;
+  bottom: auto;
 }
 .wb-app .wb-file-menu > summary {
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
+  border-radius: 6px;
+  color: #9694a3;
+}
+.wb-app .wb-file-menu > summary:hover,
+.wb-app .wb-file-menu[open] > summary {
+  background: #eeebf5;
+  color: #5743c3;
 }
 .wb-app .wb-file-grid.list {
   grid-template-columns: 1fr;
   gap: 8px;
 }
+.wb-app .wb-file-grid.list .wb-file-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  min-height: 64px;
+  padding: 10px 8px 10px 12px;
+}
 .wb-app .wb-file-grid.list .wb-file-cover {
-  width: 72px;
-  height: 72px;
-  flex-shrink: 0;
-  border-radius: 8px;
-  margin: 8px;
+  grid-column: 1;
+  grid-row: 1;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  border-radius: 9px;
+  aspect-ratio: auto;
 }
 .wb-app .wb-file-grid.list .wb-file-info {
-  padding: 14px 42px 14px 8px;
+  grid-column: 2;
+  padding: 0;
+}
+.wb-app .wb-file-grid.list .project-design-cover {
+  padding: 0;
+  background: #f0ecfa;
+}
+.wb-app .wb-file-grid.list .project-cover-placeholder {
+  color: #a18aba;
+}
+.wb-app .wb-file-grid.list .project-cover-placeholder svg {
+  width: 21px;
+  height: 21px;
 }
 .wb-app .wb-file-grid.list .wb-file-symbol {
   transform: scale(0.55);
@@ -306,6 +410,14 @@
   padding: 8px 12px;
 }
 .management-project-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: 30px auto;
+  align-items: center;
+  column-gap: 13px;
+  row-gap: 2px;
+  padding: 16px 8px 16px 18px;
   background: white;
   border: 1px solid #e0e5ed;
   border-radius: 11px;
@@ -319,36 +431,59 @@
   box-shadow: 0 5px 18px #42326b08;
 }
 .wb-app .management-project-card .team-overview-project {
-  padding: 22px 18px;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  min-height: 103px;
-  gap: 13px;
+  display: contents;
+}
+.management-project-card .team-overview-folder {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+.management-project-card .team-overview-project > div {
+  display: contents;
+}
+.management-project-card > .wb-icon-button {
+  grid-column: 3;
+  grid-row: 1;
+  position: static;
+  transform: none;
 }
 .management-project-card .team-overview-project h3 {
-  font-size: 15px;
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  font-size: 14px;
+  line-height: 30px;
   color: #424b5d;
-  margin-bottom: 7px;
 }
 .management-project-card .team-overview-project p {
-  font-size: 12px;
-  color: #8a92a2;
-}
-.management-project-footer {
-  min-height: 43px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-top: 1px solid #f0f1f6;
-  margin: 0 18px;
-  padding: 5px 0;
-  color: #949bab;
+  grid-column: 2;
+  grid-row: 2;
+  margin: 0;
   font-size: 11px;
+  line-height: 16px;
+  color: #949bab;
+}
+.wb-app .management-overview {
+  margin-bottom: 28px;
 }
 .management-overview .team-overview-projects {
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   gap: 18px;
+}
+.management-overview .team-overview-projects.list {
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+.team-overview-projects.list .management-project-card {
+  min-height: 64px;
+  padding: 10px 8px 10px 12px;
+}
+.team-overview-projects.list .team-overview-folder {
+  width: 38px;
+  height: 38px;
+}
+.team-overview-projects.list .team-overview-folder svg {
+  width: 21px;
+  height: 21px;
 }
 .management-tabs {
   display: flex;
@@ -493,6 +628,62 @@
 .management-panel .invitation-row small {
   font-size: 12px;
   color: #929aac;
+}
+.management-font-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 8px;
+}
+.management-font-heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+.management-font-site {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 0;
+  color: var(--sp-muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+.management-font-site a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px 2px 6px;
+  border: 1px solid #e4e1f2;
+  border-radius: 6px;
+  background: #f6f5fb;
+  color: var(--sp-text);
+  text-decoration: none;
+}
+.management-font-site img {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+}
+.management-font-site a:hover {
+  border-color: #d5d0ea;
+  background: #f1effa;
+}
+.management-fonts-title {
+  margin: 0;
+  color: var(--sp-text);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.management-font-hint {
+  margin: 10px 0 0;
+  color: var(--sp-muted);
+  font-size: 12px;
+  line-height: 1.5;
 }
 .management-caption {
   font-size: 12px;
@@ -807,7 +998,12 @@
   }
 }
 
-/* Navigation stays in the team/project tree; keep the content focused. */
+/* The desktop page has no top bar. The strip only carries the narrow-screen menu button. */
+@media (min-width: 761px) {
+  .wb-app .wb-toolbar {
+    display: none;
+  }
+}
 .wb-app .wb-toolbar {
   border-bottom: 1px solid #e5e7ef;
 }
@@ -837,19 +1033,18 @@
 }
 
 .wb-app .wb-file-grid.list .wb-file-card {
-  padding: 0;
-  min-height: 72px;
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 12px;
+  min-height: 64px;
+  padding: 10px 8px 10px 12px;
 }
 .wb-app .wb-file-grid.list .wb-file-cover {
-  width: 48px;
-  height: 48px;
-  margin: 10px;
-}
-.wb-app .wb-file-grid.list .wb-file-info {
-  padding: 12px 42px 12px 4px;
-}
-.wb-app .wb-file-grid.list .wb-file-info > p {
-  margin-top: 6px;
+  width: 38px;
+  height: 38px;
+  margin: 0;
+  border-radius: 9px;
 }
 
 .management-team-header > .team-overview-heading {
@@ -1105,73 +1300,28 @@
   bottom: -2px;
 }
 
-.management-team-settings {
-  display: grid;
-  gap: 22px;
-}
-.management-setting-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 24px;
-  padding: 24px 0;
-}
-.management-setting-row > div {
-  min-width: 0;
-}
-.management-setting-row span {
-  display: block;
-  font-size: 12px;
-  color: #8d95a4;
-  margin-bottom: 9px;
-}
-.management-setting-row b {
-  font-size: 14px;
-  color: #4b5568;
-  font-weight: 550;
-  overflow-wrap: anywhere;
-}
-.management-setting-row h2 {
-  margin: 0 0 8px;
-  font-size: 14px;
-  color: #826372;
-}
-.management-setting-row p {
-  font-size: 12px;
-  color: #9293a2;
-  line-height: 1.8;
-  margin: 0;
-}
-.management-setting-row > button {
-  flex-shrink: 0;
-}
-.management-danger-zone {
-  border-color: #eadfe3;
-}
-@media (max-width: 600px) {
-  .management-setting-row {
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 16px;
-  }
-}
-
 .wb-dialog .invite-copy input {
   user-select: text;
   cursor: text;
 }
 
+.wb-app .wb-sidebar > .wb-space-switch {
+  margin: 10px 8px 2px;
+}
+.wb-app .wb-sidebar .wb-team-tree.management-team-list {
+  padding: 4px 12px 16px;
+}
 .wb-app .management-team-list {
-  padding-top: 16px;
+  padding-top: 4px;
 }
 .wb-app .management-add-team {
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  gap: 9px;
+  gap: 8px;
   width: 100%;
-  margin-top: 10px;
-  padding: 11px 13px;
+  margin-top: 2px;
+  padding: 8px 12px;
   border: 0;
   border-radius: 8px;
   background: transparent;
@@ -1272,11 +1422,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 18px;
+  flex-shrink: 0;
 }
 .management-font-toolbar .management-list-toolbar {
   margin: 0;
-  flex: 1;
+  flex: 0 0 auto;
 }
 .management-font-toolbar > .primary {
   height: 38px;
@@ -1288,9 +1438,9 @@
 .management-font-row {
   display: flex;
   align-items: center;
-  gap: 14px;
-  min-height: 84px;
-  padding: 18px 0;
+  gap: 12px;
+  min-height: 68px;
+  padding: 10px 0;
 }
 .management-font-icon {
   display: grid;
@@ -1298,9 +1448,9 @@
   flex-shrink: 0;
   width: 38px;
   height: 38px;
-  background: #eeebfa;
+  background: #f0ecfa;
   border-radius: 9px;
-  color: #9482b6;
+  color: #a18aba;
 }
 .management-font-identity {
   flex: 1;
@@ -1308,9 +1458,10 @@
 }
 .management-font-identity b {
   display: block;
-  color: #4c5568;
+  color: #424b5d;
   font-size: 14px;
   font-weight: 550;
+  line-height: 30px;
   overflow-wrap: anywhere;
 }
 .management-font-identity span {
@@ -1318,9 +1469,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: #989eac;
-  font-size: 12px;
-  margin-top: 7px;
+  color: #949bab;
+  font-size: 11px;
+  line-height: 16px;
+  margin-top: 2px;
 }
 .management-font-row > button {
   flex-shrink: 0;
@@ -1338,8 +1490,12 @@
   color: #586075;
 }
 @media (max-width: 600px) {
+  .management-font-head {
+    flex-wrap: wrap;
+  }
   .management-font-toolbar {
     flex-wrap: wrap;
+    width: 100%;
   }
   .management-font-toolbar .management-list-toolbar {
     flex: 1 1 100%;
@@ -1377,7 +1533,7 @@
   min-width: 0;
 }
 .wb-app .management-team-list .management-subprojects {
-  margin: 0 0 8px;
+  margin: 0 0 2px;
   padding: 0;
   border: 0;
 }
@@ -1387,8 +1543,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   width: 100%;
-  padding: 9px 12px 9px 38px;
-  margin: 2px 0;
+  padding: 9px 12px;
+  margin: 1px 0;
   border-radius: 6px;
   text-decoration: none;
   font-size: 12px;
@@ -1418,6 +1574,7 @@
 .project-list-toolbar {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: 10px;
   margin-bottom: 18px;
 }
@@ -1495,6 +1652,32 @@
   min-width: 0;
 }
 .project-title-actions h1 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.wb-folder-mark {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--sp-accent);
+  color: #fff;
+}
+.wb-folder-mark svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.project-title-actions h1 span {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
 .wb-app .project-page-heading {

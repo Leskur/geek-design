@@ -22,7 +22,7 @@ export function TeamInviteDialog({
     setBusy(true);
     setError('');
     try {
-      const result = await post(`/teams/${team.id}/invitations`, { role: 'member' });
+      const result = await post(`/spaces/${team.id}/invitations`, {});
       if (alive.current) setLink(`${location.origin}/invite/${result.token}`);
     } catch (e) {
       if (alive.current) setError((e as Error).message);

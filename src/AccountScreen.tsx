@@ -21,7 +21,7 @@ export function AccountScreen({ register = false }: { register?: boolean }) {
         username: form.get('username'),
         password: form.get('password'),
       });
-      location.assign(next || '/teams');
+      location.assign(next || '/spaces');
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
@@ -83,8 +83,8 @@ export function AccountScreen({ register = false }: { register?: boolean }) {
       </form>
       <p className="auth-caption">
         {next?.startsWith('/invite/')
-          ? '登录或注册后，将继续接受团队邀请。'
-          : '注册后可创建团队，或通过邀请加入团队。'}
+          ? '登录或注册后，将继续接受空间邀请。'
+          : '注册后会获得个人空间，也可创建或加入协作空间。'}
       </p>
     </main>
   );

@@ -33,7 +33,7 @@ import { RemoteDocument } from './RemoteDocument';
 import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
-import { routeFor, matchesId, localOnly, withBase } from './routes';
+import { routeFor, localOnly, withBase } from './routes';
 import { detailEnabled } from './detail-entry';
 import { PageList } from './PageList';
 import { Inspector } from './Inspector';
@@ -144,24 +144,22 @@ export function App() {
   useEffect(() => {
     if (!doc || doc.source !== 'team' || doc.fontLibrary) return;
     const controller = new AbortController(),
-      projectId = routeFor(location.pathname, location.search).projectId;
-    if (!projectId) return;
+      designId = routeFor(location.pathname, location.search).designId;
+    if (!designId) return;
     void (async () => {
       try {
-        const projects = await api<{ id: string; legacy_id?: string; team_id: string }[]>(
-          '/projects',
-          { signal: controller.signal },
-        );
-        const project = projects.find((p) => matchesId(projectId, p));
-        if (!project) return;
-        const team = await api<{ id: string; role: string }>(`/teams/${project.team_id}`, {
+        const design = await api<{ space_id: string }>(`/designs/${encodeURIComponent(designId)}`, {
           signal: controller.signal,
         });
+        const space = await api<{ id: string; role: string }>(
+          `/spaces/${encodeURIComponent(design.space_id)}`,
+          { signal: controller.signal },
+        );
         if (controller.signal.aborted) return;
-        doc.fontLibrary = { teamId: team.id, canUpload: ['owner', 'admin'].includes(team.role) };
+        doc.fontLibrary = { spaceId: space.id, canUpload: space.role === 'owner' };
         setFontEpoch((v) => v + 1);
       } catch {
-        /* Keep the font details available if team metadata cannot be fetched. */
+        /* Keep the font details available if space metadata cannot be fetched. */
       }
     })();
     return () => controller.abort();
@@ -202,7 +200,7 @@ export function App() {
     pageId.current++;
     setBusy(true);
     setError('');
-    setStatus(next.source === 'team' ? '连接团队文档…' : '读取文件目录…');
+      setStatus(next.source === 'team' ? '连接设计…' : '读取文件目录…');
     try {
       await next.open();
       setStatus('读取组件和页面…');
@@ -251,7 +249,7 @@ export function App() {
   }
   useEffect(() => {
     const route = routeFor(location.pathname, location.search);
-    const id = route.revisionId;
+    const id = route.designId;
     if (id) void loadSource(new RemoteDocument(id));
   }, []);
   function viewerURL(pageId: string, boardId?: string) {
@@ -409,33 +407,34 @@ export function App() {
     }
   }
   const route = routeFor(location.pathname, location.search);
-  if (localOnly && (route.kind === 'team' || route.kind === 'revision'))
+  if (localOnly && (route.kind === 'space' || route.kind === 'design'))
     return (
       <main className="welcome missing-page">
         <h1>此站点仅支持本地查看</h1>
-        <p>团队与在线稿件功能请使用完整部署。</p>
+        <p>空间与在线稿件功能请使用完整部署。</p>
         <a className="button-link" href={withBase('/')}>
           打开本地文件
         </a>
       </main>
     );
-  if (route.kind === 'team') return <TeamHub />;
+  if (route.kind === 'space') return <TeamHub />;
   if (route.kind === 'missing')
     return (
       <main className="welcome missing-page">
         <h1>页面不存在</h1>
-        <a className="button-link" href={withBase(localOnly ? '/' : '/teams')}>
+        <a className="button-link" href={withBase(localOnly ? '/' : '/spaces')}>
           {localOnly ? '打开本地文件' : '返回工作台'}
         </a>
       </main>
     );
-  if (route.kind === 'revision' && !doc)
+  if (route.kind === 'design' && !doc)
     return (
       <DocumentOpening
-        projectId={route.projectId}
+        folderId={route.folderId}
+        spaceId={route.spaceId}
         status={status}
         error={error}
-        onRetry={() => void loadSource(new RemoteDocument(route.revisionId!))}
+        onRetry={() => void loadSource(new RemoteDocument(route.designId!))}
       />
     );
   return (
@@ -453,14 +452,15 @@ export function App() {
         <header className="viewer-header">
           <a
             className="brand brand-link viewer-brand"
-            href={withBase(localOnly ? '/' : '/teams')}
+            href={withBase(localOnly ? '/' : '/spaces')}
             aria-label={localOnly ? 'GeekDesign 本地查看' : 'GeekDesign 工作台'}
           >
             <Logo size={30} /> Geek<span>Design</span>
           </a>
           <div className="viewer-document-nav">
             <ViewerNavigation
-              projectId={route.projectId}
+              folderId={route.folderId}
+              spaceId={route.spaceId}
               detail={mode === 'detail'}
               onOverview={returnOverview}
             />
@@ -559,7 +559,7 @@ export function App() {
           </a>
           <a
             className="brand brand-link"
-            href={withBase(localOnly ? '/' : '/teams')}
+            href={withBase(localOnly ? '/' : '/spaces')}
             aria-label={localOnly ? 'GeekDesign 本地查看' : 'GeekDesign 工作台'}
           >
             <Logo size={32} />
@@ -610,7 +610,7 @@ export function App() {
             </>
           )}
           {!localOnly && (
-            <a className="local-return" href={withBase('/teams')}>
+            <a className="local-return" href={withBase('/spaces')}>
               返回工作台
             </a>
           )}
