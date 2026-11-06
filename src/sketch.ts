@@ -91,7 +91,7 @@ export class SketchDocument implements DocumentSource {
       const e =
         this.entries.get(ref) ||
         [...this.entries.values()].find((x) => x.filename.startsWith(ref + '.'));
-      if (!e || e.uncompressedSize > 80 * 1024 * 1024) return '';
+      if (!e) return '';
       const cached = await readAsset(this.assetKey, ref, 'full');
       const blob = cached || (await e.getData(new BlobWriter()));
       if (!cached) void writeAsset(this.assetKey, ref, 'full', blob);

@@ -52,7 +52,7 @@ export async function createApp(options: {
   const storage = new LocalStorage(options.dataDir),
     store = new Store(storage),
     jobs = new Jobs(store);
-  const maxSize = options.maxFileSize ?? 1024 ** 3;
+  const maxSize = options.maxFileSize;
   const app = Fastify({
     logger: options.logger
       ? {
@@ -298,10 +298,10 @@ export async function createApp(options: {
       !/^[a-f0-9]{64}$/.test(hash) ||
       !Number.isSafeInteger(size) ||
       size < 1 ||
-      size > maxSize ||
+      (maxSize != null && size > maxSize) ||
       !filename.toLowerCase().endsWith('.sketch')
     )
-      fail(400, '请选择大小符合限制的 Sketch 文件');
+      fail(400, maxSize != null ? '请选择大小符合限制的 Sketch 文件' : '请选择 Sketch 文件');
     let design = b.designId ? designAccess(store, u, text(b.designId, 1, 60)).design : null;
     if (design) {
       if (design.space_id !== space.id) fail(400, '目标设计与空间不一致');
@@ -415,7 +415,7 @@ export async function createApp(options: {
   const tus = new TusServer({
     path: '/api/tus',
     datastore: fileStore,
-    maxSize,
+    maxSize: maxSize ?? Number.MAX_SAFE_INTEGER,
     relativeLocation: true,
     allowedOrigins: [],
     disableTerminationForFinishedUploads: true,

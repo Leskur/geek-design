@@ -11,6 +11,7 @@ import {
 } from '@zip.js/zip.js';
 import { metadata, registerSymbols, PARSER_VERSION, type Layer } from '../shared/document';
 import { LocalStorage } from './storage';
+import { byteLimit } from './bytes';
 
 export type Job = { root: string; hash: string; size: number; uploadId?: string };
 const send = (message: any) => process.send?.(message);
@@ -65,9 +66,7 @@ function validatePage(page: Layer) {
   }
 }
 async function run(job: Job) {
-  const maxJsonSize = Number(process.env.SKETCHPEEK_MAX_JSON_SIZE || 512 * 1024 ** 2);
-  if (!Number.isSafeInteger(maxJsonSize) || maxJsonSize < 1)
-    throw new Error('SKETCHPEEK_MAX_JSON_SIZE 必须是正整数字节数');
+  const maxJsonSize = byteLimit('SKETCHPEEK_MAX_JSON_SIZE', process.env.SKETCHPEEK_MAX_JSON_SIZE);
   const storage = new LocalStorage(job.root),
     key = `${job.hash}-${PARSER_VERSION}`,
     source = storage.object(job.hash);
@@ -110,8 +109,6 @@ async function run(job: Job) {
   await fsp.mkdir(staging, { recursive: true });
   try {
     const all = await zip.getEntries();
-    if (all.length > 30000 || all.reduce((n, e) => n + e.uncompressedSize, 0) > 2 * 1024 ** 3)
-      throw new Error('文档展开体积或条目数超过当前限制');
     for (const e of all) {
       if (e.directory) continue;
       if (
@@ -127,7 +124,7 @@ async function run(job: Job) {
     async function json(name: string) {
       const e = entries.get(name);
       if (!e) throw new Error(`文件缺少 ${name}`);
-      if (e.uncompressedSize > maxJsonSize)
+      if (maxJsonSize != null && e.uncompressedSize > maxJsonSize)
         throw new Error(
           `文件「${name}」解压后为 ${(e.uncompressedSize / 1024 ** 2).toFixed(1)} MiB，超过 JSON 解析上限 ${(maxJsonSize / 1024 ** 2).toFixed(1)} MiB`,
         );
@@ -158,10 +155,6 @@ async function run(job: Job) {
     send({ type: 'step', step: '提取图片资源' });
     for (const [name, e] of entries) {
       if (!name.startsWith('images/')) continue;
-      if (e.uncompressedSize > 80 * 1024 ** 2) {
-        issues.push(`图片超过当前单资源限制：${name}`);
-        continue;
-      }
       const bytes = await e.getData(new Uint8ArrayWriter());
       const hash = createHash('sha256').update(bytes).digest('hex');
       await object(storage, hash, bytes);
@@ -170,15 +163,12 @@ async function run(job: Job) {
     let cover: { hash: string; mime: 'image/png'; size: number } | undefined;
     const preview = entries.get('previews/preview.png');
     if (preview) {
-      if (preview.uncompressedSize > 80 * 1024 ** 2) issues.push('预览图超过当前单资源限制：previews/preview.png');
+      const bytes = await preview.getData(new Uint8ArrayWriter());
+      if (mime(bytes) !== 'image/png') issues.push('预览图不是有效 PNG：previews/preview.png');
       else {
-        const bytes = await preview.getData(new Uint8ArrayWriter());
-        if (mime(bytes) !== 'image/png') issues.push('预览图不是有效 PNG：previews/preview.png');
-        else {
-          const hash = createHash('sha256').update(bytes).digest('hex');
-          await object(storage, hash, bytes);
-          cover = { hash, mime: 'image/png', size: bytes.length };
-        }
+        const hash = createHash('sha256').update(bytes).digest('hex');
+        await object(storage, hash, bytes);
+        cover = { hash, mime: 'image/png', size: bytes.length };
       }
     }
     const manifest = {

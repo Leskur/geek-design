@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createApp } from './app';
+import { byteLimit } from './bytes';
 const dataDir = path.resolve(process.env.SKETCHPEEK_DATA_DIR || 'data');
 fs.mkdirSync(dataDir, { recursive: true });
 const lock = path.join(dataDir, 'server.lock');
@@ -27,7 +28,7 @@ try {
     logger: true,
     publicOrigin: process.env.SKETCHPEEK_PUBLIC_ORIGIN,
     staticDir: path.resolve('dist'),
-    maxFileSize: Number(process.env.SKETCHPEEK_MAX_FILE_SIZE || 1024 ** 3),
+    maxFileSize: byteLimit('SKETCHPEEK_MAX_FILE_SIZE', process.env.SKETCHPEEK_MAX_FILE_SIZE),
   });
   async function stop() {
     if (shuttingDown) return;

@@ -58,13 +58,13 @@ npm run dev
 
 ## 自行部署
 
-团队服务可使用 [Docker Compose 部署](docs/docker.md)，宿主机无需安装 Node.js。
+团队服务可直接拉取镜像运行，不必克隆仓库，宿主机无需安装 Node.js。
 
 ```sh
-docker compose -p geekdesign up -d --build --wait
+docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
 ```
 
-默认只在本机的 5174 端口提供服务，业务数据独立保存在命名卷中。当前从源码构建镜像，尚未发布公共镜像仓库。配置、升级和备份见上述文档。
+默认拉取 `ghcr.io/leskur/geek-design:latest`，在 5174 端口提供服务，局域网可访问。业务数据保存在命名卷 `geekdesign-data`。配置、Compose、升级和备份见 [Docker 部署](docs/docker.md)。
 
 源码运行方式：
 

@@ -15,7 +15,7 @@ ENV NODE_ENV=production \
     SKETCHPEEK_PORT=5174 \
     SKETCHPEEK_DATA_DIR=/app/data
 WORKDIR /app
-RUN apt-get update && apt-get install -y --no-install-recommends fontconfig fonts-dejavu-core fonts-noto-cjk \
+RUN apt-get update && apt-get install -y --no-install-recommends tini fontconfig fonts-dejavu-core fonts-noto-cjk \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /app/data && chown node:node /app/data
 COPY --from=build --chown=node:node /app/node_modules ./node_modules
@@ -26,4 +26,5 @@ USER node
 EXPOSE 5174
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD node -e "fetch('http://127.0.0.1:5174/api/status',{signal:AbortSignal.timeout(3000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+ENTRYPOINT ["tini", "--"]
 CMD ["node", ".server-build/index.mjs"]
