@@ -1,6 +1,6 @@
 # 参与贡献
 
-开发环境见 [README](README.md#开发)。代码结构见 [docs/architecture.md](docs/architecture.md)。部署见 [README 自建服务](README.md#自建服务)。
+开发与部署见 [README](README.md)。`src/` 是界面，`server/` 是接口和存储，`shared/` 是前后端共用渲染（不要反过来引用），`tests/` 是测试。
 
 ## 提交问题
 
@@ -14,7 +14,7 @@
 - 改查看器时兼顾页面与单画板、本地与空间模式。
 - 权限必须由服务端验证。
 - 不从图层位置猜 padding 或页面布局。
-- 新增重要行为时同步文档。
+- 新增重要行为时改 README。
 
 ## 验证
 
@@ -29,4 +29,4 @@ npm run build
 
 ## Pull Request
 
-基于当前 `main` 建分支，跑适用检查，更新受影响文档。提交即表示你有权贡献，并同意按 MIT 分发。
+基于当前 `main` 建分支，跑适用检查，使用行为有变就改 README。提交即表示你有权贡献，并同意按 MIT 分发。

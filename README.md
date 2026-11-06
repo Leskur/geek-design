@@ -29,7 +29,7 @@ https://leskur.github.io/geek-design-viewer/
 
 打开 http://127.0.0.1:5174 注册即可。
 
-Docker：
+#### Docker 部署
 
 ```sh
 docker run -d --name geekdesign --restart unless-stopped -p 5174:5174 -v geekdesign-data:/app/data ghcr.io/leskur/geek-design:latest
@@ -59,7 +59,9 @@ docker rmi ghcr.io/leskur/geek-design:latest
 docker volume rm geekdesign-data
 ```
 
-源码（Node.js 24）：
+#### 源码部署
+
+需要 Node.js 24。
 
 ```sh
 git clone https://github.com/Leskur/geek-design.git
