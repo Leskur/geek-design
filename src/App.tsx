@@ -34,7 +34,7 @@ import { TeamHub } from './TeamHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
 import { routeFor, localOnly, withBase, folderPath, spacePath } from './routes';
-import { displayName, setPageTitle } from './title';
+import { displayName, productLabel, setPageTitle } from './title';
 import { detailEnabled } from './detail-entry';
 import { PageList } from './PageList';
 import { Inspector } from './Inspector';
@@ -586,11 +586,11 @@ export function App() {
             href={SOURCE_REPO}
             target="_blank"
             rel="noopener noreferrer"
-            title="GeekDesign 主仓库"
-            aria-label="在 GitHub 打开主仓库"
+            title="在 GitHub 打开"
+            aria-label={`在 GitHub 打开 ${productLabel}`}
           >
             <GitHubIcon />
-            GitHub
+            {productLabel}
           </a>
           <a
             className="brand brand-link"
