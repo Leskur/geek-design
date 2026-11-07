@@ -2,10 +2,10 @@ import { fontNames } from '../shared/fonts';
 import { hasFont } from '../src/fonts';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile } from 'node:fs/promises';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from '../server/app';
-import { exactTeamFont, matchingTeamFonts } from '../src/team-fonts';
+import { exactSpaceFont, matchingSpaceFonts } from '../src/space-fonts';
 
 async function sampleFont() {
   for (const filename of [
@@ -198,6 +198,7 @@ test('space font library validates uploads, deduplicates and isolates space acce
     assert.equal(store.all('SELECT * FROM space_fonts').length, 0);
   } finally {
     await app.close();
+    await rm(root, { recursive: true, force: true });
   }
 });
 test('font matching prefers an exact PostScript face and falls back to family aliases', () => {
@@ -210,17 +211,17 @@ test('font matching prefers an exact PostScript face and falls back to family al
     bold = { id: 'b', family: 'Demo', full_name: 'Demo Bold', postscript_name: 'Demo-Bold' };
   const fonts = [regular, bold] as any;
   assert.deepEqual(
-    matchingTeamFonts(fonts, ['Demo-Bold']).map((f) => f.id),
+    matchingSpaceFonts(fonts, ['Demo-Bold']).map((f) => f.id),
     ['b'],
   );
   assert.deepEqual(
-    matchingTeamFonts(fonts, ['Demo']).map((f) => f.id),
+    matchingSpaceFonts(fonts, ['Demo']).map((f) => f.id),
     ['r', 'b'],
   );
-  assert.deepEqual(matchingTeamFonts(fonts, ['Missing']), []);
-  assert.equal(exactTeamFont(fonts, 'DIN-Bold'), undefined);
-  assert.equal(exactTeamFont(fonts, 'Demo-Bold')?.id, 'b');
-  assert.equal(exactTeamFont(fonts, 'Demo'), undefined);
+  assert.deepEqual(matchingSpaceFonts(fonts, ['Missing']), []);
+  assert.equal(exactSpaceFont(fonts, 'DIN-Bold'), undefined);
+  assert.equal(exactSpaceFont(fonts, 'Demo-Bold')?.id, 'b');
+  assert.equal(exactSpaceFont(fonts, 'Demo'), undefined);
 });
 
 test('loaded PostScript bold faces are recognized without normal-weight canvas probing', () => {

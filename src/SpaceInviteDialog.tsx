@@ -4,11 +4,11 @@ import { post } from './api';
 import { copyText } from './clipboard';
 import { Dialog } from './Dialog';
 
-export function TeamInviteDialog({
-  team,
+export function SpaceInviteDialog({
+  space,
   onClose,
 }: {
-  team: { id: string; name: string };
+  space: { id: string; name: string };
   onClose: () => void;
 }) {
   const [link, setLink] = useState(''),
@@ -23,7 +23,7 @@ export function TeamInviteDialog({
     setBusy(true);
     setError('');
     try {
-      const result = await post(`/spaces/${team.id}/invitations`, {});
+      const result = await post(`/spaces/${space.id}/invitations`, {});
       if (alive.current) setLink(`${location.origin}/invite/${result.token}`);
     } catch (e) {
       if (alive.current) setError((e as Error).message);
@@ -38,7 +38,7 @@ export function TeamInviteDialog({
     return () => {
       alive.current = false;
     };
-  }, [team.id]);
+  }, [space.id]);
   async function copy() {
     try {
       await copyText(link);
@@ -50,7 +50,7 @@ export function TeamInviteDialog({
   return (
     <Dialog title="邀请成员" onClose={onClose}>
       <div className="wb-upload-body">
-        <p className="wb-dialog-description">分享链接，邀请同事加入「{team.name}」。</p>
+        <p className="wb-dialog-description">分享链接，邀请同事加入「{space.name}」。</p>
         {busy ? (
           <div className="management-invite-loading" role="status">
             <LoaderCircle size={20} className="wb-spin" />

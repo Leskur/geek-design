@@ -13,7 +13,7 @@ export const roleName = (role: string) =>
       viewer: '可查看',
     }) as Record<string, string>
   )[role] || role;
-export function TeamMembers({ team, me }: { team: any; me: any }) {
+export function SpaceMembers({ space, me }: { space: any; me: any }) {
   const [members, setMembers] = useState<any[]>([]),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
@@ -21,11 +21,11 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
     [loaded, setLoaded] = useState(false);
   const [query, setQuery] = useState(''),
     [remove, setRemove] = useState<any>(null);
-  const manage = team.role === 'owner' && team.kind !== 'personal',
+  const manage = space.role === 'owner' && space.kind !== 'personal',
     working = useRef(false),
     alive = useRef(true);
   async function refresh() {
-    const people = await api<any[]>(`/spaces/${team.id}/members`);
+    const people = await api<any[]>(`/spaces/${space.id}/members`);
     if (!alive.current) return;
     setMembers(people);
     setLoaded(true);
@@ -38,7 +38,7 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
     return () => {
       alive.current = false;
     };
-  }, [team.id]);
+  }, [space.id]);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => {
@@ -164,7 +164,9 @@ export function TeamMembers({ team, me }: { team: any; me: any }) {
                 disabled={busy}
                 onClick={() =>
                   void action(async () => {
-                    await api(`/spaces/${team.id}/members/${remove.user_id}`, { method: 'DELETE' });
+                    await api(`/spaces/${space.id}/members/${remove.user_id}`, {
+                      method: 'DELETE',
+                    });
                     setRemove(null);
                   }, '成员已移除')
                 }

@@ -1,4 +1,8 @@
 import { build } from 'esbuild';
+import { mkdir, rm } from 'node:fs/promises';
+
+await rm('.server-build', { recursive: true, force: true });
+await mkdir('.server-build', { recursive: true });
 await build({
   entryPoints: ['server/index.ts', 'server/app.ts', 'server/worker.ts'],
   bundle: true,

@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { App } from '../src/App';
 import { DocumentOpening } from '../src/DocumentOpening';
 import { ViewerNavigation } from '../src/ViewerNavigation';
-import { TeamOverview } from '../src/TeamOverview';
+import { SpaceOverview } from '../src/SpaceOverview';
 
 test('a direct design URL renders the viewer loading shell on its very first render', () => {
   const previous = Object.getOwnPropertyDescriptor(globalThis, 'location');
@@ -44,12 +44,12 @@ test('failed design loading keeps a recoverable viewer state instead of the welc
 });
 test('space overview shows its folders and keeps folder creation available', () => {
   const props = {
-    team: { id: 't', name: 'H5', member_count: 2, role: 'owner', kind: 'shared' },
+    space: { id: 't', name: 'H5', member_count: 2, role: 'owner', kind: 'shared' },
     folders: [{ id: 'p', name: 'Mobile' }],
     files: [{ folder_id: 'p' }],
     onCreateFolder: () => {},
   };
-  const html = renderToStaticMarkup(<TeamOverview {...props} />);
+  const html = renderToStaticMarkup(<SpaceOverview {...props} />);
   assert.doesNotMatch(html, /搜索文件夹/);
   assert.match(html, /href="\/folders\/p"/);
   assert.doesNotMatch(html, />新建文件夹<\/button>/);
@@ -69,9 +69,7 @@ test('viewer falls back to space when folder is absent', () => {
 });
 
 test('detail header returns to overview with an icon button and no folder link', () => {
-  const html = renderToStaticMarkup(
-    <ViewerNavigation folderId="p" detail onOverview={() => {}} />,
-  );
+  const html = renderToStaticMarkup(<ViewerNavigation folderId="p" detail onOverview={() => {}} />);
   assert.match(html, /<button/);
   assert.match(html, /aria-label="返回总览"/);
   assert.doesNotMatch(html, /href=|返回文件夹|fu-h5/);
@@ -136,14 +134,14 @@ test('font panel distinguishes local loading, space permissions and failed space
   const local = render({ source: 'local' });
   assert.match(local, /不会上传|刷新/);
   assert.doesNotMatch(local, /字体库/);
-  const owner = render({ source: 'team', fontLibrary: { spaceId: 'abc', canUpload: true } });
+  const owner = render({ source: 'space', fontLibrary: { spaceId: 'abc', canUpload: true } });
   assert.match(owner, /前往字体库上传/);
   assert.match(owner, /href="\/spaces\/abc\/resources"/);
-  const viewer = render({ source: 'team', fontLibrary: { spaceId: 'abc', canUpload: false } });
+  const viewer = render({ source: 'space', fontLibrary: { spaceId: 'abc', canUpload: false } });
   assert.match(viewer, /联系空间拥有者/);
   assert.doesNotMatch(viewer, /前往字体库上传/);
   const failed = render({
-    source: 'team',
+    source: 'space',
     fontLoadError: () => 'Network failed',
     retryFonts: async () => {},
   });

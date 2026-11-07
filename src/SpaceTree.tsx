@@ -6,7 +6,7 @@ type Props = {
   section?: 'overview' | 'resources';
 };
 
-export function TeamTree({ spaceId, section }: Props) {
+export function SpaceTree({ spaceId, section }: Props) {
   if (!spaceId) return null;
   const resources = section === 'resources';
   const all = section !== 'resources';

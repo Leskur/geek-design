@@ -1,8 +1,28 @@
 import { build } from 'esbuild';
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { copyFile, readdir } from 'node:fs/promises';
+import { copyFile, mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
+
+async function emptyDirectory(dir) {
+  await rm(dir, { recursive: true, force: true });
+  await mkdir(dir, { recursive: true });
+}
+
+async function removeDataDirectories() {
+  let entries;
+  try {
+    entries = await readdir('.test-output', { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return;
+    throw error;
+  }
+  await Promise.all(
+    entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => rm(path.join('.test-output', entry.name), { recursive: true, force: true })),
+  );
+}
 
 const version = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -10,6 +30,7 @@ const version = JSON.parse(
 const testFiles = (await readdir('tests')).filter((name) => /\.test\.tsx?$/.test(name)).sort();
 if (!testFiles.length) throw new Error('No test files found');
 
+await emptyDirectory('.test-output');
 await import('./build-server.mjs');
 await build({
   entryPoints: testFiles.map((name) => path.join('tests', name)),
@@ -31,4 +52,5 @@ const result = spawnSync(
   ],
   { stdio: 'inherit' },
 );
+await removeDataDirectories();
 process.exitCode = result.status ?? 1;

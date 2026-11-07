@@ -3,17 +3,17 @@ import { Type, Upload, Trash2, LoaderCircle, Download, Eye, EyeClosed } from 'lu
 import { api } from './api';
 import { ManagementSearch } from './ManagementSearch';
 import { Dialog } from './Dialog';
-import { loadBrowserFont, type TeamFont } from './team-fonts';
+import { loadBrowserFont, type SpaceFont } from './space-fonts';
 const limit = 20 * 1024 ** 2;
-export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
-  const [fonts, setFonts] = useState<TeamFont[]>([]),
+export function SpaceFonts({ space, me }: { space: any; me: { id: string } }) {
+  const [fonts, setFonts] = useState<SpaceFont[]>([]),
     [loaded, setLoaded] = useState(false),
     [query, setQuery] = useState(''),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [busy, setBusy] = useState(false),
     [progress, setProgress] = useState(''),
-    [remove, setRemove] = useState<TeamFont | null>(null),
+    [remove, setRemove] = useState<SpaceFont | null>(null),
     [previews, setPreviews] = useState<string[]>([]),
     [previewLoading, setPreviewLoading] = useState<string[]>([]),
     [downloading, setDownloading] = useState('');
@@ -25,9 +25,9 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
     faces = useRef(new Map<string, FontFace[]>()),
     loading = useRef(new Set<string>());
   const canUpload = !!me;
-  const canRemove = (font: TeamFont) => team.role === 'owner' || font.created_by === me.id;
+  const canRemove = (font: SpaceFont) => space.role === 'owner' || font.created_by === me.id;
   async function refresh() {
-    const list = await api<TeamFont[]>(`/spaces/${team.id}/fonts`, {
+    const list = await api<SpaceFont[]>(`/spaces/${space.id}/fonts`, {
       signal: controller.current.signal,
     });
     if (alive.current) {
@@ -55,7 +55,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
         for (const face of loaded) document.fonts.delete(face);
       faces.current.clear();
     };
-  }, [team.id]);
+  }, [space.id]);
   async function upload(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || []);
     e.target.value = '';
@@ -71,7 +71,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
         if (!/[.](ttf|otf|woff|woff2)$/i.test(file.name) || file.size > limit)
           throw Error(`${file.name}：支持 TTF、OTF、WOFF、WOFF2，单个文件不超过 20 MB`);
         setProgress(`正在上传 ${file.name}`);
-        const response = await fetch(`/api/spaces/${team.id}/fonts`, {
+        const response = await fetch(`/api/spaces/${space.id}/fonts`, {
           method: 'POST',
           credentials: 'same-origin',
           headers: {
@@ -114,7 +114,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
     faces.current.delete(id);
     setPreviews((current) => current.filter((item) => item !== id));
   }
-  async function showPreview(font: TeamFont) {
+  async function showPreview(font: SpaceFont) {
     if (loading.current.has(font.id)) return;
     if (previews.includes(font.id)) {
       dropPreview(font.id);
@@ -127,7 +127,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
       const next = await loadBrowserFont(
         font,
         controller.current.signal,
-        `team-font-preview-${font.id}`,
+        `space-font-preview-${font.id}`,
       );
       if (!alive.current) {
         for (const face of next) document.fonts.delete(face);
@@ -142,7 +142,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
       if (alive.current) setPreviewLoading((current) => current.filter((id) => id !== font.id));
     }
   }
-  async function downloadFont(font: TeamFont) {
+  async function downloadFont(font: SpaceFont) {
     if (saving.current) return;
     saving.current = font.id;
     setDownloading(font.id);
@@ -184,7 +184,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
     setBusy(true);
     setError('');
     try {
-      await api(`/spaces/${team.id}/fonts/${remove.id}`, { method: 'DELETE' });
+      await api(`/spaces/${space.id}/fonts/${remove.id}`, { method: 'DELETE' });
       if (previews.includes(remove.id)) dropPreview(remove.id);
       await refresh();
       setRemove(null);
@@ -351,7 +351,7 @@ export function TeamFonts({ team, me }: { team: any; me: { id: string } }) {
                   <div
                     className="management-font-preview"
                     style={{
-                      fontFamily: `"team-font-preview-${font.id}"`,
+                      fontFamily: `"space-font-preview-${font.id}"`,
                       fontWeight: font.weight,
                       fontStyle: font.style,
                     }}

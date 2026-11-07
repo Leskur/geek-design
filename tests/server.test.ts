@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { BlobWriter, TextReader, Uint8ArrayReader, ZipWriter } from '@zip.js/zip.js';
@@ -353,5 +353,6 @@ test('space upload: register personal space, resume, overwrite, shared visibilit
     );
   } finally {
     await server.app.close();
+    await rm(root, { recursive: true, force: true });
   }
 });

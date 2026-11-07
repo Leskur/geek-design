@@ -2,8 +2,6 @@
 .interactive-canvas {
   cursor: grab !important;
 }
-.page-board-surface,
-.page-board-surface *,
 .interactive-canvas > .work-canvas,
 .overview-viewport > .work-canvas {
   cursor:

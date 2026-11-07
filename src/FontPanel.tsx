@@ -17,10 +17,9 @@ export function FontPanel({
 }) {
   const [retrying, setRetrying] = useState(false),
     [retryError, setRetryError] = useState('');
-  const remote = doc.source === 'team',
+  const remote = doc.source === 'space',
     library = doc.fontLibrary as
-      | { spaceId?: string; teamId?: string; canUpload: boolean }
-      | undefined,
+      { spaceId?: string; teamId?: string; canUpload: boolean } | undefined,
     spaceId = library?.spaceId || library?.teamId;
   async function retry() {
     setRetrying(true);

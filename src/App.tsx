@@ -30,7 +30,7 @@ import { flushSync } from 'react-dom';
 import { SketchDocument, type Layer, type DocumentSource } from './sketch';
 import { Canvas } from './Canvas';
 import { RemoteDocument } from './RemoteDocument';
-import { TeamHub } from './TeamHub';
+import { SpaceHub } from './SpaceHub';
 import { ViewerNavigation } from './ViewerNavigation';
 import { DocumentOpening } from './DocumentOpening';
 import { routeFor, localOnly, withBase, folderPath, spacePath } from './routes';
@@ -144,7 +144,7 @@ export function App() {
     [fontStatus, setFontStatus] = useState('');
   const fontInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (!doc || doc.source !== 'team' || doc.fontLibrary) return;
+    if (!doc || doc.source !== 'space' || doc.fontLibrary) return;
     const controller = new AbortController(),
       designId = routeFor(location.pathname, location.search).designId;
     if (!designId) return;
@@ -202,7 +202,7 @@ export function App() {
     pageId.current++;
     setBusy(true);
     setError('');
-    setStatus(next.source === 'team' ? '连接设计…' : '读取文件目录…');
+    setStatus(next.source === 'space' ? '连接设计…' : '读取文件目录…');
     try {
       await next.open();
       setStatus('读取组件和页面…');
@@ -231,7 +231,7 @@ export function App() {
       setStatus('');
       if (old) await old.close();
     } catch (e) {
-      if (next.source === 'team' && (e as any).status === 401) {
+      if (next.source === 'space' && (e as any).status === 401) {
         location.assign('/login?next=' + encodeURIComponent(location.pathname + location.search));
         return;
       }
@@ -437,7 +437,7 @@ export function App() {
         </a>
       </main>
     );
-  if (route.kind === 'space') return <TeamHub />;
+  if (route.kind === 'space') return <SpaceHub />;
   if (route.kind === 'missing')
     return (
       <main className="welcome missing-page">
@@ -515,7 +515,7 @@ export function App() {
                 <SpellCheck2 size={18} strokeWidth={1.6} aria-hidden="true" />
               </button>
             )}
-            {doc?.source === 'team' && (
+            {doc?.source === 'space' && (
               <button
                 className="viewer-copy"
                 title="复制分享链接"

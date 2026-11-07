@@ -4,7 +4,7 @@ import { folderPath } from './routes';
 import { ContextMenu, type MenuPosition } from './ContextMenu';
 
 type Props = {
-  team: any;
+  space: any;
   folders: any[];
   files: any[];
   listView?: boolean;
@@ -20,8 +20,8 @@ function activityStamp(updated: number, created: number) {
   if (!when) return '';
   return `${updated > created ? '更新于' : '创建于'} ${new Date(when).toLocaleDateString('zh-CN')}`;
 }
-export function TeamOverview({
-  team,
+export function SpaceOverview({
+  space,
   folders,
   files,
   listView = false,
@@ -38,7 +38,7 @@ export function TeamOverview({
     return !!onRename && (!canRenameFolder || canRenameFolder(item));
   }
   function mayDelete(item: any) {
-    return !!onDelete && (canDeleteFolder ? canDeleteFolder(item) : team.role === 'owner');
+    return !!onDelete && (canDeleteFolder ? canDeleteFolder(item) : space.role === 'owner');
   }
   if (!folders.length) return null;
   return (

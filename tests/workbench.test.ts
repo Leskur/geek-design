@@ -1,13 +1,8 @@
-import { orderTeams, moveTeam, savedTeamOrder, rememberTeamOrder } from '../src/workbench';
+import { orderSpaces, moveSpace, savedSpaceOrder, rememberSpaceOrder } from '../src/workbench';
 import { sortDesigns, workspaceView, rememberWorkspaceView } from '../src/workbench';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  preferredSpace,
-  recentDocuments,
-  rememberDocument,
-  rememberSpace,
-} from '../src/workbench';
+import { preferredSpace, recentDocuments, rememberDocument, rememberSpace } from '../src/workbench';
 test('recent designs and remembered workspace stay isolated between accounts', () => {
   const memory = new Map<string, string>();
   Object.defineProperty(globalThis, 'localStorage', {
@@ -92,10 +87,10 @@ test('design ordering keeps source data unchanged and workspace view preferences
 
 test('space reordering handles both directions and new or removed spaces', () => {
   const spaces = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
-  assert.deepEqual(moveTeam(['a', 'b', 'c'], 'a', 'c', true), ['b', 'c', 'a']);
-  assert.deepEqual(moveTeam(['a', 'b', 'c'], 'c', 'a'), ['c', 'a', 'b']);
+  assert.deepEqual(moveSpace(['a', 'b', 'c'], 'a', 'c', true), ['b', 'c', 'a']);
+  assert.deepEqual(moveSpace(['a', 'b', 'c'], 'c', 'a'), ['c', 'a', 'b']);
   assert.deepEqual(
-    orderTeams(spaces, ['deleted', 'b', 'a']).map((t) => t.id),
+    orderSpaces(spaces, ['deleted', 'b', 'a']).map((t) => t.id),
     ['b', 'a', 'c'],
   );
   const memory = new Map<string, string>();
@@ -107,11 +102,13 @@ test('space reordering handles both directions and new or removed spaces', () =>
     },
   });
   try {
-    rememberTeamOrder('alice', ['c', 'a', 'b']);
-    assert.deepEqual(savedTeamOrder('alice'), ['c', 'a', 'b']);
-    assert.deepEqual(savedTeamOrder('bob'), []);
-    memory.set('sketchpeek:team-order:bob', 'bad json');
-    assert.deepEqual(savedTeamOrder('bob'), []);
+    rememberSpaceOrder('alice', ['c', 'a', 'b']);
+    assert.deepEqual(savedSpaceOrder('alice'), ['c', 'a', 'b']);
+    assert.deepEqual(savedSpaceOrder('bob'), []);
+    memory.set('sketchpeek:space-order:bob', 'bad json');
+    assert.deepEqual(savedSpaceOrder('bob'), []);
+    memory.set('sketchpeek:team-order:carol', '["z"]');
+    assert.deepEqual(savedSpaceOrder('carol'), ['z']);
   } finally {
     delete (globalThis as any).localStorage;
   }

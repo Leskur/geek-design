@@ -1,5 +1,5 @@
 import { fontNames } from '../shared/fonts';
-import { exactTeamFont, loadBrowserFont, matchingTeamFonts, type TeamFont } from './team-fonts';
+import { exactSpaceFont, loadBrowserFont, matchingSpaceFonts, type SpaceFont } from './space-fonts';
 import type { DocumentPlace, DocumentSource, Layer, PageInfo } from '../shared/document';
 import { api } from './api';
 import { rememberDocument } from './workbench';
@@ -7,7 +7,7 @@ import { routeFor, designPath } from './routes';
 import { readAsset, writeAsset } from './asset-cache';
 
 export class RemoteDocument implements DocumentSource {
-  source = 'team' as const;
+  source = 'space' as const;
   file = { name: '设计', size: 0 };
   pages: PageInfo[] = [];
   symbols = new Map<string, Layer>();
@@ -16,7 +16,7 @@ export class RemoteDocument implements DocumentSource {
   private failedFonts = new Map<string, string>();
   private fontLibraryError = '';
   matchedFont(name: string) {
-    const font = exactTeamFont(this.teamFonts, name);
+    const font = exactSpaceFont(this.spaceFonts, name);
     return (
       font && {
         family: font.family,
@@ -29,7 +29,7 @@ export class RemoteDocument implements DocumentSource {
   fontLoadError(name: string) {
     return (
       this.fontLibraryError ||
-      matchingTeamFonts(this.teamFonts, [name])
+      matchingSpaceFonts(this.spaceFonts, [name])
         .map((font) => this.failedFonts.get(font.id))
         .find(Boolean)
     );
@@ -37,7 +37,7 @@ export class RemoteDocument implements DocumentSource {
   async retryFonts() {
     await this.refreshFontLibrary();
   }
-  private teamFonts: TeamFont[] = [];
+  private spaceFonts: SpaceFont[] = [];
   private loadedFonts = new Set<string>();
   private fontFaces: FontFace[] = [];
   place?: DocumentPlace;
@@ -54,7 +54,7 @@ export class RemoteDocument implements DocumentSource {
   private refreshFontLibrary() {
     if (this.fontRefresh) return this.fontRefresh;
     this.fontRefresh = (async () => {
-      this.teamFonts = await api<TeamFont[]>(
+      this.spaceFonts = await api<SpaceFont[]>(
         `/designs/${encodeURIComponent(this.designId)}/fonts`,
         { signal: this.abort.signal },
       );
@@ -101,14 +101,14 @@ export class RemoteDocument implements DocumentSource {
       api(`/designs/${encodeURIComponent(this.designId)}/symbols`, {
         signal: this.abort.signal,
       }),
-      api<TeamFont[]>(`/designs/${encodeURIComponent(this.designId)}/fonts`, {
+      api<SpaceFont[]>(`/designs/${encodeURIComponent(this.designId)}/fonts`, {
         signal: this.abort.signal,
       }).catch((e) => {
         this.fontLibraryError = (e as Error).message;
         return [];
       }),
     ]);
-    this.teamFonts = fonts;
+    this.spaceFonts = fonts;
     this.symbols = new Map(data.symbols);
     this.styles = new Map(data.styles);
   }
@@ -127,7 +127,7 @@ export class RemoteDocument implements DocumentSource {
     const names = new Set(fontNames(page));
     for (const symbol of this.symbols.values())
       for (const name of fontNames(symbol)) names.add(name);
-    const needed = matchingTeamFonts(this.teamFonts, [...names]).filter(
+    const needed = matchingSpaceFonts(this.spaceFonts, [...names]).filter(
       (f) => !this.loadedFonts.has(f.id),
     );
     for (let i = 0; i < needed.length; i += 4)

@@ -1,5 +1,5 @@
 import { fontFamilies } from '../shared/fonts';
-export type TeamFont = {
+export type SpaceFont = {
   id: string;
   filename: string;
   family: string;
@@ -12,14 +12,14 @@ export type TeamFont = {
   created: number;
   url: string;
 };
-export function exactTeamFont(fonts: TeamFont[], name: string): TeamFont | undefined {
+export function exactSpaceFont(fonts: SpaceFont[], name: string): SpaceFont | undefined {
   const key = name.toLowerCase();
   return (
     fonts.find((f) => f.postscript_name.toLowerCase() === key) ||
     fonts.find((f) => f.full_name.toLowerCase() === key)
   );
 }
-export function matchingTeamFonts(fonts: TeamFont[], names: string[]): TeamFont[] {
+export function matchingSpaceFonts(fonts: SpaceFont[], names: string[]): SpaceFont[] {
   const found = new Set<string>();
   for (const name of names) {
     const exact = fonts.filter((f) =>
@@ -34,7 +34,7 @@ export function matchingTeamFonts(fonts: TeamFont[], names: string[]): TeamFont[
   return fonts.filter((f) => found.has(f.id));
 }
 export async function loadBrowserFont(
-  font: TeamFont,
+  font: SpaceFont,
   signal?: AbortSignal,
   previewAlias?: string,
 ): Promise<FontFace[]> {

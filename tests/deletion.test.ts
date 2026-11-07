@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { access, mkdir, mkdtemp, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from '../server/app';
 
@@ -174,5 +174,6 @@ test('deletion enforces roles, removes descendants atomically and reclaims unuse
     assert.equal((await call('/spaces/' + space.id, owner.cookie, 'DELETE')).statusCode, 404);
   } finally {
     await app.close();
+    await rm(root, { recursive: true, force: true });
   }
 });

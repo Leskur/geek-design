@@ -17,13 +17,15 @@ export interface DocumentSource {
   pages: PageInfo[];
   symbols: Map<string, Layer>;
   styles: Map<string, any>;
-  source: 'local' | 'team';
+  source: 'local' | 'space';
   place?: DocumentPlace;
   designId?: string;
   /** Stable id for Cache Storage. Same design file keeps the same image bytes. */
   assetKey?: string;
   fontLibrary?: { spaceId: string; canUpload: boolean };
-  matchedFont?(name: string): { family: string; weight: number; style: string; name: string } | undefined;
+  matchedFont?(
+    name: string,
+  ): { family: string; weight: number; style: string; name: string } | undefined;
   fontLoadError?(name: string): string | undefined;
   retryFonts?(): Promise<void>;
   open(): Promise<void>;

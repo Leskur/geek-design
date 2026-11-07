@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from '../server/app';
 
@@ -166,5 +166,6 @@ test('rename and move preserve design identity, validate input and enforce space
     assert.equal((await call('/designs/design/manifest', member.cookie)).json().spaceId, space.id);
   } finally {
     await app.close();
+    await rm(root, { recursive: true, force: true });
   }
 });

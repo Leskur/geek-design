@@ -507,42 +507,6 @@
   width: 21px;
   height: 21px;
 }
-.management-tabs {
-  display: flex;
-  gap: 24px;
-  border-bottom: 1px solid #e0e4ee;
-  margin-bottom: 22px;
-}
-.wb-app .management-tabs > button {
-  position: relative;
-  border: 0;
-  background: transparent;
-  border-radius: 0;
-  padding: 12px 0 14px;
-  font-size: 13px;
-  color: #828b9b;
-}
-.wb-app .management-tabs > button[aria-pressed='true'] {
-  color: #6554d9;
-  font-weight: 600;
-}
-.management-tabs > button[aria-pressed='true']:after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #6554d9;
-}
-.management-tabs > button > span {
-  font-size: 11px;
-  font-weight: 400;
-  background: #eceef5;
-  border-radius: 5px;
-  padding: 3px 6px;
-  color: #858c9c;
-}
 .management-panel {
   background: #fff;
   border: 1px solid #e0e5ed;
@@ -901,12 +865,6 @@
   .wb-app .wb-section-heading > span {
     padding: 2px 5px;
   }
-  .wb-app .management-tabs {
-    gap: 15px;
-  }
-  .wb-app .management-tabs > button {
-    font-size: 12px;
-  }
   .management-panel {
     padding: 0 12px;
   }
@@ -1069,120 +1027,6 @@
   border-radius: 9px;
 }
 
-.management-team-header > .team-overview-heading {
-  border: 0;
-  padding: 0;
-  margin: 0 0 25px;
-  gap: 16px;
-  align-items: center;
-}
-.management-team-header .team-overview-heading > div {
-  flex: 1;
-  min-width: 0;
-}
-.management-team-header .team-overview-heading h1 {
-  font-size: 26px;
-  line-height: 1.35;
-  margin: 0 0 8px;
-}
-.management-team-header .team-overview-heading p {
-  font-size: 13px;
-  color: #7c8595;
-}
-.management-team-header .team-overview-avatar {
-  width: 56px;
-  height: 56px;
-  border-radius: 14px;
-}
-.management-team-tabs {
-  display: flex;
-  gap: 28px;
-  border-bottom: 1px solid #e0e4ee;
-  margin-bottom: 24px;
-}
-.management-team-tabs > a {
-  position: relative;
-  display: flex;
-  gap: 8px;
-  align-items: center;
-  padding: 12px 2px 14px;
-  font-size: 14px;
-  text-decoration: none;
-  color: #828a9b;
-}
-.management-team-tabs > a[aria-current='page'] {
-  color: #6554d9;
-  font-weight: 600;
-}
-.management-team-tabs > a[aria-current='page']:after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #6554d9;
-}
-.wb-app .management-tabs {
-  min-height: 48px;
-  border: 0;
-  margin-top: -6px;
-  margin-bottom: 18px;
-  gap: 22px;
-  align-items: center;
-}
-.wb-app .management-tabs > button {
-  padding: 8px 0;
-  font-size: 12px;
-}
-.wb-app .management-tabs > button[aria-pressed='true']:after {
-  display: none;
-}
-.wb-app .management-tabs > button.management-invite-button {
-  margin-left: auto;
-  border-radius: 7px;
-  padding: 8px 12px;
-  background: #6554d9;
-  color: white;
-}
-.wb-app .management-tabs > button.management-invite-button:hover {
-  background: #5543c5;
-}
-@media (max-width: 600px) {
-  .management-team-header .team-overview-heading h1 {
-    font-size: 22px;
-  }
-  .management-team-header .team-overview-heading p {
-    font-size: 12px;
-  }
-  .management-team-header .team-overview-avatar {
-    width: 44px;
-    height: 44px;
-    font-size: 19px;
-  }
-  .wb-app .management-tabs {
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .wb-app .management-tabs > button.management-invite-button {
-    font-size: 12px;
-  }
-}
-
-.management-team-header .team-overview-heading > .management-team-actions {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  flex: 0 0 auto;
-}
-.management-team-actions > button:not(.wb-icon-button) {
-  padding: 9px 13px;
-  min-height: 36px;
-  white-space: nowrap;
-  font-size: 12px;
-  border-radius: 8px;
-}
 .management-invite-loading {
   display: flex;
   align-items: center;
@@ -1192,19 +1036,6 @@
   color: #8a829d;
   font-size: 13px;
 }
-@media (max-width: 760px) {
-  .management-team-header .team-overview-heading {
-    flex-wrap: wrap;
-  }
-  .management-team-header .team-overview-heading > .management-team-actions {
-    flex-basis: 100%;
-    justify-content: flex-start;
-  }
-  .management-team-actions > button:not(.wb-icon-button) {
-    flex: 0 1 auto;
-  }
-}
-
 .wb-app .wb-breadcrumb {
   flex: 1;
 }
@@ -1353,37 +1184,6 @@
 .wb-app .management-add-team:hover {
   background: #f5f4f8;
   color: var(--sp-accent-hover, #5543c5);
-}
-
-.management-team-header > .team-overview-heading {
-  margin-bottom: 16px;
-}
-.management-team-header .team-overview-heading h1 {
-  margin: 0;
-  font-size: 24px;
-}
-.management-team-header .team-overview-avatar {
-  width: 44px;
-  height: 44px;
-  font-size: 19px;
-  border-radius: 11px;
-}
-.management-tab-count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  padding: 2px 5px;
-  border-radius: 5px;
-  background: #eceef4;
-  color: #9299a9;
-  font-size: 11px;
-  font-weight: 400;
-  line-height: 16px;
-}
-.management-team-tabs > a[aria-current='page'] .management-tab-count {
-  background: #eeebfa;
-  color: #8a79b5;
 }
 
 .management-project-toolbar,
@@ -1538,13 +1338,6 @@
   }
   .management-font-identity {
     min-width: 150px;
-  }
-  .management-team-tabs {
-    gap: 20px;
-  }
-  .management-team-tabs > a {
-    font-size: 13px;
-    gap: 5px;
   }
   .management-font-preview {
     font-size: 20px;

@@ -1,5 +1,5 @@
-import { TeamFonts } from './TeamFonts';
-import { TeamInviteDialog } from './TeamInviteDialog';
+import { SpaceFonts } from './SpaceFonts';
+import { SpaceInviteDialog } from './SpaceInviteDialog';
 import { Logo } from './Logo';
 import { useEffect, useRef, useState, type FormEvent, type MouseEvent } from 'react';
 import { useDesignUpload } from './workspace/useDesignUpload';
@@ -7,15 +7,15 @@ import { UploadDialog } from './workspace/UploadDialog';
 import { DesignList } from './workspace/DesignList';
 import { api, post } from './api';
 import { copyText } from './clipboard';
-import './team.css';
+import './space.css';
 import './workbench.css';
-import './team-tree.css';
+import './space-tree.css';
 import './theme.css';
 import './management.css';
-import { TeamTree } from './TeamTree';
+import { SpaceTree } from './SpaceTree';
 import { SpaceSwitcher } from './SpaceSwitcher';
 import { SpaceToolbar } from './SpaceToolbar';
-import { TeamOverview } from './TeamOverview';
+import { SpaceOverview } from './SpaceOverview';
 import {
   Folder,
   Plus,
@@ -46,7 +46,7 @@ import {
 } from './workbench';
 import { AccountScreen } from './AccountScreen';
 import { InviteScreen } from './InviteScreen';
-import { TeamMembers } from './TeamMembers';
+import { SpaceMembers } from './SpaceMembers';
 import { Choice } from './Choice';
 import { routeFor, folderPath, designPath, spacePath, matchesId } from './routes';
 import { productLabel, setPageTitle } from './title';
@@ -75,7 +75,7 @@ const productMark = (
 import { visit } from './visit';
 import { SortMenu } from './SortMenu';
 
-export function TeamHub() {
+export function SpaceHub() {
   const [sidebarOpen, setSidebarOpen] = useState(false),
     [narrow, setNarrow] = useState(false);
   const sidebarRef = useRef<HTMLElement>(null),
@@ -615,7 +615,7 @@ export function TeamHub() {
               .catch((e) => setError((e as Error).message));
           }}
         />
-        <TeamTree spaceId={space?.id} section={folder ? undefined : route.section} />
+        <SpaceTree spaceId={space?.id} section={folder ? undefined : route.section} />
         <button
           className="wb-icon-button management-drawer-close"
           aria-label="关闭侧边栏"
@@ -666,7 +666,7 @@ export function TeamHub() {
             </div>
           ) : space && !folder && route.section === 'resources' ? (
             <div className="wb-resources">
-              <TeamFonts key={space.id} team={space} me={me} />
+              <SpaceFonts key={space.id} space={space} me={me} />
             </div>
           ) : space && !folder ? (
             <>
@@ -691,8 +691,8 @@ export function TeamHub() {
                 onDelete={() => requestDelete('space', space)}
                 controls={pageControls}
               />
-              <TeamOverview
-                team={space}
+              <SpaceOverview
+                space={space}
                 folders={spaceFolders}
                 files={files}
                 listView={listView}
@@ -725,7 +725,7 @@ export function TeamHub() {
               {space.kind !== 'personal' && membersOpen && (
                 <Dialog wide title="成员" onClose={() => setMembersOpen(false)}>
                   <div className="wb-upload-body">
-                    <TeamMembers key={space.id} team={space} me={me} />
+                    <SpaceMembers key={space.id} space={space} me={me} />
                   </div>
                 </Dialog>
               )}
@@ -824,8 +824,8 @@ export function TeamHub() {
                 </div>
                 {pageControls}
               </div>
-              <TeamOverview
-                team={space}
+              <SpaceOverview
+                space={space}
                 folders={childFolders}
                 files={files}
                 listView={listView}
@@ -919,9 +919,9 @@ export function TeamHub() {
         </Dialog>
       )}
       {inviteSpace && (
-        <TeamInviteDialog
+        <SpaceInviteDialog
           key={inviteSpace.id}
-          team={inviteSpace}
+          space={inviteSpace}
           onClose={() => setInviteSpace(null)}
         />
       )}

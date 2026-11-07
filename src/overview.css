@@ -139,21 +139,6 @@
   height: 100%;
   overflow: hidden;
 }
-.overview-placeholder {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-direction: column;
-  gap: 8px;
-  width: 100%;
-  height: 100%;
-  color: #c8c1da;
-  overflow: hidden;
-}
-.overview-placeholder > span {
-  font-size: 10px;
-  white-space: nowrap;
-}
 .overview-enter {
   position: absolute;
   left: 0;
@@ -214,23 +199,12 @@
 .overview-viewport.is-moving .overview-world {
   pointer-events: none;
 }
-.overview-thumbnail {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: fill;
-  pointer-events: none;
-}
 .overview-board {
   box-shadow: none;
 }
 .overview-world > .overview-board {
   contain: layout style;
 }
-.overview-viewport .overview-placeholder > span {
-  display: none;
-}
-
 .app > header .filename {
   min-width: 0;
   overflow: hidden;
@@ -871,35 +845,6 @@ button.layer-search-toggle[aria-pressed='true'] {
   .viewer-workspace > .right:not([hidden]) {
     display: flex;
   }
-}
-
-.page-board-surface {
-  width: 100%;
-  height: 100%;
-  position: relative;
-  overflow: hidden;
-  cursor: default;
-}
-.page-board-svg {
-  display: block;
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-}
-.page-board-surface > .overview-thumbnail,
-.page-board-surface > .overview-placeholder {
-  pointer-events: none;
-}
-.page-board-svg .inspection-overlay {
-  pointer-events: none;
-}
-
-.page-board-overlay {
-  display: block;
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
 }
 
 .viewer-toolbar .canvas-bar button {

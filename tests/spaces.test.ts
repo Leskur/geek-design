@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import path from 'node:path';
 import { createApp } from '../server/app';
 
@@ -123,5 +123,6 @@ test('accounts, spaces and invitation lifecycle enforce separate identities and 
     assert.equal((await call('/setup', {}, owner.cookie)).statusCode, 404);
   } finally {
     await app.close();
+    await rm(root, { recursive: true, force: true });
   }
 });
