@@ -24,10 +24,6 @@ function spaceMark(space: { name: string; kind?: string } | undefined, username?
   return Array.from(source)[0]?.toUpperCase() || '空';
 }
 
-function kindLabel(kind?: string) {
-  return kind === 'personal' ? '个人' : '协作';
-}
-
 export function SpaceSwitcher({
   userId,
   username,
@@ -46,6 +42,11 @@ export function SpaceSwitcher({
   onLogout?: () => void;
 }) {
   const sorted = sortSpaces(spaces);
+  const personalCount = sorted.filter((space) => space.kind === 'personal').length;
+  const groups = [
+    { label: '个人空间', start: 0, spaces: sorted.slice(0, personalCount) },
+    { label: '协作空间', start: personalCount, spaces: sorted.slice(personalCount) },
+  ];
   const [open, setOpen] = useState(false),
     [active, setActive] = useState(0),
     [box, setBox] = useState({ top: 0, left: 0, width: 248 });
@@ -144,43 +145,44 @@ export function SpaceSwitcher({
         <ChevronDown size={14} aria-hidden="true" />
       </button>
       {open && current && (
-        <div
-          className="wb-space-menu"
-          style={{ top: box.top, left: box.left, width: box.width }}
-        >
-          <div className="wb-space-identity">
-            <span className="wb-space-mark lg" aria-hidden="true">
-              {spaceMark(current, username)}
-            </span>
-            <b>{current.name}</b>
-            <span className="wb-space-kind">{kindLabel(current.kind)}</span>
-          </div>
-          <p className="wb-space-section">空间</p>
+        <div className="wb-space-menu" style={{ top: box.top, left: box.left, width: box.width }}>
           <div role="listbox" id={listId} aria-label="空间" className="wb-space-options">
-            {sorted.map((space, i) => (
-              <button
-                key={space.id}
-                id={`${listId}-${i}`}
-                ref={(el) => {
-                  options.current[i] = el;
-                }}
-                type="button"
-                role="option"
-                aria-selected={space.id === value}
-                className={`wb-space-option${i === active ? ' highlighted' : ''}${space.id === value ? ' current' : ''}`}
-                onMouseDown={(e) => e.preventDefault()}
-                onPointerMove={() => setActive(i)}
-                onClick={() => choose(i)}
-              >
-                <span className="wb-space-mark" aria-hidden="true">
-                  {spaceMark(space, username)}
-                </span>
-                <span className="wb-space-option-name">{space.name}</span>
-                <span className="wb-space-tag">{kindLabel(space.kind)}</span>
-              </button>
-            ))}
+            {groups
+              .filter((group) => group.spaces.length > 0)
+              .map((group) => (
+                <div key={group.label} role="group" aria-label={group.label}>
+                  <p className="wb-space-section" aria-hidden="true">
+                    {group.label}
+                  </p>
+                  {group.spaces.map((space, index) => {
+                    const i = group.start + index;
+                    return (
+                      <button
+                        key={space.id}
+                        id={`${listId}-${i}`}
+                        ref={(el) => {
+                          options.current[i] = el;
+                        }}
+                        type="button"
+                        role="option"
+                        aria-selected={space.id === value}
+                        className={`wb-space-option${i === active ? ' highlighted' : ''}${space.id === value ? ' current' : ''}`}
+                        onMouseDown={(e) => e.preventDefault()}
+                        onPointerMove={() => setActive(i)}
+                        onClick={() => choose(i)}
+                      >
+                        <span className="wb-space-mark" aria-hidden="true">
+                          {spaceMark(space, username)}
+                        </span>
+                        <span className="wb-space-option-name">{space.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
           </div>
           <div className="wb-space-footer">
+            {personalCount === sorted.length && <p className="wb-space-section">协作空间</p>}
             <button
               type="button"
               className="wb-space-create"
@@ -191,11 +193,12 @@ export function SpaceSwitcher({
               }}
             >
               <Plus size={15} />
-              新建协作空间
+              创建协作空间
             </button>
             {onLogout && (
               <button
                 type="button"
+                className="wb-space-logout"
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => {
                   setOpen(false);
