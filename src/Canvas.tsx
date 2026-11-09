@@ -1,5 +1,6 @@
 import { MousePointer2 } from 'lucide-react';
 import { ZoomMenu } from './ZoomMenu';
+import { wheelZoomFactor } from './wheel-zoom';
 import { stabilizeCameraOnResize, viewportArea } from './viewport-area';
 import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
 import React, { memo, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ import {
   type Camera,
   type Distance,
   type IndexedLayer,
+  type Rect,
 } from './interaction';
 import { ellipsisText } from './overview';
 import { paintRuler } from './canvas-overlay';
@@ -195,6 +197,7 @@ export function Canvas({
     bitmaps = useRef(new Map<string, HTMLImageElement>()),
     paintFrame = useRef(0),
     paint = useRef<() => void>(() => {}),
+    boardLabel = useRef<Rect | null>(null),
     settled = useRef(true),
     boardPicture = useRef<{ canvas: HTMLCanvasElement; scale: number } | null>(null),
     pictureDirty = useRef(false),
@@ -269,7 +272,11 @@ export function Canvas({
     ctx.font = '10px Inter, "Segoe UI", sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(ellipsisText(ctx, board.name, frame.width * cam.scale), cam.x, cam.y - 8);
+    const label = ellipsisText(ctx, board.name, frame.width * cam.scale);
+    ctx.fillText(label, cam.x, cam.y - 8);
+    boardLabel.current = label
+      ? { x: cam.x, y: cam.y - 22, width: ctx.measureText(label).width, height: 16 }
+      : null;
   }
   function detailPicture(rootLayer: Layer, scale: number, dpr: number) {
     const prev = boardPicture.current;
@@ -435,7 +442,7 @@ export function Canvas({
       setHoverId(null);
       if (e.ctrlKey || e.metaKey)
         setCamera(
-          zoomAt(cameraRef.current, cameraRef.current.scale * Math.exp(-e.deltaY * 0.002), {
+          zoomAt(cameraRef.current, cameraRef.current.scale * wheelZoomFactor(e), {
             x: e.clientX - bounds.x,
             y: e.clientY - bounds.y,
           }),
@@ -544,10 +551,24 @@ export function Canvas({
     if (e.currentTarget.hasPointerCapture(e.pointerId))
       e.currentTarget.releasePointerCapture(e.pointerId);
   }
-  function click(e: React.MouseEvent) {
+  function click(e: React.MouseEvent<HTMLCanvasElement>) {
     e.stopPropagation();
     e.preventDefault();
     if (suppress.current || keys.current.space || keys.current.alt || e.altKey) return;
+    const label = boardLabel.current;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    if (
+      label &&
+      x >= label.x &&
+      x <= label.x + label.width &&
+      y >= label.y &&
+      y <= label.y + label.height
+    ) {
+      onSelect(board);
+      return;
+    }
     const id = hitFromPointer(e.clientX, e.clientY, e.shiftKey);
     onSelect(id ? index.get(id)!.layer : null);
   }

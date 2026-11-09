@@ -235,9 +235,6 @@
   }
 }
 
-.workspace > .left > .search {
-  margin-top: 12px;
-}
 .viewer-header .viewer-header-actions .viewer-font-warning {
   gap: 4px;
   padding: 5px 7px;
@@ -314,9 +311,40 @@ button.layer-search-toggle[aria-pressed='true'] {
   color: #3f3e4a;
   outline: none;
 }
-.workspace > .left > .search {
-  margin-top: 10px;
-  margin-bottom: 12px;
+.layer-search-field {
+  position: relative;
+  flex-shrink: 0;
+  margin: 10px 14px 12px;
+}
+.layer-search-field > .search {
+  width: 100%;
+  margin: 0;
+  padding-right: 36px;
+}
+button.layer-search-clear {
+  position: absolute;
+  top: 50%;
+  right: 5px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #6e6a78;
+  box-shadow: none;
+}
+button.layer-search-clear:hover {
+  background: #f4f1fa;
+  color: #3f3e4a;
+}
+button.layer-search-clear:focus-visible {
+  outline: 2px solid #7c63dc;
+  outline-offset: 1px;
 }
 
 /* Viewer typography: readable labels without scaling the design artwork. */

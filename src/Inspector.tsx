@@ -1,7 +1,17 @@
 import { safeName } from './ai-export';
 import { SelectionExportDisclosure } from './SelectionExport';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Copy, Image, MousePointer2, Download, Type, Layers, AlertCircle } from 'lucide-react';
+import {
+  Copy,
+  Image,
+  MousePointer2,
+  Download,
+  Type,
+  Layers,
+  AlertCircle,
+  Plus,
+  Minus,
+} from 'lucide-react';
 import type { Layer, DocumentSource } from './sketch';
 import { hasFont } from './fonts';
 import { textRuns } from '../shared/rendering/scene';
@@ -57,6 +67,7 @@ export function Inspector({
 }) {
   const [activeRun, setActiveRun] = useState(0);
   const [colorMode, setColorMode] = useState('HEX'),
+    [colorsOpen, setColorsOpen] = useState(false),
     [downloading, setDownloading] = useState(''),
     [assetError, setAssetError] = useState('');
   useEffect(() => {
@@ -90,8 +101,7 @@ export function Inspector({
 
   const run = textStyles[Math.min(activeRun, Math.max(0, textStyles.length - 1))];
   const recordedFont = run?.attributes.MSAttributedStringFontAttribute?.attributes?.name as
-    | string
-    | undefined;
+    string | undefined;
   const runCode = run
     ? Object.entries(run.styles)
         .map(([key, value]) => `${key}: ${value};`)
@@ -464,38 +474,50 @@ export function Inspector({
                 </div>
               </section>
             )}
+            {exportPanel}
+
             {colors.length > 1 && (
-              <section aria-label="分组颜色">
-                <div className="inspector-section-title">
-                  <h4>分组颜色</h4>
-                  <div className="coordinate-switch" aria-label="颜色格式">
-                    {['HEX', 'RGB'].map((mode) => (
-                      <button
-                        key={mode}
-                        aria-pressed={colorMode === mode}
-                        onClick={() => setColorMode(mode)}
-                      >
-                        {mode}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <div className="delivery-colors">
-                  {colors.map((p, i) => {
-                    const value = colorValue(p.color, p.opacity, colorMode);
-                    return (
-                      <button key={i} title={`复制 ${value}`} onClick={() => onCopy(value)}>
-                        <i style={{ background: cssColor(p.color, p.opacity) }} />
-                        <span>{value}</span>
-                        <small>{p.label}</small>
-                      </button>
-                    );
-                  })}
-                </div>
+              <section aria-label="图层颜色">
+                <button
+                  type="button"
+                  className="inspector-disclosure-toggle"
+                  aria-expanded={colorsOpen}
+                  onClick={() => setColorsOpen((open) => !open)}
+                >
+                  <span>图层颜色</span>
+                  {colorsOpen ? <Minus size={14} /> : <Plus size={14} />}
+                </button>
+                {colorsOpen && (
+                  <>
+                    <div className="inspector-section-title">
+                      <div className="coordinate-switch" aria-label="颜色格式">
+                        {['HEX', 'RGB'].map((mode) => (
+                          <button
+                            key={mode}
+                            aria-pressed={colorMode === mode}
+                            onClick={() => setColorMode(mode)}
+                          >
+                            {mode}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="delivery-colors">
+                      {colors.map((p, i) => {
+                        const value = colorValue(p.color, p.opacity, colorMode);
+                        return (
+                          <button key={i} title={`复制 ${value}`} onClick={() => onCopy(value)}>
+                            <i style={{ background: cssColor(p.color, p.opacity) }} />
+                            <span>{value}</span>
+                            <small>{p.label}</small>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
               </section>
             )}
-
-            {exportPanel}
           </div>
         </>
       ) : (

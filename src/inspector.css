@@ -807,7 +807,7 @@
 .export-disclosure {
   margin-top: 12px;
 }
-.gd-inspector .export-disclosure-toggle {
+.gd-inspector .inspector-disclosure-toggle {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -818,11 +818,11 @@
   font-size: 12px;
   color: #737b8c;
 }
-.gd-inspector .export-disclosure-toggle:hover {
+.gd-inspector .inspector-disclosure-toggle:hover {
   color: #7962bd;
   background: transparent;
 }
-.export-disclosure-toggle[aria-expanded='true'] {
+.inspector-disclosure-toggle[aria-expanded='true'] {
   margin-bottom: 7px;
 }
 

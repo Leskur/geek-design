@@ -14,6 +14,7 @@ import {
   FileImage,
   SpellCheck2,
   Search,
+  X,
   LoaderCircle,
 } from 'lucide-react';
 import React, {
@@ -723,19 +724,35 @@ export function App() {
             {layersExpanded && (
               <>
                 {searchOpen && (
-                  <input
-                    ref={layerSearch}
-                    className="search"
-                    aria-label="搜索图层"
-                    placeholder="搜索图层…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key !== 'Escape') return;
-                      setSearch('');
-                      setSearchOpen(false);
-                    }}
-                  />
+                  <div className="layer-search-field">
+                    <input
+                      ref={layerSearch}
+                      className="search"
+                      aria-label="搜索图层"
+                      placeholder="搜索图层…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key !== 'Escape') return;
+                        setSearch('');
+                        setSearchOpen(false);
+                      }}
+                    />
+                    {search && (
+                      <button
+                        type="button"
+                        className="layer-search-clear"
+                        aria-label="清除图层搜索"
+                        title="清除搜索"
+                        onClick={() => {
+                          setSearch('');
+                          layerSearch.current?.focus();
+                        }}
+                      >
+                        <X size={14} aria-hidden="true" />
+                      </button>
+                    )}
+                  </div>
                 )}
                 {cache && (
                   <UnifiedTree

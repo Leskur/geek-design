@@ -97,14 +97,14 @@ function SelectionExport({ layer, doc }: { layer: Layer; doc: DocumentSource }) 
               alt={`${layer.name} 切图预览`}
               onError={() => setError('预览图片加载失败')}
             />
-          ) : (
-            <span role="status">{error ? '预览不可用' : '正在生成预览…'}</span>
-          )}
+          ) : error ? (
+            <span role="status">预览不可用</span>
+          ) : null}
         </div>
       </section>
       <div className="export-disclosure">
         <button
-          className="export-disclosure-toggle"
+          className="inspector-disclosure-toggle"
           aria-label={open ? '收起导出设置' : '展开导出设置'}
           aria-expanded={open}
           onClick={() => setOpen((v) => !v)}

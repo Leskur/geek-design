@@ -1,5 +1,6 @@
 import { MousePointer2 } from 'lucide-react';
 import { ZoomMenu } from './ZoomMenu';
+import { wheelZoomFactor } from './wheel-zoom';
 import { ContextMenu, type MenuPosition } from './ContextMenu';
 import { stabilizeCameraOnResize, viewportArea } from './viewport-area';
 import { ViewerToolbar, useViewerShortcuts } from './ViewerToolbar';
@@ -144,6 +145,7 @@ export function PageOverview({
     pendingCamera = useRef<Camera | null>(null),
     paintFrame = useRef(0),
     paint = useRef<() => void>(() => {}),
+    boardLabels = useRef<{ board: Layer; bounds: Rect }[]>([]),
     roots = useRef(new Map<string, Layer>()),
     pictures = useRef(new Map<string, BoardPicture>()),
     pictureRefs = useRef(new Map<string, Set<string>>()),
@@ -276,6 +278,7 @@ export function PageOverview({
       for (const d of overviewDistances()) paintRuler(ctx, d, cam.scale);
     }
     // Labels in screen space
+    boardLabels.current = [];
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.font = '10px Inter, "Segoe UI", sans-serif';
     ctx.textBaseline = 'bottom';
@@ -284,23 +287,20 @@ export function PageOverview({
         match = matchesBoardName(b, search),
         boardSelected = selected?.do_objectID === b.do_objectID,
         hovered = hover.current?.boardId === b.do_objectID,
-        screenW = f.width * cam.scale,
-        screenH = f.height * cam.scale;
+        screenW = f.width * cam.scale;
       if (screenW <= 45 && !boardSelected && !hovered && !(search && match)) continue;
       if (search && !match) continue;
       const x = f.x * cam.scale + cam.x,
         y = f.y * cam.scale + cam.y - 6;
       ctx.fillStyle = boardSelected ? '#5b45c2' : hovered ? '#7055d8' : '#8f919f';
       ctx.textAlign = 'left';
-      ctx.fillText(ellipsisText(ctx, b.name, screenW), x, y);
-      if (detailEnabled && boardSelected) {
-        ctx.fillStyle = '#7656e8';
-        ctx.fillRect(x, f.y * cam.scale + cam.y + screenH + 6, 72, 22);
-        ctx.fillStyle = '#fff';
-        ctx.textBaseline = 'middle';
-        ctx.fillText('打开单画板', x + 8, f.y * cam.scale + cam.y + screenH + 17);
-        ctx.textBaseline = 'bottom';
-      }
+      const label = ellipsisText(ctx, b.name, screenW);
+      ctx.fillText(label, x, y);
+      if (label)
+        boardLabels.current.push({
+          board: b,
+          bounds: { x, y: y - 14, width: ctx.measureText(label).width, height: 16 },
+        });
     }
     if (!boards.length) {
       ctx.fillStyle = '#8f919f';
@@ -533,19 +533,6 @@ export function PageOverview({
       root = boardRoot(board);
     return { board, entry: hitAtPoint({ x, y }, root, cache.index(root), parent) };
   }
-  function hitOpenButton(clientX: number, clientY: number, board: Layer) {
-    const v = viewport.current;
-    if (!v || selectedId !== board.do_objectID) return false;
-    const rect = v.getBoundingClientRect(),
-      cam = paintCamera(),
-      f = board.frame,
-      x = f.x * cam.scale + cam.x,
-      y = f.y * cam.scale + cam.y + f.height * cam.scale + 6,
-      px = clientX - rect.left,
-      py = clientY - rect.top;
-    return px >= x && py >= y && px <= x + 72 && py <= y + 22;
-  }
-
   useLayoutEffect(() => {
     const el = viewport.current!;
     if (shownPage.current !== pageId) {
@@ -656,7 +643,7 @@ export function PageOverview({
         factor = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? el.clientHeight : 1;
       queueCamera((c) =>
         e.ctrlKey || e.metaKey
-          ? zoomPage(c, c.scale * Math.exp(-e.deltaY * 0.002), {
+          ? zoomPage(c, c.scale * wheelZoomFactor(e), {
               x: e.clientX - rect.x,
               y: e.clientY - rect.y,
             })
@@ -862,22 +849,23 @@ export function PageOverview({
         }}
         onClick={(e) => {
           if (moved.current || spaceKey.current) return;
-          const hit = pick(e.clientX, e.clientY, e.shiftKey);
-          if (detailEnabled && hit && hitOpenButton(e.clientX, e.clientY, hit.board)) {
-            onOpen(hit.board);
-            return;
+          const rect = e.currentTarget.getBoundingClientRect();
+          const x = e.clientX - rect.left;
+          const y = e.clientY - rect.top;
+          for (let i = boardLabels.current.length - 1; i >= 0; i--) {
+            const { board, bounds: b } = boardLabels.current[i];
+            if (x >= b.x && x <= b.x + b.width && y >= b.y && y <= b.y + b.height) {
+              onSelect(board);
+              return;
+            }
           }
+          const hit = pick(e.clientX, e.clientY, e.shiftKey);
           if (!hit) {
             onSelect(null);
             return;
           }
           if (hit.entry) onLayer(hit.board, hit.entry.layer);
           else onSelect(hit.board);
-        }}
-        onDoubleClick={(e) => {
-          if (moved.current || spaceKey.current) return;
-          const board = hitBoard(e.clientX, e.clientY);
-          if (detailEnabled && board) onOpen(board);
         }}
         onContextMenu={(e) => {
           const board = hitBoard(e.clientX, e.clientY);
@@ -908,7 +896,7 @@ export function PageOverview({
               }}
             >
               <ArrowUpRight size={14} />
-              打开单画板
+              专注查看
             </button>
           )}
         </ContextMenu>

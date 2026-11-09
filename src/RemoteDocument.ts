@@ -53,6 +53,9 @@ export class RemoteDocument implements DocumentSource {
   };
   private refreshFontLibrary() {
     if (this.fontRefresh) return this.fontRefresh;
+    const previousFonts = JSON.stringify(this.spaceFonts);
+    const previousError = this.fontLibraryError;
+    const previousFailures = JSON.stringify([...this.failedFonts]);
     this.fontRefresh = (async () => {
       this.spaceFonts = await api<SpaceFont[]>(
         `/designs/${encodeURIComponent(this.designId)}/fonts`,
@@ -67,7 +70,14 @@ export class RemoteDocument implements DocumentSource {
       })
       .finally(() => {
         this.fontRefresh = null;
-        if (!this.abort.signal.aborted) window.dispatchEvent(new Event('viewer-fonts-changed'));
+        if (
+          !this.abort.signal.aborted &&
+          (JSON.stringify(this.spaceFonts) !== previousFonts ||
+            this.fontLibraryError !== previousError ||
+            JSON.stringify([...this.failedFonts]) !== previousFailures)
+        ) {
+          window.dispatchEvent(new Event('viewer-fonts-changed'));
+        }
       });
     return this.fontRefresh;
   }
